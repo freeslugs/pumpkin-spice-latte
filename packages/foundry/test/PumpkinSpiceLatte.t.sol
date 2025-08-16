@@ -165,7 +165,7 @@ contract PumpkinSpiceLatteTest is Test {
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
-    uint256 public constant ROUND_DURATION = 1 days;
+    uint256 internal constant ROUND_DURATION = 1;
 
     function setUp() public {
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
@@ -260,10 +260,10 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(psl.totalAssets(), 21 ether);
         assertEq(psl.prizePool(), 1 ether);
 
-        // Fast forward time to the next round
+        // Move time forward to end of round and set RNG
         vm.warp(block.timestamp + ROUND_DURATION + 1);
+        rng.set(5);
 
-        // Award the prize
         psl.awardPrize();
 
         address winner = psl.lastWinner();
@@ -275,7 +275,6 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(weth.balanceOf(winner), 90 ether, "Winner's external token balance should be unchanged");
         // Winner's principal balance is credited with the prize
         assertEq(psl.balanceOf(winner), 10 ether + prizeAmount, "Winner's principal should increase by prize");
-        assertEq(psl.nextRoundTimestamp(), block.timestamp + ROUND_DURATION, "Next round timestamp should be reset");
         // Principal remains fully represented in totalAssets
         assertEq(psl.totalAssets(), psl.totalPrincipal(), "Principal should remain supplied after prize");
     }

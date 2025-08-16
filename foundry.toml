@@ -6,6 +6,11 @@ test = "packages/foundry/test"
 eth_rpc_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb" # Default to Tenderly Virtual Mainnet (HTTP)
 fork_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb" # Default tests to forked mainnet
 cbor_metadata = true
+auto_detect_solc = true
+remappings = [
+  "@chainlink/contracts/=lib/chainlink-brownie-contracts/contracts/",
+  "@openzeppelin/contracts/=lib/openzeppelin-contracts/contracts/"
+]
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 

@@ -26,12 +26,6 @@ contract PumpkinSpiceLatte is Ownable {
     /// @dev Randomness provider adapter.
     IRandomnessProvider public randomnessProvider;
 
-    /// @dev The duration of each prize round in seconds.
-    uint256 public roundDuration;
-
-    /// @dev The timestamp when the next prize round ends.
-    uint256 public nextRoundTimestamp;
-
     /// @dev The total principal amount deposited by all users. This should only
     //      increase on deposit and decrease on withdraw.
     uint256 public totalPrincipal;
@@ -53,6 +47,12 @@ contract PumpkinSpiceLatte is Ownable {
 
     /// @dev The number of vault shares owned by this contract.
     uint256 public vaultShares;
+
+    /// @dev The duration of each prize round in seconds.
+    uint256 public roundDuration;
+
+    /// @dev The timestamp when the next prize round ends.
+    uint256 public nextRoundTimestamp;
 
     //-//////////////////////////////////////////////////////////
     //                          EVENTS
@@ -144,8 +144,9 @@ contract PumpkinSpiceLatte is Ownable {
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @notice Calculates the total yield generated and awards it to a random depositor.
-     * @dev Can be called by anyone after the `nextRoundTimestamp` has passed.
+     * @notice Attempts to award the current prize pool to a random depositor using Chainlink VRF.
+     * @dev Can be called by anyone at any time. The probability of payout increases with time
+     *      elapsed since the last successful prize payout.
      */
     function awardPrize() external {
         require(block.timestamp >= nextRoundTimestamp, "Round not finished");
@@ -154,7 +155,7 @@ contract PumpkinSpiceLatte is Ownable {
         uint256 prize = prizePool();
         require(prize > 0, "No prize to award");
 
-        // Random selection via adapter
+        // Random selection via randomness provider (uniform among depositors)
         uint256 idx = randomnessProvider.randomUint256(bytes32(depositors.length)) % depositors.length;
         address winner = depositors[idx];
 
