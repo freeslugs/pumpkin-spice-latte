@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IERC4626Vault {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
@@ -17,7 +18,7 @@ interface IERC4626Vault {
  *      to generate yield, and the accumulated yield is awarded as a prize to a
  *      lucky depositor periodically.
  */
-contract PumpkinSpiceLatte {
+contract PumpkinSpiceLatte is Ownable {
     //-//////////////////////////////////////////////////////////
     //                           STATE
     //-//////////////////////////////////////////////////////////
@@ -63,6 +64,7 @@ contract PumpkinSpiceLatte {
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event PrizeAwarded(address indexed winner, uint256 amount);
+    event RoundDurationUpdated(uint256 oldDuration, uint256 newDuration);
 
     //-//////////////////////////////////////////////////////////
     //                        CONSTRUCTOR
@@ -72,7 +74,7 @@ contract PumpkinSpiceLatte {
         address _asset,
         address _vault,
         uint256 _roundDuration
-    ) {
+    ) Ownable(msg.sender) {
         require(IERC4626Vault(_vault).asset() == _asset, "Vault asset mismatch");
         ASSET = _asset;
         VAULT = _vault;
@@ -175,6 +177,22 @@ contract PumpkinSpiceLatte {
         nextRoundTimestamp = block.timestamp + roundDuration;
 
         emit PrizeAwarded(winner, prize);
+    }
+
+    //-//////////////////////////////////////////////////////////
+    //                    OWNER-ONLY FUNCTIONS
+    //-//////////////////////////////////////////////////////////
+
+    /**
+     * @notice Updates the round duration. Only callable by the contract owner.
+     * @param _roundDuration The new round duration in seconds. Must be greater than zero.
+     * @dev This change applies to future rounds. The current `nextRoundTimestamp` is not modified.
+     */
+    function setRoundDuration(uint256 _roundDuration) external onlyOwner {
+        require(_roundDuration > 0, "Duration must be > 0");
+        uint256 old = roundDuration;
+        roundDuration = _roundDuration;
+        emit RoundDurationUpdated(old, _roundDuration);
     }
 
     //-//////////////////////////////////////////////////////////

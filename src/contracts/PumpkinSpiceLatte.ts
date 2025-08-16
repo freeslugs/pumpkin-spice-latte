@@ -43,6 +43,15 @@ export const pumpkinSpiceLatteAbi = [
     name: 'Withdrawn',
     type: 'event'
   },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: false, internalType: 'uint256', name: 'oldDuration', type: 'uint256' },
+      { indexed: false, internalType: 'uint256', name: 'newDuration', type: 'uint256' }
+    ],
+    name: 'RoundDurationUpdated',
+    type: 'event'
+  },
   // Read Functions
   { inputs: [], name: 'ASSET', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'VAULT', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
@@ -57,8 +66,12 @@ export const pumpkinSpiceLatteAbi = [
   { inputs: [], name: 'totalAssets', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'totalPrincipal', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'vaultShares', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'owner', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   // Write Functions
   { inputs: [], name: 'awardPrize', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], stateMutability: 'nonpayable', type: 'function' },
-  { inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'withdraw', outputs: [], stateMutability: 'nonpayable', type: 'function' }
+  { inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'withdraw', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ internalType: 'uint256', name: '_roundDuration', type: 'uint256' }], name: 'setRoundDuration', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [], name: 'renounceOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ internalType: 'address', name: 'newOwner', type: 'address' }], name: 'transferOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' }
 ] as const;

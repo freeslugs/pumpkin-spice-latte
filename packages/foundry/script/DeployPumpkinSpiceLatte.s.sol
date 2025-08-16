@@ -13,7 +13,7 @@ contract DeployPumpkinSpiceLatte is Script {
         // Morpho Blue Vault on Sepolia (USDC-based)
         // address vaultAddress = 0x1Ae025197a765bD2263d6eb89B76d82e05286543; //sepolia 
         address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // ethereum
-        uint256 roundDuration = 86400; // 1 day
+        uint256 roundDuration = 300; // 5 minutes
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
