@@ -12,32 +12,32 @@ interface IERC4626Vault {
 }
 
 contract Morpho4626Adapter is ILendingAdapter {
-    address public immutable vault;
-    address public immutable underlying;
+    address public immutable VAULT;
+    address public immutable UNDERLYING;
 
     constructor(address _vault) {
-        vault = _vault;
-        underlying = IERC4626Vault(_vault).asset();
+        VAULT = _vault;
+        UNDERLYING = IERC4626Vault(_vault).asset();
     }
 
     function asset() external view returns (address) {
-        return underlying;
+        return UNDERLYING;
     }
 
     function deposit(uint256 assets) external returns (uint256 sharesOut) {
         // Pull tokens from caller (e.g., PSL contract) into the adapter
-        require(IERC20(underlying).transferFrom(msg.sender, address(this), assets), "TransferFrom failed");
+        require(IERC20(UNDERLYING).transferFrom(msg.sender, address(this), assets), "TransferFrom failed");
         // Approve vault to take tokens from adapter
-        require(IERC20(underlying).approve(vault, assets), "Approve failed");
+        require(IERC20(UNDERLYING).approve(VAULT, assets), "Approve failed");
         // Deposit from adapter into the vault, crediting shares to the adapter itself
-        sharesOut = IERC4626Vault(vault).deposit(assets, address(this));
+        sharesOut = IERC4626Vault(VAULT).deposit(assets, address(this));
     }
 
     function withdraw(uint256 assets, address receiver) external returns (uint256 sharesBurned) {
-        sharesBurned = IERC4626Vault(vault).withdraw(assets, receiver, address(this));
+        sharesBurned = IERC4626Vault(VAULT).withdraw(assets, receiver, address(this));
     }
 
     function convertToAssets(uint256 shares) external view returns (uint256 assetsOut) {
-        assetsOut = IERC4626Vault(vault).convertToAssets(shares);
+        assetsOut = IERC4626Vault(VAULT).convertToAssets(shares);
     }
 }

@@ -8,7 +8,16 @@ import { WagmiProvider } from "wagmi";
 import { RainbowKitProvider } from "@rainbow-me/rainbowkit";
 import { config } from "./wagmi.ts";
 
-const queryClient = new QueryClient();
+const queryClient = new QueryClient({
+  // defaultOptions: {
+  //   queries: {
+  //     staleTime: 30_000,
+  //     refetchOnWindowFocus: false,
+  //     refetchOnReconnect: true,
+  //     retry: 1,
+  //   },
+  // },
+});
 
 createRoot(document.getElementById("root")!).render(
   <QueryClientProvider client={queryClient}>

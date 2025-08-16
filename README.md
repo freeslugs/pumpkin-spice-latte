@@ -136,8 +136,8 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
 
 You can deploy and test against your Tenderly Virtual Mainnet fork. The repository is already configured to default to the Tenderly RPC in `foundry.toml`.
 
-- **RPC (HTTP)**: `https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2`
-- **RPC (WSS)**: `wss://virtual.mainnet.us-east.rpc.tenderly.co/559a7b58-b67d-4103-af70-fbc60a502bb0`
+- **RPC (HTTP)**: `https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb`
+- **RPC (WSS)**: `wss://virtual.mainnet.us-east.rpc.tenderly.co/4996bd0e-fa2d-451e-961d-41fad07d2baf`
 - **Explorer**: `https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions`
 
 1. Ensure your `.env` in `packages/foundry` has:
@@ -152,10 +152,11 @@ You can deploy and test against your Tenderly Virtual Mainnet fork. The reposito
 
     ```bash
     forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
-      --rpc-url https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2 \
-      --private-key $PRIVATE_KEY \
-      --broadcast
-      --verify
+        --rpc-url https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb \
+        --private-key $PRIVATE_KEY \
+        --broadcast \
+        --verify \
+        -vvvvv
     ```
 
 3. After deployment, copy the deployed address and update the frontend config:
@@ -169,16 +170,26 @@ You can deploy and test against your Tenderly Virtual Mainnet fork. The reposito
 
     ```bash
     # Optional: set RPC via env override
-    export VITE_MAINNET_TENDERLY_RPC_HTTP=https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2
+    export VITE_MAINNET_TENDERLY_RPC_HTTP=https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb
     export VITE_WALLETCONNECT_PROJECT_ID=<YOUR_WC_ID>
     npm run dev
     ```
 
 Links:
 
-- Tenderly RPC (HTTP): https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2
-- Tenderly RPC (WSS): wss://virtual.mainnet.us-east.rpc.tenderly.co/559a7b58-b67d-4103-af70-fbc60a502bb0
+- Tenderly RPC (HTTP): https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb
+- Tenderly RPC (WSS): wss://virtual.mainnet.us-east.rpc.tenderly.co/4996bd0e-fa2d-451e-961d-41fad07d2baf
 - Tenderly Explorer: https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions
+
+OK New way to deploy 
+
+```
+forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
+  --rpc-url $TENDERLY_VIRTUAL_TESTNET_RPC_URL \
+  --broadcast \
+  --verify \
+  -vvvv
+```
 
 and if it forgets to verify 
 
@@ -192,9 +203,5 @@ forge verify-contract \
 ```
 
 ```
-forge verify-contract 0x3cb0f6582683204d013c1bab52067ce351aa3bef \
-PumpkinSpiceLatte \
---etherscan-api-key $TENDERLY_ACCESS_KEY \
---verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2/verify/etherscan \
---watch
+forge verify-contract 0x3ecc78c6fea14565affd607bd35b5b8e6dc39778 PumpkinSpiceLatte --etherscan-api-key $TENDERLY_ACCESS_KEY --verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb/verify/etherscan --watch
 ```

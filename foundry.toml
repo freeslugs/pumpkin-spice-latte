@@ -3,8 +3,8 @@ src = "packages/foundry/src"
 out = "packages/foundry/out"
 libs = ["node_modules", "lib", "packages/foundry/lib"]
 test = "packages/foundry/test"
-eth_rpc_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2" # Default to Tenderly Virtual Mainnet (HTTP)
-fork_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2" # Default tests to forked mainnet
+eth_rpc_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb" # Default to Tenderly Virtual Mainnet (HTTP)
+fork_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb" # Default tests to forked mainnet
 cbor_metadata = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
@@ -13,8 +13,8 @@ cbor_metadata = true
 [rpc_endpoints]
 # Tenderly Virtual Mainnet
 # Public Explorer: https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions
-mainnet_tenderly_http = "https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2"
-mainnet_tenderly_wss = "wss://virtual.mainnet.us-east.rpc.tenderly.co/559a7b58-b67d-4103-af70-fbc60a502bb0"
+mainnet_tenderly_http = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb"
+mainnet_tenderly_wss = "wss://virtual.mainnet.us-east.rpc.tenderly.co/4996bd0e-fa2d-451e-961d-41fad07d2baf"
 
 # Sepolia (kept for reference)
 sepolia = "wss://ethereum-sepolia-rpc.publicnode.com"

@@ -244,8 +244,8 @@ contract PumpkinSpiceLatte is Ownable {
         return depositors.length;
     }
 
-    // Back-compat: expose a VAULT() view that returns the adapter address
-    function VAULT() external view returns (address) {
+    // Back-compat: expose a vault() view that returns the adapter address
+    function vault() external view returns (address) {
         return address(LENDING_ADAPTER);
     }
 }

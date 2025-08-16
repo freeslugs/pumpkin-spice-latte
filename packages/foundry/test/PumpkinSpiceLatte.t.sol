@@ -111,31 +111,31 @@ contract MockVault is IERC4626VaultLike {
 }
 
 contract MockAdapter is ILendingAdapter {
-    IERC4626VaultLike public immutable vault;
-    IERC20 public immutable token;
+    IERC4626VaultLike public immutable VAULT;
+    IERC20 public immutable TOKEN;
 
     constructor(address _vault) {
-        vault = IERC4626VaultLike(_vault);
-        token = IERC20(IERC4626VaultLike(_vault).asset());
+        VAULT = IERC4626VaultLike(_vault);
+        TOKEN = IERC20(IERC4626VaultLike(_vault).asset());
     }
 
     function asset() external view returns (address) {
-        return address(token);
+        return address(TOKEN);
     }
 
     function deposit(uint256 assets) external returns (uint256 sharesOut) {
         // pull from caller (PSL), approve vault, deposit for adapter
-        require(token.transferFrom(msg.sender, address(this), assets), "transferFrom");
-        require(token.approve(address(vault), assets), "approve");
-        sharesOut = vault.deposit(assets, address(this));
+        require(TOKEN.transferFrom(msg.sender, address(this), assets), "transferFrom");
+        require(TOKEN.approve(address(VAULT), assets), "approve");
+        sharesOut = VAULT.deposit(assets, address(this));
     }
 
     function withdraw(uint256 assets, address receiver) external returns (uint256 sharesBurned) {
-        sharesBurned = vault.withdraw(assets, receiver, address(this));
+        sharesBurned = VAULT.withdraw(assets, receiver, address(this));
     }
 
     function convertToAssets(uint256 shares) external view returns (uint256 assets) {
-        return vault.convertToAssets(shares);
+        return VAULT.convertToAssets(shares);
     }
 }
 

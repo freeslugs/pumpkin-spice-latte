@@ -9,7 +9,7 @@ import {PseudoRandomAdapter} from "../src/adapters/PseudoRandomAdapter.sol";
 contract DeployPumpkinSpiceLatte is Script {
 	function run() external {
 		// Config
-		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // ERC4626-compatible vault
+		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
 		uint256 roundDuration = 300; // 5 minutes
 
 		uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");

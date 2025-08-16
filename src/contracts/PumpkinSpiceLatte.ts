@@ -4,9 +4,10 @@ export const CONTRACTS = {
     pumpkinSpiceLatte: '0x3cb0f6582683204d013c1bab52067ce351aa3bef',
     usdc: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8'
   },
-  1: { // Ethereum mainnet
-    // When using Tenderly Virtual Mainnet, set this to the fork's deployed address
-    pumpkinSpiceLatte: '0x3cb0f6582683204d013c1bab52067ce351aa3bef',
+  1: { // Ethereum mainnet (Tenderly VNet)
+    // Fresh deploy from your run: PSL
+    pumpkinSpiceLatte: '0x057992Ef2b383cFe6b0a2E4df54234B845ec9720',
+    // Use canonical mainnet USDC on the fork
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
   }
 } as const;
@@ -62,7 +63,7 @@ export const pumpkinSpiceLatteAbi = [
   },
   // Read Functions
   { inputs: [], name: 'ASSET', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
-  { inputs: [], name: 'VAULT', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'vault', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ internalType: 'address', name: '', type: 'address' }], name: 'balanceOf', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], name: 'depositors', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'lastPrizeAmount', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },

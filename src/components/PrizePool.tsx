@@ -37,7 +37,7 @@ const PrizePool = () => {
     functionName: 'prizePool',
     chainId: targetChainId,
     query: {
-      refetchInterval: 1000,
+      refetchInterval: 30000,
       enabled: true,
     },
   });
@@ -48,7 +48,7 @@ const PrizePool = () => {
     functionName: 'totalAssets',
     chainId: targetChainId,
     query: {
-      refetchInterval: 5000,
+      refetchInterval: 30000,
       enabled: true,
     },
   });
@@ -59,18 +59,18 @@ const PrizePool = () => {
     functionName: 'totalPrincipal',
     chainId: targetChainId,
     query: {
-      refetchInterval: 5000,
+      refetchInterval: 30000,
       enabled: true,
     },
   });
 
-  const { data: nextRoundTimestampData, isError: timestampError, isLoading: timestampLoading } = useReadContract({
+  const { data: nextRoundTimestampData } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'nextRoundTimestamp',
     chainId: targetChainId,
     query: {
-      refetchInterval: 1000, // Refetch every second for the countdown
+      refetchInterval: 30000,
       enabled: true,
     },
   });
@@ -92,10 +92,15 @@ const PrizePool = () => {
     return `${formatUnits(prizePoolData as bigint, 6)} USDC`;
   };
 
+  const [nowTick, setNowTick] = React.useState(0);
+  React.useEffect(() => {
+    const id = setInterval(() => setNowTick((x) => x + 1), 1000);
+    return () => clearInterval(id);
+  }, []);
+
   const getTimeRemainingDisplay = () => {
-    if (timestampError) return 'Error loading data';
-    if (timestampLoading) return 'Loading...';
     if (nextRoundTimestampData === undefined) return 'No data';
+    void nowTick; // trigger re-render each second without new RPC call
     return formatTimeRemaining(nextRoundTimestampData as bigint);
   };
 

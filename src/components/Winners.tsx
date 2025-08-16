@@ -64,6 +64,8 @@ const Winners = () => {
 			}
 		};
 		fetchLogs();
+		// Refresh winners every 60s to avoid spamming RPC
+		const id = setInterval(fetchLogs, 60_000);
 		return () => { cancelled = true };
 	}, [publicClient, contractAddress, fromBlock]);
 

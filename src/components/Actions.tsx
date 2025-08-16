@@ -18,7 +18,18 @@ const Actions = () => {
   // Check if we're on a supported network
   const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
   const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
-  const currentTokenAddress = isSupportedNetwork ? (CONTRACTS as any)[chain!.id].usdc : usdcAddress;
+
+  // Prefer the on-chain configured asset from PSL to avoid mismatches; fall back to mapping
+  const { data: assetOnChain } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'ASSET',
+    chainId: chain?.id,
+    query: { enabled: Boolean(isSupportedNetwork), staleTime: 60_000, refetchInterval: 60_000 },
+  } as any);
+
+  const mappedTokenAddress = isSupportedNetwork ? (CONTRACTS as any)[chain!.id].usdc : usdcAddress;
+  const currentTokenAddress = (typeof assetOnChain === 'string' && isAddress(assetOnChain)) ? (assetOnChain as `0x${string}`) : mappedTokenAddress;
 
   const { data: allowance = 0n, refetch: refetchAllowance } = useReadContract({
     address: currentTokenAddress,
@@ -27,7 +38,7 @@ const Actions = () => {
     args: [address, contractAddress],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
-      refetchInterval: 5000,
+      refetchInterval: 30000,
     },
   });
 
@@ -38,7 +49,7 @@ const Actions = () => {
     args: [address],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
-      refetchInterval: 5000,
+      refetchInterval: 30000,
     },
   } as any);
 
@@ -315,8 +326,8 @@ const Actions = () => {
           : (isRevoking || isConfirmingRevoke)
             ? 'Resetting approval...'
             : needsApproval
-              ? 'Approve USDC'
-              : 'Deposit USDC';
+              ? 'Approve asset'
+              : 'Deposit';
 
   const step1Complete = parsedDepositAmount > 0n && allowance >= parsedDepositAmount;
   const step2Complete = isDepositConfirmed;

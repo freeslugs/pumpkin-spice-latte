@@ -6,7 +6,7 @@ export function cn(...inputs: ClassValue[]) {
 }
 
 export const getExplorerBase = (chainId?: number) => {
-  if (chainId === 1) return 'https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2'
+  if (chainId === 1) return 'https://etherscan.io'
   if (chainId === 11155111) return 'https://sepolia.etherscan.io'
   return 'https://etherscan.io'
 }
