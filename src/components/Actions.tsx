@@ -27,6 +27,7 @@ const Actions = () => {
     args: [address, contractAddress],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
+      refetchInterval: 5000,
     },
   });
 
@@ -45,6 +46,8 @@ const Actions = () => {
   const [depositHash, setDepositHash] = useState<`0x${string}` | undefined>(undefined);
   const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | undefined>(undefined);
   const autoDepositTriggeredRef = useRef(false);
+  const approvalToastShownRef = useRef(false);
+  const [revokeHash, setRevokeHash] = useState<`0x${string}` | undefined>(undefined);
 
   const { writeContract: approve, isPending: isApproving } = useWriteContract({
     onSuccess: (hash: `0x${string}`) => {
@@ -86,6 +89,24 @@ const Actions = () => {
         description: error.message,
         variant: 'destructive',
       });
+      // Allow user to retry auto-deposit if it failed
+      autoDepositTriggeredRef.current = false;
+    },
+  });
+
+  const { writeContract: revoke, isPending: isRevoking } = useWriteContract({
+    onSuccess: (hash: `0x${string}`) => {
+      setRevokeHash(hash);
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Revoke approval tx submitted:', hash);
+      toast({ title: 'Revoking approval', description: 'Resetting allowance to 0...' });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Revoke Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
     },
   });
 
@@ -103,6 +124,7 @@ const Actions = () => {
       console.log('[PSL] Approval confirmed:', { approvalHash, approvalStatus });
       refetchAllowance();
       toast({ title: 'Approval Confirmed', description: 'You can now deposit your USDC.' });
+      approvalToastShownRef.current = true;
       setApprovalHash(undefined);
       // Auto-trigger deposit once after approval confirmation
       if (!autoDepositTriggeredRef.current && pendingDepositAmount && isAddress(contractAddress)) {
@@ -117,11 +139,52 @@ const Actions = () => {
     }
   }, [isApprovalConfirmed, approvalHash, approvalStatus, refetchAllowance, toast, pendingDepositAmount, contractAddress, deposit]);
 
+  useEffect(() => {
+    // Poll allowance every 1s only when there is a pending deposit amount (user initiated flow)
+    if (!isConnected || !address || !isSupportedNetwork) return;
+    if (!pendingDepositAmount || pendingDepositAmount === 0n) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const result = await (refetchAllowance() as unknown as Promise<{ data?: bigint } | undefined>);
+        const latestAllowance = (result && result.data !== undefined) ? result.data! : allowance;
+
+        if (latestAllowance >= pendingDepositAmount) {
+          if (!approvalToastShownRef.current) {
+            toast({ title: 'Approval Confirmed', description: 'You can now deposit your USDC.' });
+            approvalToastShownRef.current = true;
+          }
+          if (!autoDepositTriggeredRef.current && isAddress(contractAddress)) {
+            autoDepositTriggeredRef.current = true;
+            deposit({
+              address: contractAddress,
+              abi: pumpkinSpiceLatteAbi,
+              functionName: 'deposit',
+              args: [pendingDepositAmount],
+            });
+          }
+          clearInterval(intervalId);
+        }
+      } catch {
+        // ignore polling errors
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isConnected, address, isSupportedNetwork, pendingDepositAmount, refetchAllowance, allowance, contractAddress, deposit, toast]);
+
   const { isLoading: isConfirmingDeposit, isSuccess: isDepositConfirmed, status: depositStatus, error: depositError } = useWaitForTransactionReceipt({
     chainId: chain?.id,
     hash: depositHash,
     confirmations: 1,
     query: { enabled: Boolean(depositHash), refetchInterval: 1000 },
+  } as any);
+
+  const { isLoading: isConfirmingRevoke, isSuccess: isRevokeConfirmed, error: revokeError } = useWaitForTransactionReceipt({
+    chainId: chain?.id,
+    hash: revokeHash,
+    confirmations: 1,
+    query: { enabled: Boolean(revokeHash), refetchInterval: 1000 },
   } as any);
 
   useEffect(() => {
@@ -133,6 +196,14 @@ const Actions = () => {
   }, [depositError, toast]);
 
   useEffect(() => {
+    if (revokeError) {
+      // eslint-disable-next-line no-console
+      console.error('[PSL] Revoke receipt error:', revokeError);
+      toast({ title: 'Revoke Error', description: revokeError.message, variant: 'destructive' });
+    }
+  }, [revokeError, toast]);
+
+  useEffect(() => {
     if (isDepositConfirmed) {
       // eslint-disable-next-line no-console
       console.log('[PSL] Deposit confirmed:', { depositHash, depositStatus });
@@ -141,8 +212,30 @@ const Actions = () => {
       setDepositHash(undefined);
       setPendingDepositAmount(undefined);
       autoDepositTriggeredRef.current = false;
+      approvalToastShownRef.current = false;
+
+      // Ensure UI reflects the latest allowance immediately
+      refetchAllowance();
+
+      // Best-effort revoke approval to 0 after successful deposit
+      if (allowance > 0n && isAddress(currentTokenAddress) && isAddress(contractAddress)) {
+        revoke({
+          address: currentTokenAddress,
+          abi: usdcAbi,
+          functionName: 'approve',
+          args: [contractAddress, 0n],
+        });
+      }
     }
-  }, [isDepositConfirmed, depositHash, depositStatus, toast]);
+  }, [isDepositConfirmed, depositHash, depositStatus, toast, allowance, currentTokenAddress, contractAddress, revoke, refetchAllowance]);
+
+  useEffect(() => {
+    if (isRevokeConfirmed) {
+      toast({ title: 'Approval Reset', description: 'Allowance set to 0.' });
+      setRevokeHash(undefined);
+      refetchAllowance();
+    }
+  }, [isRevokeConfirmed, refetchAllowance, toast]);
 
   const { writeContract: withdraw, isPending: isWithdrawing } = useWriteContract({
     onSuccess: () => {
@@ -178,6 +271,7 @@ const Actions = () => {
     if (allowance < parsedDepositAmount) {
       setPendingDepositAmount(parsedDepositAmount);
       autoDepositTriggeredRef.current = false;
+      approvalToastShownRef.current = false;
       approve({
         address: currentTokenAddress,
         abi: usdcAbi,
@@ -208,7 +302,7 @@ const Actions = () => {
 
   const needsApproval = isConnected && parsedDepositAmount > 0n && allowance < parsedDepositAmount;
 
-  const isPrimaryDisabled = !isConnected || !isSupportedNetwork || isApproving || isDepositing || isConfirmingApproval || isConfirmingDeposit || parsedDepositAmount === 0n;
+  const isPrimaryDisabled = !isConnected || !isSupportedNetwork || isApproving || isDepositing || isConfirmingApproval || isConfirmingDeposit || isRevoking || isConfirmingRevoke || parsedDepositAmount === 0n;
 
   const primaryLabel = isApproving
     ? 'Approve in wallet...'
@@ -218,11 +312,13 @@ const Actions = () => {
         ? 'Deposit in wallet...'
         : isConfirmingDeposit
           ? 'Confirming deposit...'
-          : needsApproval
-            ? 'Approve USDC'
-            : 'Deposit USDC';
+          : (isRevoking || isConfirmingRevoke)
+            ? 'Resetting approval...'
+            : needsApproval
+              ? 'Approve USDC'
+              : 'Deposit USDC';
 
-  const step1Complete = !needsApproval || isApprovalConfirmed || allowance >= parsedDepositAmount;
+  const step1Complete = parsedDepositAmount > 0n && allowance >= parsedDepositAmount;
   const step2Complete = isDepositConfirmed;
   const progress = step1Complete && step2Complete ? 100 : step1Complete ? 50 : 0;
 
@@ -287,7 +383,9 @@ const Actions = () => {
               >
                 {primaryLabel}
               </Button>
-              <p className="text-xs text-muted-foreground text-center">{needsApproval ? 'You must approve USDC before depositing.' : 'Ready to deposit.'}</p>
+              {needsApproval && (
+                <p className="text-xs text-muted-foreground text-center">You must approve USDC before depositing.</p>
+              )}
             </div>
           </TabsContent>
           <TabsContent value="withdraw" className="pt-4">
