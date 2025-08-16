@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {PumpkinSpiceLatte} from "../src/PumpkinSpiceLatte.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ILendingAdapter} from "../src/interfaces/ILendingAdapter.sol";
+import {IRandomnessProvider} from "../src/interfaces/IRandomnessProvider.sol";
 
 //-//////////////////////////////////////////////////////////
 //                           MOCKS
@@ -108,6 +110,41 @@ contract MockVault is IERC4626VaultLike {
     }
 }
 
+contract MockAdapter is ILendingAdapter {
+    IERC4626VaultLike public immutable vault;
+    IERC20 public immutable token;
+
+    constructor(address _vault) {
+        vault = IERC4626VaultLike(_vault);
+        token = IERC20(IERC4626VaultLike(_vault).asset());
+    }
+
+    function asset() external view returns (address) {
+        return address(token);
+    }
+
+    function deposit(uint256 assets) external returns (uint256 sharesOut) {
+        // pull from caller (PSL), approve vault, deposit for adapter
+        require(token.transferFrom(msg.sender, address(this), assets), "transferFrom");
+        require(token.approve(address(vault), assets), "approve");
+        sharesOut = vault.deposit(assets, address(this));
+    }
+
+    function withdraw(uint256 assets, address receiver) external returns (uint256 sharesBurned) {
+        sharesBurned = vault.withdraw(assets, receiver, address(this));
+    }
+
+    function convertToAssets(uint256 shares) external view returns (uint256 assets) {
+        return vault.convertToAssets(shares);
+    }
+}
+
+contract DeterministicRNG is IRandomnessProvider {
+    uint256 public n;
+    function set(uint256 v) external { n = v; }
+    function randomUint256(bytes32 salt) external view returns (uint256) { return uint256(keccak256(abi.encodePacked(n, salt))); }
+}
+
 //-//////////////////////////////////////////////////////////
 //                           TESTS
 //-//////////////////////////////////////////////////////////
@@ -116,6 +153,8 @@ contract PumpkinSpiceLatteTest is Test {
     PumpkinSpiceLatte public psl;
     MockERC20 public weth;
     MockVault public vault;
+    MockAdapter public adapter;
+    DeterministicRNG public rng;
 
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
@@ -125,7 +164,9 @@ contract PumpkinSpiceLatteTest is Test {
     function setUp() public {
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
         vault = new MockVault(address(weth));
-        psl = new PumpkinSpiceLatte(address(weth), address(vault), ROUND_DURATION);
+        adapter = new MockAdapter(address(vault));
+        rng = new DeterministicRNG();
+        psl = new PumpkinSpiceLatte(address(adapter), address(rng), ROUND_DURATION);
 
         // Mint some WETH for users
         weth.mint(user1, 100 ether);

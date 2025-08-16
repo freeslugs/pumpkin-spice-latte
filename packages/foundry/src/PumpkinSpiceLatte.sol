@@ -99,14 +99,13 @@ contract PumpkinSpiceLatte is Ownable {
 
     emit Deposited(msg.sender, _amount);
 
-    // Pull funds from user
-    require(IERC20(ASSET).transferFrom(msg.sender, address(this), _amount), "Transfer failed");
-
-    // Approve and deposit into the lending adapter on behalf of this contract
-    require(IERC20(ASSET).approve(address(LENDING_ADAPTER), _amount), "Approval failed");
-    uint256 sharesOut = LENDING_ADAPTER.deposit(_amount);
-    vaultShares += sharesOut;
-    }
+        // Pull funds from user into this contract
+        require(IERC20(ASSET).transferFrom(msg.sender, address(this), _amount), "Transfer failed");
+        // Approve adapter to pull from this contract and deposit
+        require(IERC20(ASSET).approve(address(LENDING_ADAPTER), _amount), "Approval failed");
+        uint256 sharesOut = LENDING_ADAPTER.deposit(_amount);
+        vaultShares += sharesOut;
+}
 
     /**
      * @notice Withdraws principal from the PLSA.
