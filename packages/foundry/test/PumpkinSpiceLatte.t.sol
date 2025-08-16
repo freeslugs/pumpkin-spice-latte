@@ -182,8 +182,6 @@ contract PumpkinSpiceLatteTest is Test {
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
-    uint256 public constant ROUND_DURATION = 1 days;
-
     // VRF params (mock)
     bytes32 internal constant KEY_HASH = bytes32(uint256(1));
     uint32 internal constant CALLBACK_GAS_LIMIT = 500000;
@@ -299,12 +297,11 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(psl.totalAssets(), 21 ether);
         assertEq(psl.prizePool(), 1 ether);
         
-        // Fast forward time to the next round
-        vm.warp(block.timestamp + ROUND_DURATION + 1);
-
         // Trigger VRF request
         psl.awardPrize();
-        // Fulfill with a random word that causes d100 < 10 (e.g., 5)
+        // lastDrawingTimestamp should update
+        assertEq(psl.lastDrawingTimestamp(), block.timestamp, "lastDrawingTimestamp updated");
+        // Fulfill with a random word intended to be below the current threshold
         uint256[] memory words = new uint256[](1);
         words[0] = 5;
         vrf.fulfillRandomWordsWithOverride(psl.lastRequestId(), address(psl), words);
@@ -318,13 +315,13 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(weth.balanceOf(winner), 90 ether, "Winner's external token balance should be unchanged");
         // Winner's principal balance is credited with the prize
         assertEq(psl.balanceOf(winner), 10 ether + prizeAmount, "Winner's principal should increase by prize");
-        // No round scheduling any more; ensure lastPrizeTimestamp updated on success
+        // Ensure lastPrizeTimestamp updated on success
         assertEq(psl.lastPrizeTimestamp(), block.timestamp, "lastPrizeTimestamp should update on payout");
         // Principal remains fully represented in totalAssets
         assertEq(psl.totalAssets(), psl.totalPrincipal(), "Principal should remain supplied after prize");
     }
 
-    function testAwardPrize_NoAwardWhenD100Gte10() public {
+    function testAwardPrize_NoAwardWhenD100AboveThreshold() public {
         // User1 and User2 deposit
         vm.startPrank(user1);
         weth.approve(address(psl), 10 ether);
@@ -339,14 +336,11 @@ contract PumpkinSpiceLatteTest is Test {
         // Simulate yield by donating assets directly to the vault (improves exchange rate)
         weth.mint(address(vault), 1 ether);
 
-        // Fast forward time to the next round
-        vm.warp(block.timestamp + ROUND_DURATION + 1);
-
         // Trigger VRF request
         psl.awardPrize();
-        // Fulfill with a random word that causes d100 >= 10 (e.g., 10 -> maps to 10)
+        // Fulfill with a random word that makes d100 above the current threshold
         uint256[] memory words = new uint256[](1);
-        words[0] = 10;
+        words[0] = 50;
         vrf.fulfillRandomWordsWithOverride(psl.lastRequestId(), address(psl), words);
 
         // No updates expected on no-award path
