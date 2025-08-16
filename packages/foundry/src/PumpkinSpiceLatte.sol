@@ -74,6 +74,9 @@ contract PumpkinSpiceLatte {
     /// @dev The amount of the last prize awarded.
     uint256 public lastPrizeAmount;
 
+    /// @dev The number of Morpho supply shares owned by this contract.
+    uint256 public suppliedShares;
+
     //-//////////////////////////////////////////////////////////
     //                          EVENTS
     //-//////////////////////////////////////////////////////////
@@ -121,8 +124,19 @@ contract PumpkinSpiceLatte {
 
         emit Deposited(msg.sender, _amount);
 
-        // Transfer funds AFTER updating state (checks-effects-interactions)
+        // Pull funds from user
         IERC20(asset).transferFrom(msg.sender, address(this), _amount);
+
+        // Approve and supply to Morpho on behalf of this contract
+        IERC20(asset).approve(morpho, _amount);
+        (uint256 sharesOut, ) = IMorpho(morpho).supply(
+            marketId,
+            _amount,
+            0,
+            address(this),
+            ""
+        );
+        suppliedShares += sharesOut;
     }
 
     /**
@@ -148,8 +162,21 @@ contract PumpkinSpiceLatte {
 
         emit Withdrawn(msg.sender, _amount);
 
-        // Transfer funds AFTER updating state
-        IERC20(asset).transfer(msg.sender, _amount);
+        // Withdraw from Morpho directly to the user
+        (uint256 sharesOut, ) = IMorpho(morpho).withdraw(
+            marketId,
+            _amount,
+            0,
+            msg.sender,
+            address(this)
+        );
+        // Update our supplied shares balance
+        if (sharesOut > suppliedShares) {
+            // Safety: should not happen with correct protocol behavior, but guard underflow
+            suppliedShares = 0;
+        } else {
+            suppliedShares -= sharesOut;
+        }
     }
 
     //-//////////////////////////////////////////////////////////
@@ -161,7 +188,39 @@ contract PumpkinSpiceLatte {
      * @dev Can be called by anyone after the `nextRoundTimestamp` has passed.
      */
     function awardPrize() external {
-        // Implementation in next step
+        require(block.timestamp >= nextRoundTimestamp, "Round not finished");
+        require(depositors.length > 0, "No depositors");
+
+        uint256 prize = prizePool();
+        require(prize > 0, "No prize to award");
+
+        // Pseudo-random selection (not secure; for testnet/demo)
+        uint256 idx = uint256(
+            keccak256(
+                abi.encodePacked(block.prevrandao, block.timestamp, address(this), depositors.length)
+            )
+        ) % depositors.length;
+        address winner = depositors[idx];
+
+        // Withdraw prize amount from Morpho directly to the winner
+        (uint256 sharesOut, ) = IMorpho(morpho).withdraw(
+            marketId,
+            prize,
+            0,
+            winner,
+            address(this)
+        );
+        if (sharesOut > suppliedShares) {
+            suppliedShares = 0;
+        } else {
+            suppliedShares -= sharesOut;
+        }
+
+        lastWinner = winner;
+        lastPrizeAmount = prize;
+        nextRoundTimestamp = block.timestamp + roundDuration;
+
+        emit PrizeAwarded(winner, prize);
     }
 
     //-//////////////////////////////////////////////////////////
@@ -197,8 +256,17 @@ contract PumpkinSpiceLatte {
      * @return The total asset balance.
      */
     function totalAssets() public view returns (uint256) {
-        // Implementation in next step
-        return 0;
+        if (suppliedShares == 0) return 0;
+        (
+            uint128 totalSupplyAssets,
+            uint128 totalSupplyShares,
+            ,
+            ,
+            ,
+            
+        ) = IMorpho(morpho).market(marketId);
+        if (totalSupplyShares == 0) return 0;
+        return (suppliedShares * uint256(totalSupplyAssets)) / uint256(totalSupplyShares);
     }
 
     /**
@@ -206,8 +274,8 @@ contract PumpkinSpiceLatte {
      * @return The prize amount, which is the yield generated so far.
      */
     function prizePool() public view returns (uint256) {
-        // Implementation in next step
-        return 0;
+        uint256 ta = totalAssets();
+        return ta > totalPrincipal ? (ta - totalPrincipal) : 0;
     }
 
     /**

@@ -2,6 +2,7 @@
 src = "packages/foundry/src"
 out = "packages/foundry/out"
 libs = ["node_modules", "lib", "packages/foundry/lib"]
+test = "packages/foundry/test"
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 

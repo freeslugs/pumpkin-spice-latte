@@ -23,10 +23,14 @@ contract MockERC20 is IERC20 {
         decimals = _decimals;
     }
 
-    function _mint(address _to, uint256 _amount) internal {
-        balanceOf[_to] += _amount;
-        totalSupply += _amount;
-    }
+    	function _mint(address _to, uint256 _amount) internal {
+		balanceOf[_to] += _amount;
+		totalSupply += _amount;
+	}
+
+	function mint(address to, uint256 amount) external {
+		_mint(to, amount);
+	}
 
     function transfer(address _to, uint256 _amount) external returns (bool) {
         balanceOf[msg.sender] -= _amount;
@@ -57,18 +61,25 @@ contract MockMorpho {
     }
 
     function supply(bytes32 marketId, uint256 assets, uint256, address, bytes calldata) external returns (uint256 sharesOut, uint256) {
+        uint256 totalAssetsBefore = asset.balanceOf(address(this));
+        if (suppliedShares[marketId] == 0) {
+            sharesOut = assets;
+        } else {
+            // sharesOut = assets * totalShares / totalAssets
+            sharesOut = (assets * suppliedShares[marketId]) / (totalAssetsBefore == 0 ? 1 : totalAssetsBefore);
+        }
         suppliedAssets[marketId] += assets;
-        // Simple 1:1 asset-to-share conversion for mock
-        sharesOut = assets;
         suppliedShares[marketId] += sharesOut;
         asset.transferFrom(msg.sender, address(this), assets);
         return (sharesOut, assets);
     }
 
     function withdraw(bytes32 marketId, uint256 assets, uint256, address to, address) external returns (uint256 sharesOut, uint256) {
+        uint256 totalAssetsBefore = asset.balanceOf(address(this));
+        require(totalAssetsBefore > 0, "no assets");
+        // shares = assets * totalShares / totalAssets
+        sharesOut = (assets * suppliedShares[marketId]) / totalAssetsBefore;
         suppliedAssets[marketId] -= assets;
-        // Simple 1:1 asset-to-share conversion for mock
-        sharesOut = assets;
         suppliedShares[marketId] -= sharesOut;
         asset.transfer(to, assets);
         return (sharesOut, assets);
@@ -76,7 +87,7 @@ contract MockMorpho {
 
     function market(bytes32 marketId) external view returns (uint128, uint128, uint128, uint128, uint128, uint128) {
         return (
-            uint128(suppliedAssets[marketId]),
+            uint128(asset.balanceOf(address(this))),
             uint128(suppliedShares[marketId]),
             0, 0, 0, 0
         );
@@ -105,8 +116,8 @@ contract PumpkinSpiceLatteTest is Test {
         psl = new PumpkinSpiceLatte(address(weth), address(morpho), marketId, ROUND_DURATION);
 
         // Mint some WETH for users
-        weth._mint(user1, 100 ether);
-        weth._mint(user2, 100 ether);
+        	weth.mint(user1, 100 ether);
+		weth.mint(user2, 100 ether);
     }
 
     function testDeposit() public {
@@ -119,6 +130,8 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(psl.totalPrincipal(), 10 ether, "Total principal should be 10 ether");
         assertEq(psl.depositors(0), user1, "User1 should be in depositors array");
         assertEq(morpho.suppliedAssets(marketId), 10 ether, "Assets should be supplied to Morpho");
+        // totalAssets equals principal initially
+        assertEq(psl.totalAssets(), 10 ether);
     }
 
     function testWithdraw() public {
@@ -183,8 +196,11 @@ contract PumpkinSpiceLatteTest is Test {
         psl.deposit(10 ether);
         vm.stopPrank();
         
-        // Simulate yield from Morpho by just sending WETH to the contract
-        weth._mint(address(morpho), 1 ether);
+        // Simulate yield from Morpho by minting assets to Morpho directly, raising exchange rate
+        	weth.mint(address(morpho), 1 ether);
+        // Now totalAssets should be 21, principal is 20, prize is ~1
+        assertEq(psl.totalAssets(), 21 ether);
+        assertEq(psl.prizePool(), 1 ether);
         
         // Fast forward time to the next round
         vm.warp(block.timestamp + ROUND_DURATION + 1);
@@ -199,5 +215,7 @@ contract PumpkinSpiceLatteTest is Test {
         assertApproxEqAbs(prizeAmount, 1 ether, 1, "Prize amount should be ~1 ether");
         assertEq(weth.balanceOf(winner), 90 ether + prizeAmount, "Winner should receive the prize");
         assertEq(psl.nextRoundTimestamp(), block.timestamp + ROUND_DURATION, "Next round timestamp should be reset");
+        		// Principal remains fully supplied (totalAssets equals totalPrincipal)
+		assertEq(psl.totalAssets(), psl.totalPrincipal(), "Principal should remain supplied after prize");
     }
 }
