@@ -36,7 +36,7 @@ jobs:
 
       - name: Run Forge tests
         env:
-          TENDERLY_VIRTUAL_TESTNET_RPC_URL: na
+          TENDERLY_VIRTUAL_TESTNET_RPC_URL: https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2
           TENDERLY_ACCESS_KEY: na
         run: |
           forge test -vvv
