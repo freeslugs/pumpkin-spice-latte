@@ -1,7 +1,7 @@
 // SPDX-License-Identifier: MIT
 pragma solidity ^0.8.20;
 
-import {Test, console} from "forge-std/Test.sol";
+import {Test} from "forge-std/Test.sol";
 import {PumpkinSpiceLatte} from "../src/PumpkinSpiceLatte.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
@@ -59,25 +59,25 @@ interface IERC4626VaultLike {
 }
 
 contract MockVault is IERC4626VaultLike {
-    IERC20 public immutable token;
+    IERC20 public immutable TOKEN;
     uint256 public totalShares;
 
     mapping(address => uint256) public shareOf;
 
     constructor(address _asset) {
-        token = IERC20(_asset);
+        TOKEN = IERC20(_asset);
     }
 
     function asset() external view returns (address) {
-        return address(token);
+        return address(TOKEN);
     }
 
     function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
-        uint256 assetsBefore = token.balanceOf(address(this));
+        uint256 assetsBefore = TOKEN.balanceOf(address(this));
         uint256 sharesBefore = totalShares;
         // Pull in assets first
-        token.transferFrom(msg.sender, address(this), assets);
-        uint256 assetsAfter = token.balanceOf(address(this));
+        require(TOKEN.transferFrom(msg.sender, address(this), assets), "Transfer failed");
+        uint256 assetsAfter = TOKEN.balanceOf(address(this));
         uint256 received = assetsAfter - assetsBefore;
 
         if (sharesBefore == 0) {
@@ -91,18 +91,18 @@ contract MockVault is IERC4626VaultLike {
     }
 
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
-        uint256 assetsCurrent = token.balanceOf(address(this));
+        uint256 assetsCurrent = TOKEN.balanceOf(address(this));
         require(assetsCurrent > 0 && totalShares > 0, "no liquidity");
         shares = (assets * totalShares) / assetsCurrent;
         // Burn shares from owner
         shareOf[owner] -= shares;
         totalShares -= shares;
         // Send assets to receiver
-        token.transfer(receiver, assets);
+        require(TOKEN.transfer(receiver, assets), "Transfer failed");
     }
 
     function convertToAssets(uint256 shares) external view returns (uint256 assets) {
-        uint256 assetsCurrent = token.balanceOf(address(this));
+        uint256 assetsCurrent = TOKEN.balanceOf(address(this));
         if (totalShares == 0) return 0;
         return (shares * assetsCurrent) / totalShares;
     }

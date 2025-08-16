@@ -23,10 +23,10 @@ contract PumpkinSpiceLatte {
     //-//////////////////////////////////////////////////////////
 
     /// @dev The underlying ERC20 asset being deposited and supplied to the vault.
-    address public immutable asset;
+    address public immutable ASSET;
 
     /// @dev The Morpho vault (ERC4626-style) contract address.
-    address public immutable vault;
+    address public immutable VAULT;
 
     /// @dev The duration of each prize round in seconds.
     uint256 public roundDuration;
@@ -74,8 +74,8 @@ contract PumpkinSpiceLatte {
         uint256 _roundDuration
     ) {
         require(IERC4626Vault(_vault).asset() == _asset, "Vault asset mismatch");
-        asset = _asset;
-        vault = _vault;
+        ASSET = _asset;
+        VAULT = _vault;
         roundDuration = _roundDuration;
         nextRoundTimestamp = block.timestamp + _roundDuration;
     }
@@ -103,11 +103,11 @@ contract PumpkinSpiceLatte {
         emit Deposited(msg.sender, _amount);
 
         // Pull funds from user
-        IERC20(asset).transferFrom(msg.sender, address(this), _amount);
+        require(IERC20(ASSET).transferFrom(msg.sender, address(this), _amount), "Transfer failed");
 
         // Approve and deposit into the vault on behalf of this contract
-        IERC20(asset).approve(vault, _amount);
-        uint256 sharesOut = IERC4626Vault(vault).deposit(_amount, address(this));
+        require(IERC20(ASSET).approve(VAULT, _amount), "Approval failed");
+        uint256 sharesOut = IERC4626Vault(VAULT).deposit(_amount, address(this));
         vaultShares += sharesOut;
     }
 
@@ -135,7 +135,7 @@ contract PumpkinSpiceLatte {
         emit Withdrawn(msg.sender, _amount);
 
         // Withdraw from vault directly to the user
-        uint256 sharesBurned = IERC4626Vault(vault).withdraw(_amount, msg.sender, address(this));
+        uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(_amount, msg.sender, address(this));
         if (sharesBurned > vaultShares) {
             vaultShares = 0;
         } else {
@@ -167,7 +167,7 @@ contract PumpkinSpiceLatte {
         address winner = depositors[idx];
 
         // Withdraw prize amount from the vault directly to the winner
-        uint256 sharesBurned = IERC4626Vault(vault).withdraw(prize, winner, address(this));
+        uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(prize, winner, address(this));
         if (sharesBurned > vaultShares) {
             vaultShares = 0;
         } else {
@@ -215,7 +215,7 @@ contract PumpkinSpiceLatte {
      */
     function totalAssets() public view returns (uint256) {
         if (vaultShares == 0) return 0;
-        return IERC4626Vault(vault).convertToAssets(vaultShares);
+        return IERC4626Vault(VAULT).convertToAssets(vaultShares);
     }
 
     /**
