@@ -39,27 +39,13 @@ const PSLHome = () => {
       </div>
 
       {/* Network Status */}
-      {isConnected && (
-        <div className={`p-4 rounded-lg border ${
-          isSupportedNetwork 
-            ? 'bg-green-50 border-green-200 text-green-800' 
-            : 'bg-amber-50 border-amber-200 text-amber-800'
-        }`}>
+      {isConnected && !isSupportedNetwork && (
+        <div className="p-4 rounded-lg border bg-amber-50 border-amber-200 text-amber-800">
           <div className="flex items-center gap-3">
-            {isSupportedNetwork ? (
-              <CheckCircle className="h-5 w-5 text-green-600" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-            )}
+            <AlertCircle className="h-5 w-5 text-amber-600" />
             <div>
               <p className="font-medium">
-                {isSupportedNetwork ? 'Ready to interact!' : 'Network not supported'}
-              </p>
-              <p className="text-sm">
-                {isSupportedNetwork 
-                  ? `You're connected to ${chain?.name} and can interact with the contract.`
-                  : `Please switch to a supported network to interact with the Pumpkin Spice Latte contract.`
-                }
+                Network not supported
               </p>
             </div>
           </div>

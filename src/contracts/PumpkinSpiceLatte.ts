@@ -6,7 +6,7 @@ export const CONTRACTS = {
   },
   1: { // Ethereum mainnet
     // When using Tenderly Virtual Mainnet, set this to the fork's deployed address
-    pumpkinSpiceLatte: '0x3EcC78c6FEA14565affd607Bd35b5b8e6Dc39778',
+    pumpkinSpiceLatte: '0x3cb0f6582683204d013c1bab52067ce351aa3bef',
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
   }
 } as const;
