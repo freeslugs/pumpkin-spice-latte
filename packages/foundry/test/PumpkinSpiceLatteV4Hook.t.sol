@@ -5,6 +5,8 @@ import {Test} from "forge-std/Test.sol";
 import {PumpkinSpiceLatteV4Hook} from "../src/PumpkinSpiceLatteV4Hook.sol";
 import {PumpkinSpiceLatteEnhanced} from "../src/PumpkinSpiceLatte.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ILendingAdapter} from "../src/interfaces/ILendingAdapter.sol";
+import {IRandomnessProvider} from "../src/interfaces/IRandomnessProvider.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
@@ -95,6 +97,40 @@ contract MockVault {
     }
 }
 
+contract MockLendingAdapter is ILendingAdapter {
+    MockVault public immutable vault;
+    address public immutable underlying;
+
+    constructor(address _vault) {
+        vault = MockVault(_vault);
+        underlying = MockVault(_vault).asset();
+    }
+
+    function asset() external view returns (address) {
+        return underlying;
+    }
+
+    function deposit(uint256 assets) external returns (uint256 sharesOut) {
+        require(IERC20(underlying).transferFrom(msg.sender, address(this), assets), "Transfer failed");
+        require(IERC20(underlying).approve(address(vault), assets), "Approve failed");
+        sharesOut = vault.deposit(assets, address(this));
+    }
+
+    function withdraw(uint256 assets, address receiver) external returns (uint256 sharesBurned) {
+        sharesBurned = vault.withdraw(assets, receiver, address(this));
+    }
+
+    function convertToAssets(uint256 shares) external view returns (uint256 assets) {
+        return vault.convertToAssets(shares);
+    }
+}
+
+contract MockRandomnessProvider is IRandomnessProvider {
+    function randomUint256(bytes32 salt) external view returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(block.prevrandao, block.timestamp, address(this), salt)));
+    }
+}
+
 contract MockPoolManager {
     address public hook;
 
@@ -114,6 +150,8 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
     PumpkinSpiceLatteEnhanced public plsa;
     MockERC20 public usdc;
     MockVault public vault;
+    MockLendingAdapter public adapter;
+    MockRandomnessProvider public randomnessProvider;
     MockPoolManager public poolManager;
 
     address public alice = address(0x1);
@@ -126,34 +164,31 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
         // Deploy mocks
         usdc = new MockERC20("USD Coin", "USDC", 6);
         vault = new MockVault(address(usdc));
+        adapter = new MockLendingAdapter(address(vault));
+        randomnessProvider = new MockRandomnessProvider();
         poolManager = new MockPoolManager();
 
         // Deploy PLSA contract first
         plsa = new PumpkinSpiceLatteEnhanced(
-            address(usdc),
-            address(vault),
+            address(adapter),
+            address(randomnessProvider),
             86400 // 1 day
         );
 
         // Mine hook address with correct flags
         uint160 flags = uint160(
-            Hooks.AFTER_ADD_LIQUIDITY_FLAG | Hooks.AFTER_REMOVE_LIQUIDITY_FLAG | 
-            Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG
+            Hooks.AFTER_ADD_LIQUIDITY_FLAG | Hooks.AFTER_ADD_LIQUIDITY_RETURNS_DELTA_FLAG
+                | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG | Hooks.AFTER_REMOVE_LIQUIDITY_FLAG | Hooks.BEFORE_SWAP_FLAG
+                | Hooks.AFTER_SWAP_FLAG
         );
 
-        bytes memory constructorArgs = abi.encode(
-            IPoolManager(address(poolManager)),
-            address(plsa)
-        );
+        bytes memory constructorArgs = abi.encode(IPoolManager(address(poolManager)), address(plsa));
 
         (address hookAddress, bytes32 salt) =
             HookMiner.find(address(this), flags, type(PumpkinSpiceLatteV4Hook).creationCode, constructorArgs);
 
         // Deploy hook
-        hook = new PumpkinSpiceLatteV4Hook{salt: salt}(
-            IPoolManager(address(poolManager)),
-            address(plsa)
-        );
+        hook = new PumpkinSpiceLatteV4Hook{salt: salt}(IPoolManager(address(poolManager)), address(plsa));
 
         require(address(hook) == hookAddress, "Hook address mismatch");
 
@@ -184,7 +219,7 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
 
     function test_PLSADeposit() public {
         vm.startPrank(alice);
-        
+
         uint256 balanceBefore = usdc.balanceOf(alice);
         plsa.deposit(DEPOSIT_AMOUNT);
 
@@ -221,7 +256,8 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
         uint256 liquidityAmount = 50 * 10 ** 6;
         uint256 aliceBalanceBefore = plsa.balanceOf(alice);
 
-        // Simulate hook calling handleLiquidityAdded
+        // Simulate hook calling handleLiquidityAdded - first mint USDC to PLSA
+        usdc.mint(address(plsa), liquidityAmount);
         vm.startPrank(address(hook));
         plsa.handleLiquidityAdded(alice, liquidityAmount);
         vm.stopPrank();
@@ -229,7 +265,7 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
         // Check LP tracking
         assertEq(plsa.lpBalances(alice), liquidityAmount, "LP balance should be tracked");
         assertEq(plsa.numberOfLiquidityProviders(), 1, "Should have 1 LP");
-        
+
         // Check bonus (5% of liquidity amount)
         uint256 expectedBonus = (liquidityAmount * 500) / 10000; // 5%
         assertEq(plsa.balanceOf(alice), aliceBalanceBefore + expectedBonus, "Should receive LP bonus");
@@ -245,6 +281,53 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
         vm.stopPrank();
 
         assertEq(plsa.accumulatedSwapFees(), feesBefore + feeAmount, "Fees should be accumulated");
+    }
+
+    function test_SwapperBonusTickets() public {
+        uint256 feeAmount = 100 * 10 ** 6; // 100 USDC
+        address swapper = address(0x999);
+
+        // Check initial tickets
+        (uint256 depositorTickets, uint256 lpTicketsBefore) = plsa.getLotteryTickets(swapper);
+        assertEq(lpTicketsBefore, 0, "Swapper should start with no tickets");
+
+        // Simulate hook depositing swap fees with swapper bonus
+        vm.startPrank(address(hook));
+        plsa.depositSwapFeesWithBonus(feeAmount, swapper);
+        vm.stopPrank();
+
+        // Check swapper received bonus tickets
+        (, uint256 lpTicketsAfter) = plsa.getLotteryTickets(swapper);
+        uint256 expectedBonusTickets = (feeAmount * 100) / 10000; // 1% bonus
+        assertEq(lpTicketsAfter, expectedBonusTickets, "Swapper should receive bonus tickets");
+    }
+
+    function test_EnhancedLotteryTickets() public {
+        // Setup: Alice deposits and provides liquidity
+        vm.startPrank(alice);
+        plsa.deposit(DEPOSIT_AMOUNT);
+        vm.stopPrank();
+
+        uint256 liquidityAmount = 50 * 10 ** 6;
+
+        // Alice becomes LP - first mint USDC to PLSA to simulate hook transfer
+        usdc.mint(address(plsa), liquidityAmount);
+        vm.startPrank(address(hook));
+        plsa.handleLiquidityAdded(alice, liquidityAmount);
+        vm.stopPrank();
+
+        // Check Alice's lottery tickets
+        (uint256 depositorTickets, uint256 lpTickets) = plsa.getLotteryTickets(alice);
+
+        assertEq(
+            depositorTickets, DEPOSIT_AMOUNT + (liquidityAmount * 500) / 10000, "Should include deposit + LP bonus"
+        );
+        uint256 expectedLpTickets = (liquidityAmount * 200) / 100; // 2x multiplier
+        assertEq(lpTickets, expectedLpTickets, "Should have LP bonus tickets");
+
+        // Check total lottery tickets
+        uint256 totalTickets = plsa.getTotalLotteryTickets();
+        assertGt(totalTickets, DEPOSIT_AMOUNT, "Total tickets should include LP bonuses");
     }
 
     function test_HookLiquidityRequest() public {
@@ -267,9 +350,11 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
     function test_HookPermissions() public {
         // Test hook permissions are correct
         Hooks.Permissions memory permissions = hook.getHookPermissions();
-        
+
         assertFalse(permissions.beforeInitialize, "beforeInitialize should be false");
         assertTrue(permissions.afterAddLiquidity, "afterAddLiquidity should be true");
+        assertTrue(permissions.afterAddLiquidityReturnDelta, "afterAddLiquidityReturnDelta should be true");
+        assertTrue(permissions.beforeRemoveLiquidity, "beforeRemoveLiquidity should be true");
         assertTrue(permissions.afterRemoveLiquidity, "afterRemoveLiquidity should be true");
         assertTrue(permissions.beforeSwap, "beforeSwap should be true");
         assertTrue(permissions.afterSwap, "afterSwap should be true");
@@ -321,12 +406,13 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
         assertEq(plsa.timeUntilNextPrize() > 0, true, "Should have time until next prize");
         assertEq(plsa.isProvider(alice), false, "Alice should not be LP initially");
         assertEq(hook.isLiquidityProvider(alice), false, "Hook should also report Alice not LP");
-        
-        // Make Alice an LP
+
+        // Make Alice an LP - first mint USDC to PLSA
+        usdc.mint(address(plsa), 100 * 10 ** 6);
         vm.startPrank(address(hook));
         plsa.handleLiquidityAdded(alice, 100 * 10 ** 6);
         vm.stopPrank();
-        
+
         assertTrue(plsa.isProvider(alice), "Alice should be LP now");
         assertTrue(hook.isLiquidityProvider(alice), "Hook should also report Alice as LP");
     }
@@ -335,10 +421,10 @@ contract PumpkinSpiceLatteV4HookSeparatedTest is Test {
         // Test emergency functions
         plsa.setPaused(true);
         hook.setPaused(true);
-        
+
         // Mint some tokens for testing
         usdc.mint(address(plsa), 100 * 10 ** 6);
-        
+
         // Test emergency withdraw from PLSA
         uint256 balanceBefore = usdc.balanceOf(address(this));
         plsa.emergencyWithdraw(address(usdc), 50 * 10 ** 6);

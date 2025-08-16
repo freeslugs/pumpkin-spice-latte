@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {PumpkinSpiceLatteEnhanced} from "../src/PumpkinSpiceLatte.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {ILendingAdapter} from "../src/interfaces/ILendingAdapter.sol";
+import {IRandomnessProvider} from "../src/interfaces/IRandomnessProvider.sol";
 
 //-//////////////////////////////////////////////////////////
 //                           MOCKS
@@ -108,6 +110,42 @@ contract MockVault is IERC4626VaultLike {
     }
 }
 
+contract MockLendingAdapter is ILendingAdapter {
+    MockVault public immutable vault;
+    address public immutable underlying;
+
+    constructor(address _vault) {
+        vault = MockVault(_vault);
+        underlying = MockVault(_vault).asset();
+    }
+
+    function asset() external view returns (address) {
+        return underlying;
+    }
+
+    function deposit(uint256 assets) external returns (uint256 sharesOut) {
+        // Pull tokens from caller into adapter
+        require(IERC20(underlying).transferFrom(msg.sender, address(this), assets), "Transfer failed");
+        // Approve vault and deposit
+        require(IERC20(underlying).approve(address(vault), assets), "Approve failed");
+        sharesOut = vault.deposit(assets, address(this));
+    }
+
+    function withdraw(uint256 assets, address receiver) external returns (uint256 sharesBurned) {
+        sharesBurned = vault.withdraw(assets, receiver, address(this));
+    }
+
+    function convertToAssets(uint256 shares) external view returns (uint256 assets) {
+        return vault.convertToAssets(shares);
+    }
+}
+
+contract MockRandomnessProvider is IRandomnessProvider {
+    function randomUint256(bytes32 salt) external view returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(block.prevrandao, block.timestamp, address(this), salt)));
+    }
+}
+
 //-//////////////////////////////////////////////////////////
 //                           TESTS
 //-//////////////////////////////////////////////////////////
@@ -116,6 +154,8 @@ contract PumpkinSpiceLatteTest is Test {
     PumpkinSpiceLatteEnhanced public psl;
     MockERC20 public weth;
     MockVault public vault;
+    MockLendingAdapter public adapter;
+    MockRandomnessProvider public randomnessProvider;
 
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
@@ -125,7 +165,9 @@ contract PumpkinSpiceLatteTest is Test {
     function setUp() public {
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
         vault = new MockVault(address(weth));
-        psl = new PumpkinSpiceLatteEnhanced(address(weth), address(vault), ROUND_DURATION);
+        adapter = new MockLendingAdapter(address(vault));
+        randomnessProvider = new MockRandomnessProvider();
+        psl = new PumpkinSpiceLatteEnhanced(address(adapter), address(randomnessProvider), ROUND_DURATION);
 
         // Mint some WETH for users
         weth.mint(user1, 100 ether);
@@ -150,7 +192,7 @@ contract PumpkinSpiceLatteTest is Test {
         vm.startPrank(user1);
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
-        
+
         // Then, user1 withdraws
         psl.withdraw(3 ether);
         vm.stopPrank();
@@ -165,12 +207,12 @@ contract PumpkinSpiceLatteTest is Test {
         vm.startPrank(user1);
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
-        
+
         vm.expectRevert("Insufficient balance");
         psl.withdraw(11 ether);
         vm.stopPrank();
     }
-    
+
     function testFullWithdrawalRemovesDepositor() public {
         // User1 deposits
         vm.startPrank(user1);
@@ -185,7 +227,7 @@ contract PumpkinSpiceLatteTest is Test {
         vm.stopPrank();
 
         assertEq(psl.numberOfDepositors(), 2);
-        
+
         // User1 withdraws all
         vm.startPrank(user1);
         psl.withdraw(10 ether);
@@ -206,13 +248,13 @@ contract PumpkinSpiceLatteTest is Test {
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
         vm.stopPrank();
-        
+
         // Simulate yield by donating assets directly to the vault (improves exchange rate)
         weth.mint(address(vault), 1 ether);
         // Now totalAssets should be 21, principal is 20, prize is ~1
         assertEq(psl.totalAssets(), 21 ether);
         assertEq(psl.prizePool(), 1 ether);
-        
+
         // Fast forward time to the next round
         vm.warp(block.timestamp + ROUND_DURATION + 1);
 
@@ -221,7 +263,7 @@ contract PumpkinSpiceLatteTest is Test {
 
         address winner = psl.lastWinner();
         uint256 prizeAmount = psl.lastPrizeAmount();
-        
+
         assertTrue(winner == user1 || winner == user2, "Winner should be user1 or user2");
         assertApproxEqAbs(prizeAmount, 1 ether, 1, "Prize amount should be ~1 ether");
         // With new accounting, no tokens are withdrawn to the winner. Their external balance remains unchanged.

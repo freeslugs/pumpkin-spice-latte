@@ -4,7 +4,10 @@ pragma solidity ^0.8.20;
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
+import {ILendingAdapter} from "./interfaces/ILendingAdapter.sol";
+import {IRandomnessProvider} from "./interfaces/IRandomnessProvider.sol";
 
+// Backward compatibility interface
 interface IERC4626Vault {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
@@ -15,19 +18,19 @@ interface IERC4626Vault {
 
 /**
  * @title PumpkinSpiceLatteEnhanced
- * @dev Enhanced PLSA contract that works with Uniswap V4 hook for dynamic liquidity management.
- *      Handles all business logic while the hook provides V4 integration.
- * 
+ * @dev Enhanced PLSA with adapter pattern + V4 hook integration + multi-participant lottery
+ *      Uses adapter pattern for lending protocols and randomness providers.
+ *      Supports both depositors (lottery participants) and LPs (liquidity providers).
+ *
  * Key Features:
- * - User deposits and withdrawals
- * - Morpho vault integration for yield
- * - Dynamic liquidity management (pool vs vault)
- * - Prize distribution system
- * - Liquidity provider tracking and bonuses
- * - Swap fee accumulation
+ * - User deposits and withdrawals with lottery participation
+ * - LP tracking with bonuses for providing Uniswap liquidity
+ * - Dynamic liquidity management between pool and lending protocol
+ * - Adapter-based architecture for modularity
+ * - Swap fee accumulation from V4 hook
+ * - Prize distribution benefiting both depositors and swappers
  */
 contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
-
     //-//////////////////////////////////////////////////////////
     //                           STATE
     //-//////////////////////////////////////////////////////////
@@ -35,7 +38,13 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
     /// @dev The underlying ERC20 asset (USDC)
     address public immutable ASSET;
 
-    /// @dev The Morpho vault contract address
+    /// @dev Lending adapter implementing ERC4626-like interface
+    ILendingAdapter public immutable LENDING_ADAPTER;
+
+    /// @dev Randomness provider adapter
+    IRandomnessProvider public randomnessProvider;
+
+    /// @dev The Morpho vault contract address (backward compatibility)
     address public immutable VAULT;
 
     /// @dev The V4 hook contract address
@@ -46,7 +55,7 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
 
     /// @dev Timestamp when next prize round ends
     uint256 public nextRoundTimestamp;
-    
+
     /// @dev Total principal deposited by users
     uint256 public totalPrincipal;
 
@@ -76,14 +85,19 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
     /// @dev Accumulated swap fees from hook
     uint256 public accumulatedSwapFees;
 
+    /// @dev Enhanced Lottery System
+    mapping(address => uint256) public lpTickets; // Bonus lottery tickets for LPs
+
     /// @dev Pool liquidity management
     uint256 public poolLiquidity; // Amount currently in pool
     uint256 public totalLiquidity; // Total managed liquidity
 
     /// @dev Configuration
     uint256 public targetPoolBufferBps = 1000; // 10% target in pool
-    uint256 public minimumPoolBuffer = 10000 * 10**6; // 10k USDC minimum
+    uint256 public minimumPoolBuffer = 10000 * 10 ** 6; // 10k USDC minimum
     uint256 public lpBonusBps = 500; // 5% bonus for LP depositors
+    uint256 public lpLotteryMultiplier = 200; // 2x lottery tickets for LPs
+    uint256 public swapperBonusBps = 100; // 1% bonus tickets for swappers
 
     /// @dev Emergency pause
     bool public paused = false;
@@ -97,10 +111,12 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
     event PrizeAwarded(address indexed winner, uint256 amount, uint256 round);
     event LiquidityProviderAdded(address indexed provider, uint256 amount);
     event LiquidityProviderRemoved(address indexed provider, uint256 amount);
-    event SwapFeesReceived(uint256 amount);
+    event SwapFeesReceived(uint256 amount, address indexed swapper);
     event LiquidityRequested(uint256 requested, uint256 provided);
     event VaultRebalanced(uint256 amount, bool toVault);
     event HookContractUpdated(address indexed newHook);
+    event RandomnessProviderUpdated(address indexed newProvider);
+    event LotteryTicketsAwarded(address indexed user, uint256 tickets, string reason);
 
     //-//////////////////////////////////////////////////////////
     //                        MODIFIERS
@@ -120,18 +136,15 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
     //                        CONSTRUCTOR
     //-//////////////////////////////////////////////////////////
 
-    constructor(
-        address _asset,
-        address _vault,
-        uint256 _roundDuration
-    ) Ownable(msg.sender) {
-        require(_asset != address(0), "Invalid asset");
-        require(_vault != address(0), "Invalid vault");
+    constructor(address _adapter, address _randomnessProvider, uint256 _roundDuration) Ownable(msg.sender) {
+        require(_adapter != address(0), "Invalid adapter");
+        require(_randomnessProvider != address(0), "Invalid randomness provider");
         require(_roundDuration > 0, "Invalid round duration");
-        require(IERC4626Vault(_vault).asset() == _asset, "Vault asset mismatch");
-        
-        ASSET = _asset;
-        VAULT = _vault;
+
+        ASSET = ILendingAdapter(_adapter).asset();
+        LENDING_ADAPTER = ILendingAdapter(_adapter);
+        randomnessProvider = IRandomnessProvider(_randomnessProvider);
+        VAULT = _adapter; // For backward compatibility
         roundDuration = _roundDuration;
         nextRoundTimestamp = block.timestamp + _roundDuration;
     }
@@ -155,14 +168,22 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
         balanceOf[msg.sender] += _amount;
         totalPrincipal += _amount;
 
+        // LP bonus if user is also providing liquidity
+        if (lpBalances[msg.sender] > 0) {
+            uint256 bonus = (_amount * lpBonusBps) / 10000;
+            if (bonus > 0) {
+                balanceOf[msg.sender] += bonus;
+                totalPrincipal += bonus;
+            }
+        }
+
         emit Deposited(msg.sender, _amount);
 
-        // Transfer from user and deposit to vault
+        // Transfer and deposit via adapter
         require(IERC20(ASSET).transferFrom(msg.sender, address(this), _amount), "Transfer failed");
-        
-        IERC20(ASSET).approve(VAULT, _amount);
-        uint256 shares = IERC4626Vault(VAULT).deposit(_amount, address(this));
-        vaultShares += shares;
+        require(IERC20(ASSET).approve(address(LENDING_ADAPTER), _amount), "Approval failed");
+        uint256 sharesOut = LENDING_ADAPTER.deposit(_amount);
+        vaultShares += sharesOut;
         totalLiquidity += _amount;
     }
 
@@ -185,8 +206,8 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
 
         emit Withdrawn(msg.sender, _amount);
 
-        // Withdraw from vault to user
-        uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(_amount, msg.sender, address(this));
+        // Withdraw via adapter to user
+        uint256 sharesBurned = LENDING_ADAPTER.withdraw(_amount, msg.sender);
         vaultShares = sharesBurned > vaultShares ? 0 : vaultShares - sharesBurned;
     }
 
@@ -209,6 +230,11 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
         poolLiquidity += amount;
         totalLiquidity += amount;
 
+        // Award LP lottery tickets
+        uint256 bonusTickets = (amount * lpLotteryMultiplier) / 100;
+        lpTickets[provider] += bonusTickets;
+        emit LotteryTicketsAwarded(provider, bonusTickets, "LP_BONUS");
+
         // Award bonus if user is also a depositor
         if (balanceOf[provider] > 0) {
             uint256 bonus = (amount * lpBonusBps) / 10000;
@@ -218,12 +244,18 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
             }
         }
 
+        // CRITICAL: USDC was already transferred by hook, now deposit to Morpho vault
+        require(IERC20(ASSET).approve(address(LENDING_ADAPTER), amount), "Approval failed");
+        uint256 sharesOut = LENDING_ADAPTER.deposit(amount);
+        vaultShares += sharesOut;
+
         emit LiquidityProviderAdded(provider, amount);
+        emit VaultRebalanced(amount, true); // Indicates deposit to vault
     }
 
     /**
      * @notice Handle liquidity removal from hook
-     * @param provider LP address  
+     * @param provider LP address
      * @param amount Liquidity amount
      */
     function handleLiquidityRemoved(address provider, uint256 amount) external onlyHook {
@@ -232,6 +264,12 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
         lpBalances[provider] -= amount;
         poolLiquidity = poolLiquidity > amount ? poolLiquidity - amount : 0;
         totalLiquidity = totalLiquidity > amount ? totalLiquidity - amount : 0;
+
+        // Reduce LP lottery tickets proportionally
+        if (lpBalances[provider] + amount > 0) {
+            uint256 ticketReduction = (lpTickets[provider] * amount) / (lpBalances[provider] + amount);
+            lpTickets[provider] = lpTickets[provider] > ticketReduction ? lpTickets[provider] - ticketReduction : 0;
+        }
 
         if (lpBalances[provider] == 0) {
             _removeLiquidityProvider(provider);
@@ -247,35 +285,59 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
      */
     function requestLiquidity(uint256 amount) external onlyHook returns (uint256 available) {
         uint256 needed = amount > poolLiquidity ? amount - poolLiquidity : 0;
-        
+
         if (needed > 0) {
-            // Withdraw from vault to increase pool liquidity
-            uint256 maxWithdraw = IERC4626Vault(VAULT).maxWithdraw(address(this));
-            uint256 toWithdraw = needed < maxWithdraw ? needed : maxWithdraw;
-            
+            // Calculate how much we can withdraw from adapter
+            uint256 totalAdapterAssets = vaultShares > 0 ? LENDING_ADAPTER.convertToAssets(vaultShares) : 0;
+            // Allow withdrawing up to total adapter assets for liquidity requests
+            uint256 maxWithdrawable = totalAdapterAssets;
+            uint256 toWithdraw = needed < maxWithdrawable ? needed : maxWithdrawable;
+
             if (toWithdraw > 0) {
-                uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(toWithdraw, address(this), address(this));
+                uint256 sharesBurned = LENDING_ADAPTER.withdraw(toWithdraw, address(this));
                 vaultShares = sharesBurned > vaultShares ? 0 : vaultShares - sharesBurned;
                 poolLiquidity += toWithdraw;
-                
+
+                // Transfer USDC back to hook for pool operations
+                require(IERC20(ASSET).transfer(msg.sender, toWithdraw), "Transfer to hook failed");
+
                 emit VaultRebalanced(toWithdraw, false);
             }
         }
 
         available = poolLiquidity > amount ? amount : poolLiquidity;
         poolLiquidity = poolLiquidity > available ? poolLiquidity - available : 0;
-        
+
         emit LiquidityRequested(amount, available);
         return available;
     }
 
     /**
-     * @notice Deposit swap fees from hook
+     * @notice Deposit swap fees with optional swapper bonus
+     * @param amount Fee amount
+     * @param swapper Address of the swapper (for bonus tickets)
+     */
+    function depositSwapFeesWithBonus(uint256 amount, address swapper) external onlyHook {
+        accumulatedSwapFees += amount;
+
+        // Award bonus lottery tickets to swapper
+        if (swapper != address(0)) {
+            uint256 bonusTickets = (amount * swapperBonusBps) / 10000;
+            lpTickets[swapper] += bonusTickets;
+            emit LotteryTicketsAwarded(swapper, bonusTickets, "SWAPPER_BONUS");
+        }
+
+        emit SwapFeesReceived(amount, swapper);
+    }
+
+    /**
+     * @notice Deposit swap fees (backward compatibility)
      * @param amount Fee amount
      */
     function depositSwapFees(uint256 amount) external onlyHook {
+        // Call internal implementation directly instead of external call
         accumulatedSwapFees += amount;
-        emit SwapFeesReceived(amount);
+        emit SwapFeesReceived(amount, address(0));
     }
 
     /**
@@ -292,29 +354,32 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @notice Award prize to random depositor
+     * @notice Award prize using enhanced lottery system
      */
     function awardPrize() external nonReentrant whenNotPaused {
         require(block.timestamp >= nextRoundTimestamp, "Round not finished");
-        require(depositors.length > 0, "No depositors");
+        require(depositors.length > 0 || liquidityProviders.length > 0, "No participants");
 
         uint256 prize = prizePool();
         require(prize > 0, "No prize to award");
 
-        // Pseudo-random selection (use Chainlink VRF in production)
-        uint256 idx = uint256(
-            keccak256(abi.encodePacked(block.prevrandao, block.timestamp, depositors.length))
-        ) % depositors.length;
-        address winner = depositors[idx];
+        // Enhanced lottery with LP tickets
+        uint256 totalTickets = _calculateTotalLotteryTickets();
+        require(totalTickets > 0, "No lottery tickets");
 
-        // Award prize
+        uint256 winningTicket =
+            randomnessProvider.randomUint256(bytes32(abi.encodePacked(block.timestamp, totalTickets))) % totalTickets;
+
+        address winner = _findWinnerByTicket(winningTicket);
+
+        // Award prize to winner's balance
         balanceOf[winner] += prize;
         totalPrincipal += prize;
 
         lastWinner = winner;
         lastPrizeAmount = prize;
         nextRoundTimestamp = block.timestamp + roundDuration;
-        accumulatedSwapFees = 0; // Reset fees
+        accumulatedSwapFees = 0;
 
         emit PrizeAwarded(winner, prize, _getCurrentRound());
     }
@@ -338,9 +403,9 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
             uint256 excess = poolLiquidity - targetPool;
             poolLiquidity -= excess;
 
-            // Deposit excess to vault
-            IERC20(ASSET).approve(VAULT, excess);
-            uint256 shares = IERC4626Vault(VAULT).deposit(excess, address(this));
+            // Deposit excess via adapter
+            IERC20(ASSET).approve(address(LENDING_ADAPTER), excess);
+            uint256 shares = LENDING_ADAPTER.deposit(excess);
             vaultShares += shares;
 
             emit VaultRebalanced(excess, true);
@@ -377,6 +442,48 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
 
         liquidityProviders.pop();
         delete lpIndex[provider];
+        delete lpTickets[provider];
+    }
+
+    /**
+     * @dev Calculate total lottery tickets across all participants
+     */
+    function _calculateTotalLotteryTickets() internal view returns (uint256 total) {
+        // Depositors get 1 ticket per deposited token
+        total += totalPrincipal;
+
+        // LPs get bonus tickets
+        for (uint256 i = 0; i < liquidityProviders.length; i++) {
+            total += lpTickets[liquidityProviders[i]];
+        }
+
+        return total;
+    }
+
+    /**
+     * @dev Find winner by ticket number
+     */
+    function _findWinnerByTicket(uint256 winningTicket) internal view returns (address winner) {
+        uint256 currentTicket = 0;
+
+        // Check depositors first
+        for (uint256 i = 0; i < depositors.length; i++) {
+            currentTicket += balanceOf[depositors[i]];
+            if (winningTicket < currentTicket) {
+                return depositors[i];
+            }
+        }
+
+        // Check LPs
+        for (uint256 i = 0; i < liquidityProviders.length; i++) {
+            currentTicket += lpTickets[liquidityProviders[i]];
+            if (winningTicket < currentTicket) {
+                return liquidityProviders[i];
+            }
+        }
+
+        // Fallback
+        return depositors.length > 0 ? depositors[0] : liquidityProviders[0];
     }
 
     /**
@@ -394,8 +501,8 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
      * @notice Get total assets (vault + pool)
      */
     function totalAssets() public view returns (uint256) {
-        uint256 vaultAssets = vaultShares > 0 ? IERC4626Vault(VAULT).convertToAssets(vaultShares) : 0;
-        return vaultAssets + IERC20(ASSET).balanceOf(address(this));
+        uint256 adapterAssets = vaultShares > 0 ? LENDING_ADAPTER.convertToAssets(vaultShares) : 0;
+        return adapterAssets + IERC20(ASSET).balanceOf(address(this));
     }
 
     /**
@@ -435,6 +542,23 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
         return block.timestamp >= nextRoundTimestamp ? 0 : nextRoundTimestamp - block.timestamp;
     }
 
+    /**
+     * @notice Get lottery tickets for an address
+     */
+    function getLotteryTickets(address user) external view returns (uint256 depositorTickets, uint256 lpTicketsCount) {
+        depositorTickets = balanceOf[user];
+        lpTicketsCount = lpTickets[user];
+    }
+
+    /**
+     * @notice Get total lottery tickets in system
+     */
+    function getTotalLotteryTickets() external view returns (uint256) {
+        return _calculateTotalLotteryTickets();
+    }
+
+    // Backward compatibility - VAULT variable provides this functionality
+
     //-//////////////////////////////////////////////////////////
     //                      ADMIN FUNCTIONS
     //-//////////////////////////////////////////////////////////
@@ -456,11 +580,44 @@ contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
     }
 
     /**
+     * @notice Set randomness provider
+     */
+    function setRandomnessProvider(address _provider) external onlyOwner {
+        require(_provider != address(0), "Invalid provider");
+        randomnessProvider = IRandomnessProvider(_provider);
+        emit RandomnessProviderUpdated(_provider);
+    }
+
+    /**
      * @notice Set LP bonus percentage
      */
     function setLpBonusBps(uint256 _bps) external onlyOwner {
         require(_bps <= 2000, "Bonus too high"); // Max 20%
         lpBonusBps = _bps;
+    }
+
+    /**
+     * @notice Set LP lottery multiplier
+     */
+    function setLpLotteryMultiplier(uint256 _multiplier) external onlyOwner {
+        require(_multiplier <= 1000, "Multiplier too high"); // Max 10x
+        lpLotteryMultiplier = _multiplier;
+    }
+
+    /**
+     * @notice Set swapper bonus
+     */
+    function setSwapperBonusBps(uint256 _bps) external onlyOwner {
+        require(_bps <= 1000, "Bonus too high"); // Max 10%
+        swapperBonusBps = _bps;
+    }
+
+    /**
+     * @notice Set round duration
+     */
+    function setRoundDuration(uint256 _roundDuration) external onlyOwner {
+        require(_roundDuration > 0, "Duration must be > 0");
+        roundDuration = _roundDuration;
     }
 
     /**

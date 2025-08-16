@@ -9,7 +9,8 @@ import {BeforeSwapDelta} from "v4-core/src/types/BeforeSwapDelta.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId, PoolIdLibrary} from "v4-core/src/types/PoolId.sol";
 import {SwapParams, ModifyLiquidityParams} from "v4-core/src/types/PoolOperation.sol";
-import {Currency} from "v4-core/src/types/Currency.sol";
+import {Currency, CurrencyLibrary} from "v4-core/src/types/Currency.sol";
+import {CurrencySettler} from "@openzeppelin/uniswap-hooks/src/utils/CurrencySettler.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 
 interface IPumpkinSpiceLatte {
@@ -17,6 +18,7 @@ interface IPumpkinSpiceLatte {
     function handleLiquidityRemoved(address provider, uint256 amount) external;
     function requestLiquidity(uint256 amount) external returns (uint256 available);
     function depositSwapFees(uint256 amount) external;
+    function depositSwapFeesWithBonus(uint256 amount, address swapper) external;
     function rebalanceExcess(uint256 amount) external;
     function isProvider(address provider) external view returns (bool);
     function ASSET() external view returns (address);
@@ -28,14 +30,17 @@ interface IPumpkinSpiceLatte {
  *      This hook focuses only on V4 integration while delegating all business logic
  *      to the dedicated PLSA contract.
  *
- * Responsibilities:
+ * Enhanced Responsibilities:
  * - Capture V4 hook events (add/remove liquidity, swaps)
  * - Forward relevant data to PLSA contract
  * - Request liquidity from PLSA when needed for swaps
- * - Simple fee capture and forwarding
+ * - Capture swap fees and award swapper bonus lottery tickets
+ * - Coordinate LP bonuses and lottery participation
+ * - Support multi-participant lottery (depositors + LPs + swappers)
  */
 contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
     using PoolIdLibrary for PoolKey;
+    using CurrencyLibrary for Currency;
 
     //-//////////////////////////////////////////////////////////
     //                           STATE
@@ -48,7 +53,7 @@ contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
     Currency public immutable PRIMARY_CURRENCY;
 
     /// @dev Fee percentage captured for PLSA (basis points)
-    uint256 public constant FEE_CAPTURE_BPS = 2000; // 20% of swap fees
+    uint256 public constant FEE_CAPTURE_BPS = 100; // 0.1% of swap fees
 
     /// @dev Mapping from pool to accumulated fees
     mapping(PoolId => uint256) public poolFees;
@@ -61,8 +66,9 @@ contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
     //-//////////////////////////////////////////////////////////
 
     event LiquidityHandled(address indexed provider, uint256 amount, bool isAdd);
-    event SwapFeesCaptured(PoolId indexed poolId, uint256 amount);
+    event SwapFeesCaptured(PoolId indexed poolId, uint256 amount, address indexed swapper);
     event LiquidityRequested(uint256 requested, uint256 available);
+    event LiquidityPrepared(address indexed provider, uint256 estimatedAmount);
     event EmergencyPaused(bool paused);
 
     //-//////////////////////////////////////////////////////////
@@ -94,16 +100,16 @@ contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
             beforeInitialize: false,
             afterInitialize: false,
             beforeAddLiquidity: false,
-            afterAddLiquidity: true,
-            beforeRemoveLiquidity: false,
-            afterRemoveLiquidity: true,
+            afterAddLiquidity: true, // TRUE
+            beforeRemoveLiquidity: true, // TRUE - Need to withdraw from Morpho before LP removal
+            afterRemoveLiquidity: true, // TRUE
             beforeSwap: true,
-            afterSwap: true,
+            afterSwap: true, // TRUE
             beforeDonate: false,
             afterDonate: false,
             beforeSwapReturnDelta: false,
             afterSwapReturnDelta: false,
-            afterAddLiquidityReturnDelta: false,
+            afterAddLiquidityReturnDelta: true, // TRUE - Take custody of LP USDC for Morpho
             afterRemoveLiquidityReturnDelta: false
         });
     }
@@ -113,26 +119,64 @@ contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @dev Hook called after adding liquidity - notify PLSA contract
+     * @dev Hook called after adding liquidity - take USDC and forward to PLSA for Morpho deposit
      */
     function _afterAddLiquidity(
         address sender,
-        PoolKey calldata, /* key */
+        PoolKey calldata key,
         ModifyLiquidityParams calldata, /* params */
         BalanceDelta delta0,
         BalanceDelta delta1,
         bytes calldata /* hookData */
     ) internal override whenNotPaused returns (bytes4, BalanceDelta) {
-        // Calculate liquidity value (simplified for primary currency)
+        // Calculate liquidity value (focus on USDC - our primary currency)
         uint256 liquidityValue = _calculateLiquidityValue(delta0, delta1);
 
         if (liquidityValue > 0) {
-            // Notify PLSA contract about new liquidity
-            PLSA_CONTRACT.handleLiquidityAdded(sender, liquidityValue);
-            emit LiquidityHandled(sender, liquidityValue, true);
+            // Extract USDC amount from the deltas
+            uint256 usdcAmount = _extractUSDCAmount(key, delta0, delta1);
+
+            if (usdcAmount > 0) {
+                // Take custody of USDC from the pool
+                CurrencySettler.take(PRIMARY_CURRENCY, poolManager, address(PLSA_CONTRACT), usdcAmount, false);
+
+                // Notify PLSA contract - now it has actual USDC to deposit to Morpho
+                PLSA_CONTRACT.handleLiquidityAdded(sender, usdcAmount);
+                emit LiquidityHandled(sender, usdcAmount, true);
+
+                // Return delta to indicate we took custody of USDC
+                int128 hookDelta = key.currency0 == PRIMARY_CURRENCY ? int128(int256(usdcAmount)) : int128(0);
+                return (BaseHook.afterAddLiquidity.selector, BalanceDelta.wrap(hookDelta));
+            }
         }
 
         return (BaseHook.afterAddLiquidity.selector, BalanceDelta.wrap(0));
+    }
+
+    /**
+     * @dev Hook called before removing liquidity - ensure liquidity is available from Morpho
+     */
+    function _beforeRemoveLiquidity(
+        address sender,
+        PoolKey calldata, /* key */
+        ModifyLiquidityParams calldata, /* params */
+        bytes calldata /* hookData */
+    ) internal override whenNotPaused returns (bytes4) {
+        // Calculate liquidity value that will be removed
+        // Note: For beforeRemoveLiquidity, we need to estimate the liquidity value
+        // This is a simplified calculation - in production you might want more precision
+        uint256 estimatedLiquidityValue = _estimateRemovalValue(sender);
+
+        if (estimatedLiquidityValue > 0) {
+            // Request liquidity from PLSA to ensure it's available for removal
+            uint256 available = PLSA_CONTRACT.requestLiquidity(estimatedLiquidityValue);
+            emit LiquidityRequested(estimatedLiquidityValue, available);
+
+            // Log that we're preparing for liquidity removal
+            emit LiquidityPrepared(sender, estimatedLiquidityValue);
+        }
+
+        return BaseHook.beforeRemoveLiquidity.selector;
     }
 
     /**
@@ -183,7 +227,7 @@ contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
      * @dev Hook called after swaps - capture fees and rebalance
      */
     function _afterSwap(
-        address, /* sender */
+        address sender,
         PoolKey calldata key,
         SwapParams calldata params,
         BalanceDelta delta,
@@ -196,9 +240,9 @@ contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
         if (fees > 0) {
             poolFees[poolId] += fees;
 
-            // Forward fees to PLSA contract
-            PLSA_CONTRACT.depositSwapFees(fees);
-            emit SwapFeesCaptured(poolId, fees);
+            // Forward fees to PLSA contract with swapper bonus
+            PLSA_CONTRACT.depositSwapFeesWithBonus(fees, sender);
+            emit SwapFeesCaptured(poolId, fees, sender);
         }
 
         // Calculate any excess liquidity that can be rebalanced
@@ -262,6 +306,22 @@ contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
     }
 
     /**
+     * @dev Estimate liquidity value for removal before the actual removal happens
+     */
+    function _estimateRemovalValue(address provider) internal view returns (uint256) {
+        // Check if provider is tracked by PLSA
+        bool isProvider = PLSA_CONTRACT.isProvider(provider);
+        if (!isProvider) {
+            return 0;
+        }
+
+        // For now, return a conservative estimate
+        // In production, you might want to query the pool manager for more precise values
+        // This is a simplified approach that assumes some reasonable liquidity amount
+        return 1000 * 10 ** 6; // 1000 USDC as default estimate
+    }
+
+    /**
      * @dev Calculate excess liquidity that can be rebalanced
      */
     function _calculateExcessLiquidity(SwapParams calldata params) internal pure returns (uint256) {
@@ -271,6 +331,28 @@ contract PumpkinSpiceLatteV4Hook is BaseHook, Ownable {
             params.amountSpecified > 0 ? uint256(params.amountSpecified) : uint256(-params.amountSpecified);
 
         return swapAmount / 10; // 10% excess assumption
+    }
+
+    /**
+     * @dev Extract USDC amount from balance deltas
+     */
+    function _extractUSDCAmount(PoolKey calldata key, BalanceDelta delta0, BalanceDelta delta1)
+        internal
+        view
+        returns (uint256)
+    {
+        // Determine which currency is USDC
+        if (key.currency0 == PRIMARY_CURRENCY) {
+            // USDC is currency0, extract from delta0
+            int128 amount = delta0.amount0();
+            return amount < 0 ? uint256(uint128(-amount)) : 0; // Negative means tokens going to pool
+        } else if (key.currency1 == PRIMARY_CURRENCY) {
+            // USDC is currency1, extract from delta1
+            int128 amount = delta1.amount1();
+            return amount < 0 ? uint256(uint128(-amount)) : 0; // Negative means tokens going to pool
+        }
+
+        return 0; // USDC not found in this pool
     }
 
     //-//////////////////////////////////////////////////////////
