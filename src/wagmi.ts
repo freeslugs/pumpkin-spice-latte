@@ -14,6 +14,11 @@ export const config = WC_ID
       chains: [mainnet, polygon, optimism, arbitrum, base, sepolia],
       transports: {
         [mainnet.id]: http(TENDERLY_HTTP),
+        [polygon.id]: http(polygon.rpcUrls.default.http[0]),
+        [optimism.id]: http(optimism.rpcUrls.default.http[0]),
+        [arbitrum.id]: http(arbitrum.rpcUrls.default.http[0]),
+        [base.id]: http(base.rpcUrls.default.http[0]),
+        [sepolia.id]: http(sepolia.rpcUrls.default.http[0]),
       },
       ssr: false,
     })
@@ -22,6 +27,11 @@ export const config = WC_ID
       connectors: [injected({ shimDisconnect: true })],
       transports: {
         [mainnet.id]: http(TENDERLY_HTTP),
+        [polygon.id]: http(polygon.rpcUrls.default.http[0]),
+        [optimism.id]: http(optimism.rpcUrls.default.http[0]),
+        [arbitrum.id]: http(arbitrum.rpcUrls.default.http[0]),
+        [base.id]: http(base.rpcUrls.default.http[0]),
+        [sepolia.id]: http(sepolia.rpcUrls.default.http[0]),
       },
       ssr: false,
     });

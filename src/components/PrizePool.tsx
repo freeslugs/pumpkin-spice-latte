@@ -28,15 +28,17 @@ const PrizePool = () => {
 
   // Check if we're on a supported network
   const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
-  const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
+  const targetChainId = isSupportedNetwork ? chain!.id : 1;
+  const contractAddress = CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ?? pumpkinSpiceLatteAddress;
 
   const { data: prizePoolData, isError: prizePoolError, isLoading: prizePoolLoading } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'prizePool',
+    chainId: targetChainId,
     query: {
       refetchInterval: 1000,
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
@@ -44,9 +46,10 @@ const PrizePool = () => {
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'totalAssets',
+    chainId: targetChainId,
     query: {
       refetchInterval: 5000,
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
@@ -54,9 +57,10 @@ const PrizePool = () => {
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'totalPrincipal',
+    chainId: targetChainId,
     query: {
       refetchInterval: 5000,
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
@@ -64,9 +68,10 @@ const PrizePool = () => {
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'nextRoundTimestamp',
+    chainId: targetChainId,
     query: {
       refetchInterval: 1000, // Refetch every second for the countdown
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
@@ -74,14 +79,13 @@ const PrizePool = () => {
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'lastWinner',
+    chainId: targetChainId,
     query: {
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
   const getPrizePoolDisplay = () => {
-    if (!isConnected) return "Connect wallet to view";
-    if (!isSupportedNetwork) return "Switch to a supported network";
     if (prizePoolError) return "Error loading data";
     if (prizePoolLoading) return "Loading...";
     if (prizePoolData === undefined) return "No data";
@@ -89,8 +93,6 @@ const PrizePool = () => {
   };
 
   const getTimeRemainingDisplay = () => {
-    if (!isConnected) return 'Connect wallet to view';
-    if (!isSupportedNetwork) return 'Switch to a supported network';
     if (timestampError) return 'Error loading data';
     if (timestampLoading) return 'Loading...';
     if (nextRoundTimestampData === undefined) return 'No data';
@@ -98,8 +100,6 @@ const PrizePool = () => {
   };
 
   const getLastWinnerDisplay = () => {
-    if (!isConnected) return 'Connect wallet to view';
-    if (!isSupportedNetwork) return 'Switch to a supported network';
     if (winnerError) return 'Error loading data';
     if (winnerLoading) return 'Loading...';
     if (lastWinnerData === undefined) return 'No data';
@@ -114,7 +114,7 @@ const PrizePool = () => {
   const totalAssets = totalAssetsData ? `${formatUnits(totalAssetsData as bigint, 6)} USDC` : '-';
   const totalPrincipal = totalPrincipalData ? `${formatUnits(totalPrincipalData as bigint, 6)} USDC` : '-';
 
-  const chainId = chain?.id ?? 1;
+  const chainId = targetChainId;
   const lastWinnerLink = typeof lastWinnerData === 'string' && lastWinnerData !== '0x0000000000000000000000000000000000000000'
     ? getAddressExplorerUrl(chainId, lastWinnerData)
     : undefined;
