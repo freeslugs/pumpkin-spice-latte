@@ -3,30 +3,31 @@ pragma solidity ^0.8.20;
 
 import {Script, console} from "forge-std/Script.sol";
 import {PumpkinSpiceLatte} from "../src/PumpkinSpiceLatte.sol";
+import {Morpho4626Adapter} from "../src/adapters/Morpho4626Adapter.sol";
+import {PseudoRandomAdapter} from "../src/adapters/PseudoRandomAdapter.sol";
 
 contract DeployPumpkinSpiceLatte is Script {
-    function run() external {
-        // Sepolia Configuration
-        // Underlying asset: USDC on Sepolia
-        address usdcAddress = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-        // address usdcAddress = 0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8;
-        // Morpho Blue Vault on Sepolia (USDC-based)
-        // address vaultAddress = 0x1Ae025197a765bD2263d6eb89B76d82e05286543; //sepolia 
-        address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // ethereum
-        uint256 roundDuration = 300; // 5 minutes
+	function run() external {
+		// Config
+		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // ERC4626-compatible vault
+		uint256 roundDuration = 300; // 5 minutes
 
-        uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-        vm.startBroadcast(deployerPrivateKey);
+		uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
+		vm.startBroadcast(deployerPrivateKey);
 
-        PumpkinSpiceLatte psl = new PumpkinSpiceLatte(
-            usdcAddress,
-            vaultAddress,
-            roundDuration
-        );
+		Morpho4626Adapter adapter = new Morpho4626Adapter(vaultAddress);
+		PseudoRandomAdapter rng = new PseudoRandomAdapter();
 
-        vm.stopBroadcast();
+		PumpkinSpiceLatte psl = new PumpkinSpiceLatte(
+			address(adapter),
+			address(rng),
+			roundDuration
+		);
 
-        address contractAddress = address(psl);
-        console.log("PumpkinSpiceLatte contract deployed to:", contractAddress);
-    }
+		vm.stopBroadcast();
+
+		console.log("PumpkinSpiceLatte deployed:", address(psl));
+		console.log("Adapter:", address(adapter));
+		console.log("RNG:", address(rng));
+	}
 }
