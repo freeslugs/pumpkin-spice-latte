@@ -166,13 +166,9 @@ contract PumpkinSpiceLatte {
         ) % depositors.length;
         address winner = depositors[idx];
 
-        // Withdraw prize amount from the vault directly to the winner
-        uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(prize, winner, address(this));
-        if (sharesBurned > vaultShares) {
-            vaultShares = 0;
-        } else {
-            vaultShares -= sharesBurned;
-        }
+        // Credit the winner's principal balance with the prize, keeping assets in the vault
+        balanceOf[winner] += prize;
+        totalPrincipal += prize;
 
         lastWinner = winner;
         lastPrizeAmount = prize;

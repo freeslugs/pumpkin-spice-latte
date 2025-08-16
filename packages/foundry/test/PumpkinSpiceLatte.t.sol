@@ -224,7 +224,10 @@ contract PumpkinSpiceLatteTest is Test {
         
         assertTrue(winner == user1 || winner == user2, "Winner should be user1 or user2");
         assertApproxEqAbs(prizeAmount, 1 ether, 1, "Prize amount should be ~1 ether");
-        assertEq(weth.balanceOf(winner), 90 ether + prizeAmount, "Winner should receive the prize");
+        // With new accounting, no tokens are withdrawn to the winner. Their external balance remains unchanged.
+        assertEq(weth.balanceOf(winner), 90 ether, "Winner's external token balance should be unchanged");
+        // Winner's principal balance is credited with the prize
+        assertEq(psl.balanceOf(winner), 10 ether + prizeAmount, "Winner's principal should increase by prize");
         assertEq(psl.nextRoundTimestamp(), block.timestamp + ROUND_DURATION, "Next round timestamp should be reset");
         // Principal remains fully represented in totalAssets
         assertEq(psl.totalAssets(), psl.totalPrincipal(), "Principal should remain supplied after prize");
