@@ -115,7 +115,7 @@ You can easily deploy the frontend to a service like Vercel or Netlify.
 
 
 
-### Deploy to sepolia 
+### Deploy to Sepolia 
 
 ```
 source .env
@@ -132,6 +132,53 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
   --verify
 ```
 
+### Deploy to Tenderly Virtual Mainnet (Fork)
+
+You can deploy and test against your Tenderly Virtual Mainnet fork. The repository is already configured to default to the Tenderly RPC in `foundry.toml`.
+
+- **RPC (HTTP)**: `https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13`
+- **RPC (WSS)**: `wss://virtual.mainnet.us-east.rpc.tenderly.co/559a7b58-b67d-4103-af70-fbc60a502bb0`
+- **Explorer**: `https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions`
+
+1. Ensure your `.env` in `packages/foundry` has:
+
+    ```bash
+    # In packages/foundry/.env
+    PRIVATE_KEY=<YOUR_PRIVATE_KEY>
+    ETHERSCAN_API_KEY=<YOUR_ETHERSCAN_KEY>
+    ```
+
+2. Deploy using the Tenderly RPC (mainnet chain id 1):
+
+    ```bash
+    forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
+      --rpc-url https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13 \
+      --private-key $PRIVATE_KEY \
+      --broadcast
+    ```
+
+3. After deployment, copy the deployed address and update the frontend config:
+
+    - Edit `src/contracts/PumpkinSpiceLatte.ts` and set the mainnet entry under `CONTRACTS[1].pumpkinSpiceLatte` to your new address.
+    - The frontend is preconfigured to route mainnet traffic via Tenderly in `src/wagmi.ts`. You can override via env var `VITE_MAINNET_TENDERLY_RPC_HTTP` if needed.
+
+4. Optional: Verify on Etherscan is not applicable for Tenderly forks, but your transactions will appear in the Tenderly explorer above.
+
+5. Run the frontend against the fork:
+
+    ```bash
+    # Optional: set RPC via env override
+    export VITE_MAINNET_TENDERLY_RPC_HTTP=https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13
+    export VITE_WALLETCONNECT_PROJECT_ID=<YOUR_WC_ID>
+    npm run dev
+    ```
+
+Links:
+
+- Tenderly RPC (HTTP): https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13
+- Tenderly RPC (WSS): wss://virtual.mainnet.us-east.rpc.tenderly.co/559a7b58-b67d-4103-af70-fbc60a502bb0
+- Tenderly Explorer: https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions
+
 and if it forgets to verify 
 
 ```
@@ -141,4 +188,12 @@ forge verify-contract \
   --etherscan-api-key $ETHERSCAN_API_KEY \
   0x3Cb0F6582683204d013c1BaB52067ce351aa3beF \
   packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
+```
+
+```
+forge verify-contract 0x3Cb0F6582683204d013c1BaB52067ce351aa3beF \
+PumpkinSpiceLatte \
+--etherscan-api-key $TENDERLY_ACCESS_KEY \
+--verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13/verify/etherscan \
+--watch
 ```

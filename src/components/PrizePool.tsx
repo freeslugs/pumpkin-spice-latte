@@ -78,7 +78,7 @@ const PrizePool = () => {
 
   const getPrizePoolDisplay = () => {
     if (!isConnected) return "Connect wallet to view";
-    if (!isSupportedNetwork) return "Switch to Sepolia testnet";
+    if (!isSupportedNetwork) return "Switch to a supported network";
     if (prizePoolError) return "Error loading data";
     if (prizePoolLoading) return "Loading...";
     if (prizePoolData === undefined) return "No data";
@@ -87,7 +87,7 @@ const PrizePool = () => {
 
   const getTimeRemainingDisplay = () => {
     if (!isConnected) return 'Connect wallet to view';
-    if (!isSupportedNetwork) return 'Switch to Sepolia testnet';
+    if (!isSupportedNetwork) return 'Switch to a supported network';
     if (timestampError) return 'Error loading data';
     if (timestampLoading) return 'Loading...';
     if (nextRoundTimestampData === undefined) return 'No data';
@@ -96,7 +96,7 @@ const PrizePool = () => {
 
   const getLastWinnerDisplay = () => {
     if (!isConnected) return 'Connect wallet to view';
-    if (!isSupportedNetwork) return 'Switch to Sepolia testnet';
+    if (!isSupportedNetwork) return 'Switch to a supported network';
     if (winnerError) return 'Error loading data';
     if (winnerLoading) return 'Loading...';
     if (lastWinnerData === undefined) return 'No data';
@@ -122,7 +122,7 @@ const PrizePool = () => {
         {!isSupportedNetwork && isConnected && (
           <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-2 rounded">
             <AlertCircle className="h-4 w-4" />
-            Please switch to Sepolia testnet to interact with the contract
+            Please switch to a supported network to interact with the contract
           </div>
         )}
       </CardHeader>

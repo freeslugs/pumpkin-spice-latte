@@ -79,7 +79,7 @@ const Winners = () => {
 				<CardDescription>Recent winners and your lifetime winnings.</CardDescription>
 				{!isSupportedNetwork && isConnected && (
 					<div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-2 rounded">
-						<AlertCircle className="h-4 w-4" /> Please switch to Sepolia testnet
+						<AlertCircle className="h-4 w-4" /> Please switch to a supported network
 					</div>
 				)}
 			</CardHeader>

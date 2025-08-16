@@ -5,6 +5,7 @@ libs = ["node_modules", "lib", "packages/foundry/lib"]
 test = "packages/foundry/test"
 eth_rpc_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13" # Default to Tenderly Virtual Mainnet (HTTP)
 fork_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13" # Default tests to forked mainnet
+cbor_metadata = true
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
@@ -24,7 +25,8 @@ sepolia = 11155111
 
 # Etherscan API keys for contract verification
 [etherscan]
-mainnet = { key = "${ETHERSCAN_API_KEY}" }
+# mainnet = { key = "${ETHERSCAN_API_KEY}" }
+mainnet = { key = "${TENDERLY_ACCESS_KEY}", chain = 1, url = "${TENDERLY_VIRTUAL_TESTNET_RPC_URL}/verify/etherscan" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
 
 # Verification settings

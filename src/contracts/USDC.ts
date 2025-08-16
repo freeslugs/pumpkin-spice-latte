@@ -1,7 +1,7 @@
 import { CONTRACTS } from './PumpkinSpiceLatte';
 
-// Use the USDC address from the main contract configuration
-export const usdcAddress = CONTRACTS[11155111].usdc; // Sepolia testnet USDC
+// Use the USDC address from the main contract configuration; default to mainnet (Tenderly fork)
+export const usdcAddress = CONTRACTS[1].usdc ?? CONTRACTS[11155111].usdc;
 
 // Minimal ERC-20 ABI needed for approve/allowance/transferFrom/balanceOf/decimals
 export const usdcAbi = [
