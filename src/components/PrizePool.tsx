@@ -127,6 +127,12 @@ const PrizePool = () => {
   const totalAssets = totalAssetsData ? `${formatUnits(totalAssetsData as bigint, 6)} USDC` : '-';
   const totalPrincipal = totalPrincipalData ? `${formatUnits(totalPrincipalData as bigint, 6)} USDC` : '-';
 
+  const chainId = chain?.id ?? 11155111;
+  const explorerBase = chainId === 1 ? 'https://etherscan.io' : chainId === 11155111 ? 'https://sepolia.etherscan.io' : 'https://etherscan.io';
+  const lastWinnerLink = typeof lastWinnerData === 'string' && lastWinnerData !== '0x0000000000000000000000000000000000000000'
+    ? `${explorerBase}/address/${lastWinnerData}`
+    : undefined;
+
   return (
     <Card>
       <CardHeader>
@@ -156,7 +162,13 @@ const PrizePool = () => {
         <div>
           <Wallet className="h-8 w-8 mx-auto mb-2 text-green-500" />
           <p className="text-sm text-muted-foreground">Last Winner</p>
-          <p className="text-2xl font-bold truncate">{lastWinner}</p>
+          {lastWinnerLink ? (
+            <a href={lastWinnerLink} target="_blank" rel="noreferrer" className="text-2xl font-bold truncate text-blue-600 hover:underline">
+              {lastWinner}
+            </a>
+          ) : (
+            <p className="text-2xl font-bold truncate">{lastWinner}</p>
+          )}
         </div>
         <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
           <div className="rounded border p-4 text-center">

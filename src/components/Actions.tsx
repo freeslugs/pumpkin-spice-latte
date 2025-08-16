@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useAccount, useReadContract, useWriteContract } from 'wagmi';
+import { useState, useMemo, useEffect } from 'react';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,13 +41,17 @@ const Actions = () => {
     },
   } as any);
 
+  const [approvalHash, setApprovalHash] = useState<`0x${string}` | undefined>(undefined);
+  const [depositHash, setDepositHash] = useState<`0x${string}` | undefined>(undefined);
+  const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | undefined>(undefined);
+
   const { writeContract: approve, isPending: isApproving } = useWriteContract({
-    onSuccess: () => {
+    onSuccess: (hash: `0x${string}`) => {
+      setApprovalHash(hash);
       toast({
-        title: 'Approval Successful',
-        description: 'You can now deposit your USDC.',
+        title: 'Approval submitted',
+        description: 'Waiting for on-chain confirmation...'
       });
-      refetchAllowance();
     },
     onError: (error) => {
       toast({
@@ -58,13 +62,30 @@ const Actions = () => {
     },
   });
 
+  const { isLoading: isConfirmingApproval, isSuccess: isApprovalConfirmed } = useWaitForTransactionReceipt({
+    hash: approvalHash,
+  });
+
+  useEffect(() => {
+    if (isApprovalConfirmed) {
+      refetchAllowance();
+      toast({ title: 'Approval Confirmed', description: 'You can now deposit your USDC.' });
+      setApprovalHash(undefined);
+      if (pendingDepositAmount && isAddress(contractAddress)) {
+        deposit({
+          address: contractAddress,
+          abi: pumpkinSpiceLatteAbi,
+          functionName: 'deposit',
+          args: [pendingDepositAmount],
+        });
+      }
+    }
+  }, [isApprovalConfirmed, refetchAllowance, toast, pendingDepositAmount, contractAddress, deposit]);
+
   const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
-    onSuccess: () => {
-      toast({
-        title: 'Deposit Successful',
-        description: 'Your USDC has been deposited.',
-      });
-      setDepositAmount('');
+    onSuccess: (hash: `0x${string}`) => {
+      setDepositHash(hash);
+      toast({ title: 'Deposit submitted', description: 'Waiting for on-chain confirmation...' });
     },
     onError: (error) => {
       toast({
@@ -75,11 +96,24 @@ const Actions = () => {
     },
   });
 
+  const { isLoading: isConfirmingDeposit, isSuccess: isDepositConfirmed } = useWaitForTransactionReceipt({
+    hash: depositHash,
+  });
+
+  useEffect(() => {
+    if (isDepositConfirmed) {
+      toast({ title: 'Deposit Successful', description: 'Your USDC has been deposited.' });
+      setDepositAmount('');
+      setDepositHash(undefined);
+      setPendingDepositAmount(undefined);
+    }
+  }, [isDepositConfirmed, toast]);
+
   const { writeContract: withdraw, isPending: isWithdrawing } = useWriteContract({
     onSuccess: () => {
       toast({
-        title: 'Withdrawal Successful',
-        description: 'Your USDC has been withdrawn.',
+        title: 'Withdrawal Submitted',
+        description: 'Waiting for on-chain confirmation...'
       });
       setWithdrawAmount('');
     },
@@ -107,6 +141,7 @@ const Actions = () => {
     if (!isAddress(contractAddress)) return;
 
     if (allowance < parsedDepositAmount) {
+      setPendingDepositAmount(parsedDepositAmount);
       approve({
         address: currentTokenAddress,
         abi: usdcAbi,
@@ -114,6 +149,7 @@ const Actions = () => {
         args: [contractAddress, parsedDepositAmount],
       });
     } else {
+      setPendingDepositAmount(undefined);
       deposit({
         address: contractAddress,
         abi: pumpkinSpiceLatteAbi,
@@ -135,6 +171,20 @@ const Actions = () => {
   };
 
   const needsApproval = isConnected && parsedDepositAmount > 0n && allowance < parsedDepositAmount;
+
+  const isPrimaryDisabled = !isConnected || !isSupportedNetwork || isApproving || isDepositing || isConfirmingApproval || isConfirmingDeposit || parsedDepositAmount === 0n;
+
+  const primaryLabel = isApproving
+    ? 'Approve in wallet...'
+    : isConfirmingApproval
+      ? 'Confirming approval...'
+      : isDepositing
+        ? 'Deposit in wallet...'
+        : isConfirmingDeposit
+          ? 'Confirming deposit...'
+          : needsApproval
+            ? 'Approve USDC'
+            : 'Deposit USDC';
 
   return (
     <Card>
@@ -168,12 +218,12 @@ const Actions = () => {
               <div className="text-xs text-muted-foreground text-center">Wallet balance: {formatUnits(walletBalance as bigint, 6)} USDC</div>
               <Button
                 className="w-full"
-                disabled={!isConnected || !isSupportedNetwork || isApproving || isDepositing || parsedDepositAmount === 0n}
+                disabled={isPrimaryDisabled}
                 onClick={handleDeposit}
               >
-                {isApproving ? 'Approving...' : isDepositing ? 'Depositing...' : needsApproval ? 'Approve USDC' : 'Deposit USDC'}
+                {primaryLabel}
               </Button>
-              <p className="text-xs text-muted-foreground text-center">You may be asked to approve USDC before depositing.</p>
+              <p className="text-xs text-muted-foreground text-center">{needsApproval ? 'You must approve USDC before depositing.' : 'Ready to deposit.'}</p>
             </div>
           </TabsContent>
           <TabsContent value="withdraw" className="pt-4">

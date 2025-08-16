@@ -4,7 +4,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { pumpkinSpiceLatteAbi, CONTRACTS, pumpkinSpiceLatteAddress } from '@/contracts/PumpkinSpiceLatte';
 import { ScrollArea } from '@/components/ui/scroll-area';
 import { formatUnits, parseAbiItem } from 'viem';
-import { Award, History, AlertCircle } from 'lucide-react';
+import { Award, History, AlertCircle, ExternalLink } from 'lucide-react';
 
 interface WinnerItem {
 	blockNumber: bigint;
@@ -70,6 +70,9 @@ const Winners = () => {
 		return winners.reduce((acc, w) => (w.winner.toLowerCase() === address.toLowerCase() ? acc + w.amount : acc), 0n);
 	}, [winners, address]);
 
+	const chainId = chain?.id ?? 11155111;
+	const explorerBase = chainId === 1 ? 'https://etherscan.io' : chainId === 11155111 ? 'https://sepolia.etherscan.io' : 'https://etherscan.io';
+
 	return (
 		<Card>
 			<CardHeader>
@@ -103,8 +106,31 @@ const Winners = () => {
 									{winners.map((w, idx) => (
 										<li key={`${w.txHash}-${idx}`} className="p-3 flex items-center justify-between gap-3">
 											<div className="min-w-0">
-												<p className="font-medium text-sm truncate">{w.winner.slice(0, 6)}...{w.winner.slice(-4)}</p>
-												<p className="text-xs text-muted-foreground">Block #{w.blockNumber.toString()}</p>
+												<a
+													href={`${explorerBase}/address/${w.winner}`}
+													target="_blank"
+													rel="noreferrer"
+													className="font-medium text-sm truncate text-blue-600 hover:underline"
+												>
+													{w.winner.slice(0, 6)}...{w.winner.slice(-4)}
+												</a>
+												<p className="text-xs text-muted-foreground flex items-center gap-1">
+													Block #{w.blockNumber.toString()}
+													{w.txHash && (
+														<>
+															<span className="mx-1">·</span>
+															<a
+																href={`${explorerBase}/tx/${w.txHash}`}
+																target="_blank"
+																rel="noreferrer"
+																className="inline-flex items-center gap-1 hover:underline"
+															>
+															<span>tx</span>
+															<ExternalLink className="h-3 w-3" />
+															</a>
+														</>
+													)}
+												</p>
 											</div>
 											<div className="shrink-0 font-semibold">{formatUnits(w.amount, 6)} USDC</div>
 										</li>
