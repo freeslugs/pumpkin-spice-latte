@@ -33,8 +33,23 @@ const PrizePool = () => {
     abi: pumpkinSpiceLatteAbi,
     functionName: 'prizePool',
     query: {
-      refetchInterval: 10000, // Refetch every 10 seconds
+      refetchInterval: 1000, // Refetch every 10 seconds
       enabled: isConnected && !!isSupportedNetwork,
+      onSuccess: (data) => {
+        try {
+          const formatted = typeof data !== 'undefined' ? `${formatUnits(data as bigint, 6)} USDC` : 'undefined';
+          // Log both formatted and raw data for debugging/visibility
+          // eslint-disable-next-line no-console
+          console.log('[PSL] Current Prize (refetched):', { formatted, raw: data });
+        } catch (e) {
+          // eslint-disable-next-line no-console
+          console.log('[PSL] Failed to format Current Prize for logging:', e);
+        }
+      },
+      onError: (error) => {
+        // eslint-disable-next-line no-console
+        console.error('[PSL] Error fetching Current Prize:', error);
+      },
     },
   });
 
