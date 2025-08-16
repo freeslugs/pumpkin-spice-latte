@@ -1,6 +1,6 @@
 import { getDefaultConfig } from '@rainbow-me/rainbowkit';
 import { createConfig, http } from 'wagmi';
-import { injected } from 'wagmi/connectors';
+import { injected, walletConnect, metaMask } from 'wagmi/connectors';
 import { mainnet, polygon, optimism, arbitrum, base, sepolia } from 'wagmi/chains';
 
 const WC_ID = (import.meta as any).env?.VITE_WALLETCONNECT_PROJECT_ID as string | undefined;
@@ -24,7 +24,21 @@ export const config = WC_ID
     })
   : createConfig({
       chains: [mainnet, polygon, optimism, arbitrum, base, sepolia],
-      connectors: [injected({ shimDisconnect: true })],
+      connectors: [
+        injected({ shimDisconnect: true }),
+        metaMask({ shimDisconnect: true }),
+        // Add WalletConnect as fallback for mobile
+        walletConnect({
+          projectId: 'c4f79cc821944d9680842e34466bfbd9', // Public demo project ID
+          showQrModal: true,
+          metadata: {
+            name: 'Pumpkin Spice Latte',
+            description: 'Prize-linked savings with weekly lottery',
+            url: window.location.origin,
+            icons: ['https://rainbow.me/rainbow.svg'],
+          },
+        }),
+      ],
       transports: {
         [mainnet.id]: http(TENDERLY_HTTP, { batch: true, retryCount: 1 }),
         [polygon.id]: http(polygon.rpcUrls.default.http[0]),
