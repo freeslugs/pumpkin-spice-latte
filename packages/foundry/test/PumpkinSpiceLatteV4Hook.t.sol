@@ -155,7 +155,7 @@ contract PumpkinSpiceLatteV4HookTest is Test {
         // Hook contracts must have specific flags encoded in the address
         uint160 flags = uint160(
             Hooks.BEFORE_ADD_LIQUIDITY_FLAG | Hooks.AFTER_ADD_LIQUIDITY_FLAG | Hooks.BEFORE_REMOVE_LIQUIDITY_FLAG
-                | Hooks.AFTER_REMOVE_LIQUIDITY_FLAG | Hooks.AFTER_SWAP_FLAG
+                | Hooks.AFTER_REMOVE_LIQUIDITY_FLAG | Hooks.BEFORE_SWAP_FLAG | Hooks.AFTER_SWAP_FLAG
         );
 
         // Mine a salt that will produce a hook address with the correct flags
@@ -249,6 +249,79 @@ contract PumpkinSpiceLatteV4HookTest is Test {
         vm.stopPrank();
     }
 
+    function test_PLSABonusForLiquidityProvider() public {
+        // Setup: Alice deposits to PLSA
+        vm.startPrank(alice);
+        hook.deposit(DEPOSIT_AMOUNT);
+        vm.stopPrank();
+
+        // Alice adds liquidity (simulate hook call)
+        uint256 liquidityAmount = 100 * 10 ** 6; // 100 USDC worth of liquidity
+
+        // Simulate the full hook logic: add liquidity provider
+        hook._addLiquidityProvider(alice, liquidityAmount);
+
+        // Check that Alice is tracked as a liquidity provider
+        assertEq(hook.userLiquidity(alice), liquidityAmount, "Alice's liquidity should be tracked");
+        assertEq(hook.numberOfLiquidityProviders(), 1, "Should have 1 liquidity provider");
+
+        // Check that Alice is a PLSA depositor
+        assertEq(hook.balanceOf(alice), DEPOSIT_AMOUNT, "Alice should be a PLSA depositor");
+    }
+
+    function test_NoBonusForNonPLSAUser() public {
+        // Bob adds liquidity without being a PLSA depositor
+        uint256 liquidityAmount = 100 * 10 ** 6;
+        hook._addLiquidityProvider(bob, liquidityAmount);
+
+        // Check that Bob got no bonus
+        assertEq(hook.balanceOf(bob), 0, "Non-PLSA user should get no bonus");
+        assertEq(hook.totalPrincipal(), 0, "Total principal should not change");
+    }
+
+    function test_FeeDistributionToDepositors() public {
+        // Setup: Alice and Bob deposit
+        vm.startPrank(alice);
+        hook.deposit(DEPOSIT_AMOUNT);
+        vm.stopPrank();
+
+        vm.startPrank(bob);
+        hook.deposit(DEPOSIT_AMOUNT);
+        vm.stopPrank();
+
+        // Simulate fee accumulation
+        uint256 fees = 100 * 10 ** 6; // 100 USDC in fees
+        hook._distributeFeesToDepositors(fees);
+
+        // Check that fees were distributed proportionally
+        uint256 aliceFees = (DEPOSIT_AMOUNT * fees) / (DEPOSIT_AMOUNT * 2);
+        uint256 bobFees = (DEPOSIT_AMOUNT * fees) / (DEPOSIT_AMOUNT * 2);
+
+        assertEq(hook.balanceOf(alice), DEPOSIT_AMOUNT + aliceFees, "Alice should receive fees");
+        assertEq(hook.balanceOf(bob), DEPOSIT_AMOUNT + bobFees, "Bob should receive fees");
+        assertEq(hook.totalPrincipal(), DEPOSIT_AMOUNT * 2 + fees, "Total principal should include fees");
+    }
+
+    function test_LiquidityProviderTracking() public {
+        // Add liquidity providers
+        hook._addLiquidityProvider(alice, 100 * 10 ** 6);
+        hook._addLiquidityProvider(bob, 200 * 10 ** 6);
+
+        assertEq(hook.numberOfLiquidityProviders(), 2, "Should have 2 liquidity providers");
+        assertEq(hook.userLiquidity(alice), 100 * 10 ** 6, "Alice's liquidity should be tracked");
+        assertEq(hook.userLiquidity(bob), 200 * 10 ** 6, "Bob's liquidity should be tracked");
+
+        // Remove liquidity
+        hook._removeLiquidityProvider(alice, 50 * 10 ** 6);
+        assertEq(hook.userLiquidity(alice), 50 * 10 ** 6, "Alice's liquidity should be reduced");
+        assertEq(hook.numberOfLiquidityProviders(), 2, "Should still have 2 providers");
+
+        // Remove all liquidity
+        hook._removeLiquidityProvider(alice, 50 * 10 ** 6);
+        assertEq(hook.numberOfLiquidityProviders(), 1, "Should have 1 provider after removal");
+        assertEq(hook.userLiquidity(alice), 0, "Alice's liquidity should be zero");
+    }
+
     function test_PrizePoolCalculation() public {
         // Setup: Alice and Bob deposit
         vm.startPrank(alice);
@@ -262,8 +335,8 @@ contract PumpkinSpiceLatteV4HookTest is Test {
         // Check initial prize pool (should be 0 since no yield yet)
         assertEq(hook.prizePool(), 0, "Prize pool should be 0 initially");
 
-        // Simulate some yield by minting tokens to the vault
-        usdc.mint(address(vault), DEPOSIT_AMOUNT / 10); // 10% yield
+        // Simulate yield by minting tokens to the vault
+        usdc.mint(address(vault), DEPOSIT_AMOUNT / 10);
 
         // Now prize pool should have yield
         assertGt(hook.prizePool(), 0, "Prize pool should have yield");

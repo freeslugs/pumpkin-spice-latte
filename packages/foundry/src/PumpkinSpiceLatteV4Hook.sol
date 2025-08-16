@@ -5,6 +5,7 @@ import {BaseHook} from "@openzeppelin/uniswap-hooks/src/base/BaseHook.sol";
 import {Hooks} from "v4-core/src/libraries/Hooks.sol";
 import {IPoolManager} from "v4-core/src/interfaces/IPoolManager.sol";
 import {BalanceDelta} from "v4-core/src/types/BalanceDelta.sol";
+import {BeforeSwapDelta} from "v4-core/src/types/BeforeSwapDelta.sol";
 import {PoolKey} from "v4-core/src/types/PoolKey.sol";
 import {PoolId} from "v4-core/src/types/PoolId.sol";
 import {SwapParams, ModifyLiquidityParams} from "v4-core/src/types/PoolOperation.sol";
@@ -109,9 +110,12 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
     event Withdrawn(address indexed user, uint256 amount);
     event PrizeAwarded(address indexed winner, uint256 amount);
     event FeesAccumulated(PoolId indexed poolId, uint256 fees);
+    event FeesDistributed(address indexed user, uint256 amount);
     event LiquidityProviderAdded(address indexed provider, uint256 liquidity);
     event LiquidityProviderRemoved(address indexed provider, uint256 liquidity);
-    event LiquidityProviderBonus(address indexed provider, uint256 bonus);
+    event PLSABonusAwarded(address indexed user, uint256 bonus);
+    event VaultRebalanced(uint256 deposited, uint256 withdrawn);
+    event PLSABonusEligible(address indexed user, string message);
 
     //-//////////////////////////////////////////////////////////
     //                        CONSTRUCTOR
@@ -146,7 +150,7 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
             afterAddLiquidity: true,
             beforeRemoveLiquidity: true,
             afterRemoveLiquidity: true,
-            beforeSwap: false,
+            beforeSwap: true,
             afterSwap: true,
             beforeDonate: false,
             afterDonate: false,
@@ -275,6 +279,96 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
         delete depositorIndex[_depositor];
     }
 
+    /**
+     * @dev Awards a bonus to a PLSA depositor.
+     */
+    function _awardPLSABonus(address user, uint256 bonus) public {
+        balanceOf[user] += bonus;
+        totalPrincipal += bonus;
+
+        // Deposit bonus tokens to vault on user's behalf
+        require(IERC20(ASSET).approve(VAULT, bonus), "Approval failed");
+        uint256 sharesOut = IERC4626Vault(VAULT).deposit(bonus, address(this));
+        vaultShares += sharesOut;
+
+        emit PLSABonusAwarded(user, bonus);
+    }
+
+    /**
+     * @dev Withdraws assets from the vault to the contract's balance.
+     */
+    function _withdrawFromVault(uint256 amount) public {
+        uint256 currentBalance = IERC20(ASSET).balanceOf(address(this));
+        if (amount > currentBalance) {
+            uint256 toWithdraw = amount - currentBalance;
+            uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(toWithdraw, address(this), address(this));
+            if (sharesBurned > vaultShares) {
+                vaultShares = 0;
+            } else {
+                vaultShares -= sharesBurned;
+            }
+        }
+    }
+
+    /**
+     * @dev Calculates the required liquidity for a swap operation.
+     *      This is a simplified calculation.
+     */
+    function _calculateRequiredLiquidity(SwapParams calldata params) public pure returns (uint256) {
+        // Simplified calculation: assume a fixed amount of liquidity needed per swap
+        // In a real scenario, this would depend on the pool's current liquidity and slippage
+        return params.amountSpecified > 0 ? uint256(params.amountSpecified) : 0;
+    }
+
+    /**
+     * @dev Calculates actual trading fees from a swap operation.
+     *      This is a simplified calculation.
+     */
+    function _calculateActualSwapFees(PoolId poolId, BalanceDelta delta) public view returns (uint256) {
+        // Simplified fee calculation - in practice, you'd need to track actual fees
+        // This is just a placeholder that returns a small amount based on the swap size
+        int128 amount0 = delta.amount0();
+        int128 amount1 = delta.amount1();
+        uint256 swapSize = _abs(amount0) + _abs(amount1);
+        return swapSize / 1000; // 0.1% fee approximation
+    }
+
+    /**
+     * @dev Distributes fees to all PLSA depositors.
+     */
+    function _distributeFeesToDepositors(uint256 fees) public {
+        uint256 totalDeposits = totalPrincipal;
+        if (totalDeposits == 0) return;
+
+        for (uint256 i = 0; i < depositors.length; i++) {
+            address depositor = depositors[i];
+            uint256 depositorFees = (balanceOf[depositor] * fees) / totalDeposits;
+            if (depositorFees > 0) {
+                // Add fees to user's PLSA balance
+                balanceOf[depositor] += depositorFees;
+                totalPrincipal += depositorFees;
+                emit FeesDistributed(depositor, depositorFees);
+            }
+        }
+    }
+
+    /**
+     * @dev Rebalances the vault's liquidity to ensure it can cover future swaps.
+     *      This is a simplified rebalancing.
+     */
+    function _rebalanceVaultLiquidity() public {
+        uint256 currentBalance = IERC20(ASSET).balanceOf(address(this));
+        uint256 targetBalance = 1000 * 10 ** 6; // 1000 USDC target balance for swaps
+
+        if (currentBalance > targetBalance) {
+            uint256 toDeposit = currentBalance - targetBalance;
+            require(IERC20(ASSET).approve(VAULT, toDeposit), "Approval failed");
+            uint256 sharesOut = IERC4626Vault(VAULT).deposit(toDeposit, address(this));
+            vaultShares += sharesOut;
+            emit VaultRebalanced(toDeposit, 0);
+        }
+    }
+
     //-//////////////////////////////////////////////////////////
     //                         VIEW FUNCTIONS
     //-//////////////////////////////////////////////////////////
@@ -329,7 +423,7 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
 
     /**
      * @dev Hook called before adding liquidity.
-     *      Validates the liquidity addition.
+     *      Validates the liquidity addition and checks PLSA bonus eligibility.
      */
     function _beforeAddLiquidity(
         address sender,
@@ -337,13 +431,21 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
         ModifyLiquidityParams calldata params,
         bytes calldata hookData
     ) internal override returns (bytes4) {
-        // No specific logic needed before adding liquidity
+        // Validate sender and parameters
+        require(sender != address(0), "Invalid sender");
+        require(params.liquidityDelta > 0, "Invalid liquidity delta");
+
+        // Check if user is a PLSA depositor for bonus eligibility
+        if (balanceOf[sender] > 0) {
+            emit PLSABonusEligible(sender, "Liquidity provider bonus available");
+        }
+
         return BaseHook.beforeAddLiquidity.selector;
     }
 
     /**
      * @dev Hook called after adding liquidity.
-     *      Updates tracking for the liquidity provider.
+     *      Updates tracking and awards PLSA bonuses to depositors.
      */
     function _afterAddLiquidity(
         address sender,
@@ -353,12 +455,21 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
         BalanceDelta delta1,
         bytes calldata hookData
     ) internal override returns (bytes4, BalanceDelta) {
-        // Calculate the liquidity value (simplified - using delta0 as proxy)
+        // Calculate the liquidity value from both assets
         int128 amount0 = delta0.amount0();
-        uint256 liquidityValue = _abs(amount0);
+        int128 amount1 = delta1.amount1();
+        uint256 liquidityValue = _abs(amount0) + _abs(amount1);
 
         if (liquidityValue > 0) {
             _addLiquidityProvider(sender, liquidityValue);
+
+            // PLSA Integration: Award bonus to PLSA depositors who provide liquidity
+            if (balanceOf[sender] > 0) {
+                uint256 bonus = (liquidityValue * liquidityProviderBonusBps) / 10000;
+                if (bonus > 0) {
+                    _awardPLSABonus(sender, bonus);
+                }
+            }
         }
 
         return (BaseHook.afterAddLiquidity.selector, BalanceDelta.wrap(0));
@@ -374,7 +485,11 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
         ModifyLiquidityParams calldata params,
         bytes calldata hookData
     ) internal override returns (bytes4) {
-        // No specific logic needed before removing liquidity
+        // Validate sender and parameters
+        require(sender != address(0), "Invalid sender");
+        require(params.liquidityDelta < 0, "Invalid liquidity delta for removal");
+        require(userLiquidity[sender] >= _abs(int128(params.liquidityDelta)), "Insufficient liquidity");
+
         return BaseHook.beforeRemoveLiquidity.selector;
     }
 
@@ -392,7 +507,8 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
     ) internal override returns (bytes4, BalanceDelta) {
         // Calculate the liquidity value being removed
         int128 amount0 = delta0.amount0();
-        uint256 liquidityValue = _abs(amount0);
+        int128 amount1 = delta1.amount1();
+        uint256 liquidityValue = _abs(amount0) + _abs(amount1);
 
         if (liquidityValue > 0) {
             _removeLiquidityProvider(sender, liquidityValue);
@@ -406,8 +522,30 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @dev Hook called after swaps to capture fees.
-     *      Accumulates fees for the current prize round.
+     * @dev Hook called before swaps to manage liquidity.
+     *      Ensures sufficient USDC balance for swap operations.
+     */
+    function _beforeSwap(address sender, PoolKey calldata key, SwapParams calldata params, bytes calldata hookData)
+        internal
+        override
+        returns (bytes4, BeforeSwapDelta, uint24)
+    {
+        // Calculate required liquidity for the swap
+        uint256 requiredLiquidity = _calculateRequiredLiquidity(params);
+        uint256 currentBalance = IERC20(ASSET).balanceOf(address(this));
+
+        // If we need more liquidity, withdraw from vault
+        if (requiredLiquidity > currentBalance) {
+            uint256 withdrawAmount = requiredLiquidity - currentBalance;
+            _withdrawFromVault(withdrawAmount);
+        }
+
+        return (BaseHook.beforeSwap.selector, BeforeSwapDelta.wrap(0), 0);
+    }
+
+    /**
+     * @dev Hook called after swaps to capture fees and distribute to PLSA depositors.
+     *      Accumulates fees for the current prize round and rebalances vault.
      */
     function _afterSwap(
         address sender,
@@ -418,15 +556,22 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
     ) internal override returns (bytes4, int128) {
         PoolId poolId = key.toId();
 
-        // Calculate fees from the swap
-        uint256 fees = _calculateSwapFees(poolId, delta);
+        // Calculate actual trading fees from the swap
+        uint256 fees = _calculateActualSwapFees(poolId, delta);
 
         if (fees > 0) {
+            // Distribute fees to PLSA depositors
+            _distributeFeesToDepositors(fees);
+
+            // Add remaining fees to prize pool
             poolFees[poolId] += fees;
             currentRoundFees += fees;
 
             emit FeesAccumulated(poolId, fees);
         }
+
+        // Rebalance vault liquidity
+        _rebalanceVaultLiquidity();
 
         return (BaseHook.afterSwap.selector, 0);
     }
@@ -438,7 +583,7 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
     /**
      * @dev Adds liquidity from a provider and adds them if they're new.
      */
-    function _addLiquidityProvider(address provider, uint256 liquidity) private {
+    function _addLiquidityProvider(address provider, uint256 liquidity) public {
         if (userLiquidity[provider] == 0) {
             liquidityProviders.push(provider);
             providerIndex[provider] = liquidityProviders.length - 1;
@@ -452,7 +597,7 @@ contract PumpkinSpiceLatteV4Hook is BaseHook {
     /**
      * @dev Removes liquidity from a provider and removes them if they have no liquidity left.
      */
-    function _removeLiquidityProvider(address provider, uint256 liquidity) private {
+    function _removeLiquidityProvider(address provider, uint256 liquidity) public {
         require(userLiquidity[provider] >= liquidity, "Insufficient liquidity");
 
         userLiquidity[provider] -= liquidity;
