@@ -22,17 +22,7 @@ const queryClient = new QueryClient({
 createRoot(document.getElementById('root')!).render(
   <QueryClientProvider client={queryClient}>
     <WagmiProvider config={config}>
-      <RainbowKitProvider
-        modalSize='compact'
-        showRecentTransactions={true}
-        walletList={[
-          'metamask',
-          'rainbow',
-          'walletconnect',
-          'coinbase',
-          'injected',
-        ]}
-      >
+      <RainbowKitProvider modalSize='compact' showRecentTransactions={true}>
         <App />
       </RainbowKitProvider>
     </WagmiProvider>
