@@ -8,8 +8,7 @@ contract DeployAndVerifyPumpkinSpiceLatte is Script {
     function run() external {
         // Sepolia Configuration
         address wethAddress = 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9;
-        address morphoAddress = 0xd011EE229E7459ba1ddd22631eF7bF528d424A14;
-        bytes32 marketId = 0x1Ae025197a765bD2263d6eb89B76d82e05286543; // this is a vault
+        address vaultAddress = 0x1Ae025197a765bD2263d6eb89B76d82e05286543; // ERC4626 vault
         uint256 roundDuration = 86400; // 1 day
 
         console.log(" Starting PumpkinSpiceLatte deployment and verification...");
@@ -20,8 +19,7 @@ contract DeployAndVerifyPumpkinSpiceLatte is Script {
 
         PumpkinSpiceLatte psl = new PumpkinSpiceLatte(
             wethAddress,
-            morphoAddress,
-            marketId,
+            vaultAddress,
             roundDuration
         );
 
@@ -33,16 +31,14 @@ contract DeployAndVerifyPumpkinSpiceLatte is Script {
         // Get constructor arguments for verification
         bytes memory constructorArgs = abi.encode(
             wethAddress,
-            morphoAddress,
-            marketId,
+            vaultAddress,
             roundDuration
         );
         
         // console.log("");
         // console.log(" Contract Configuration:");
         // console.log("  WETH Address:", wethAddress);
-        // console.log("  Morpho Address:", morphoAddress);
-        // console.log("  Market ID:", vm.toString(marketId));
+        // console.log("  Vault Address:", vaultAddress);
         // console.log("  Round Duration:", roundDuration, "seconds (", roundDuration / 86400, "days)");
         // console.log("");
         // console.log(" Constructor Arguments (encoded):");
