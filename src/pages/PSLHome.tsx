@@ -1,6 +1,6 @@
-import PrizePool from '@/components/pumpkin-spice-latte/PrizePool';
-import Actions from '@/components/pumpkin-spice-latte/Actions';
-import UserStats from '@/components/pumpkin-spice-latte/UserStats';
+import PrizePool from '@/components/PrizePool';
+import Actions from '@/components/Actions';
+import UserStats from '@/components/UserStats';
 
 const PSLHome = () => {
   return (
