@@ -9,7 +9,7 @@ contract DeployPumpkinSpiceLatte is Script {
         // Sepolia Configuration
         address wethAddress = 0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9;
         address morphoAddress = 0xd011EE229E7459ba1ddd22631eF7bF528d424A14;
-        bytes32 marketId = 0x1Ae025197a765bD2263d6eb89B76d82e05286543;
+        bytes32 marketId = 0x1Ae025197a765bD2263d6eb89B76d82e05286543000000000000000000000000;
         uint256 roundDuration = 86400; // 1 day
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
@@ -25,6 +25,6 @@ contract DeployPumpkinSpiceLatte is Script {
         vm.stopBroadcast();
 
         address contractAddress = address(psl);
-        console.log(" PumpkinSpiceLatte contract deployed to:", contractAddress);
+        console.log("PumpkinSpiceLatte contract deployed to:", contractAddress);
     }
 }
