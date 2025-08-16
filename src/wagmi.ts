@@ -5,7 +5,7 @@ import { mainnet, polygon, optimism, arbitrum, base, sepolia } from 'wagmi/chain
 
 const WC_ID = (import.meta as any).env?.VITE_WALLETCONNECT_PROJECT_ID as string | undefined;
 const TENDERLY_HTTP = (import.meta as any).env?.VITE_MAINNET_TENDERLY_RPC_HTTP ??
-  'https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2';
+  'https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb';
 
 export const config = WC_ID
   ? getDefaultConfig({
@@ -13,7 +13,7 @@ export const config = WC_ID
       projectId: WC_ID,
       chains: [mainnet, polygon, optimism, arbitrum, base, sepolia],
       transports: {
-        [mainnet.id]: http(TENDERLY_HTTP),
+        [mainnet.id]: http(TENDERLY_HTTP, { batch: true, retryCount: 1 }),
         [polygon.id]: http(polygon.rpcUrls.default.http[0]),
         [optimism.id]: http(optimism.rpcUrls.default.http[0]),
         [arbitrum.id]: http(arbitrum.rpcUrls.default.http[0]),
@@ -26,7 +26,7 @@ export const config = WC_ID
       chains: [mainnet, polygon, optimism, arbitrum, base, sepolia],
       connectors: [injected({ shimDisconnect: true })],
       transports: {
-        [mainnet.id]: http(TENDERLY_HTTP),
+        [mainnet.id]: http(TENDERLY_HTTP, { batch: true, retryCount: 1 }),
         [polygon.id]: http(polygon.rpcUrls.default.http[0]),
         [optimism.id]: http(optimism.rpcUrls.default.http[0]),
         [arbitrum.id]: http(arbitrum.rpcUrls.default.http[0]),

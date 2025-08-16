@@ -4,9 +4,10 @@ export const CONTRACTS = {
     pumpkinSpiceLatte: '0x3cb0f6582683204d013c1bab52067ce351aa3bef',
     usdc: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8'
   },
-  1: { // Ethereum mainnet
-    // When using Tenderly Virtual Mainnet, set this to the fork's deployed address
-    pumpkinSpiceLatte: '0x3cb0f6582683204d013c1bab52067ce351aa3bef',
+  1: { // Ethereum mainnet (Tenderly VNet)
+    // Fresh deploy from your run: PSL
+    pumpkinSpiceLatte: '0x057992Ef2b383cFe6b0a2E4df54234B845ec9720',
+    // Use canonical mainnet USDC on the fork
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
   }
 } as const;
@@ -52,9 +53,17 @@ export const pumpkinSpiceLatteAbi = [
     name: 'RoundDurationUpdated',
     type: 'event'
   },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'newProvider', type: 'address' }
+    ],
+    name: 'RandomnessProviderUpdated',
+    type: 'event'
+  },
   // Read Functions
   { inputs: [], name: 'ASSET', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
-  { inputs: [], name: 'VAULT', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'vault', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ internalType: 'address', name: '', type: 'address' }], name: 'balanceOf', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], name: 'depositors', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'lastPrizeAmount', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
@@ -72,6 +81,7 @@ export const pumpkinSpiceLatteAbi = [
   { inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'withdraw', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: '_roundDuration', type: 'uint256' }], name: 'setRoundDuration', outputs: [], stateMutability: 'nonpayable', type: 'function' },
+  { inputs: [{ internalType: 'address', name: '_provider', type: 'address' }], name: 'setRandomnessProvider', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [], name: 'renounceOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'address', name: 'newOwner', type: 'address' }], name: 'transferOwnership', outputs: [], stateMutability: 'nonpayable', type: 'function' }
 ] as const;

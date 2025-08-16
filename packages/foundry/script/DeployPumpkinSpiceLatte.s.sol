@@ -3,52 +3,69 @@ pragma solidity ^0.8.20;
 
 import {Script, console} from "forge-std/Script.sol";
 import {PumpkinSpiceLatte} from "../src/PumpkinSpiceLatte.sol";
+import {Morpho4626Adapter} from "../src/adapters/Morpho4626Adapter.sol";
+import {PseudoRandomAdapter} from "../src/adapters/PseudoRandomAdapter.sol";
+ import {ChainlinkVRFAdapter} from "../src/adapters/ChainlinkVRFAdapter.sol";
 
 contract DeployPumpkinSpiceLatte is Script {
     function run() external {
-        // Sepolia Configuration
-        // Underlying asset: USDC on Sepolia
-        address usdcAddress = 0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48;
-        // address usdcAddress = 0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8;
-        // Morpho Blue Vault on Sepolia (USDC-based)
-        // address vaultAddress = 0x1Ae025197a765bD2263d6eb89B76d82e05286543; //sepolia 
-        address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // ethereum
+        // Config
+        address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
+        uint256 roundDuration = 300; // 5 minutes
 
-        // Chainlink VRF params (provide via env for network):
-        // VRF_COORDINATOR, VRF_KEY_HASH, VRF_SUBSCRIPTION_ID, VRF_CALLBACK_GAS_LIMIT, VRF_REQUEST_CONFIRMATIONS
-        address vrfCoordinator = vm.envAddress("VRF_COORDINATOR");
-        bytes32 vrfKeyHash = vm.envBytes32("VRF_KEY_HASH");
-        uint256 vrfSubId = vm.envUint("VRF_SUBSCRIPTION_ID");
-        uint32 vrfCallbackGasLimit = uint32(vm.envUint("VRF_CALLBACK_GAS_LIMIT"));
-        uint16 vrfRequestConfs = uint16(vm.envUint("VRF_REQUEST_CONFIRMATIONS"));
-
-        // Prize policy params (also from env):
-        // BASE_THRESHOLD, MAX_THRESHOLD, TIME_TO_MAX_THRESHOLD, DRAW_COOLDOWN
-        uint8 baseThreshold = uint8(vm.envUint("BASE_THRESHOLD"));
-        uint8 maxThreshold = uint8(vm.envUint("MAX_THRESHOLD"));
-        uint256 timeToMaxThreshold = vm.envUint("TIME_TO_MAX_THRESHOLD");
-        uint256 drawCooldown = vm.envUint("DRAW_COOLDOWN");
+        // RNG selection
+        bool useVRF = false;
+        // Set USE_VRF=true in env to use Chainlink VRF adapter
+        try vm.envBool("USE_VRF") returns (bool v) {
+            useVRF = v;
+        } catch {}
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
 
+        Morpho4626Adapter adapter = new Morpho4626Adapter(vaultAddress);
+
+        address rngAddress;
+        ChainlinkVRFAdapter vrfAdapter;
+        if (useVRF) {
+            address vrfCoordinator = vm.envAddress("VRF_COORDINATOR");
+            bytes32 vrfKeyHash = vm.envBytes32("VRF_KEY_HASH");
+            uint256 vrfSubId = vm.envUint("VRF_SUBSCRIPTION_ID");
+            uint32 vrfCallbackGasLimit = uint32(vm.envUint("VRF_CALLBACK_GAS_LIMIT"));
+            uint16 vrfRequestConfs = uint16(vm.envUint("VRF_REQUEST_CONFIRMATIONS"));
+            bool nativePayment = false;
+            try vm.envBool("VRF_NATIVE_PAYMENT") returns (bool np) {
+                nativePayment = np;
+            } catch {}
+
+            vrfAdapter = new ChainlinkVRFAdapter(
+                vrfCoordinator,
+                vrfKeyHash,
+                vrfSubId,
+                vrfCallbackGasLimit,
+                vrfRequestConfs,
+                nativePayment
+            );
+            rngAddress = address(vrfAdapter);
+        } else {
+            rngAddress = address(new PseudoRandomAdapter());
+        }
+
         PumpkinSpiceLatte psl = new PumpkinSpiceLatte(
-            usdcAddress,
-            vaultAddress,
-            vrfCoordinator,
-            vrfKeyHash,
-            vrfSubId,
-            vrfCallbackGasLimit,
-            vrfRequestConfs,
-            baseThreshold,
-            maxThreshold,
-            timeToMaxThreshold,
-            drawCooldown
+            address(adapter),
+            rngAddress,
+            roundDuration
         );
+
+        // Optionally kick off an initial VRF request so randomness is seeded
+        if (useVRF) {
+            vrfAdapter.requestRandomness();
+        }
 
         vm.stopBroadcast();
 
-        address contractAddress = address(psl);
-        console.log("PumpkinSpiceLatte contract deployed to:", contractAddress);
+        console.log("PumpkinSpiceLatte deployed:", address(psl));
+        console.log("Adapter:", address(adapter));
+        console.log("RNG:", rngAddress);
     }
 }

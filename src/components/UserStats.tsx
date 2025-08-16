@@ -37,7 +37,7 @@ const UserStats = () => {
         variant: 'destructive',
       });
     },
-  });
+  } as any);
 
   const { data: userBalanceData, isError: balanceError, isLoading: balanceLoading } = useReadContract({
     address: contractAddress,
@@ -46,7 +46,7 @@ const UserStats = () => {
     args: [address],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
-      refetchInterval: 5000, // Refetch every 5 seconds
+      refetchInterval: 30000,
     },
   });
 
@@ -56,7 +56,7 @@ const UserStats = () => {
     functionName: 'nextRoundTimestamp',
     query: {
       enabled: isConnected && !!isSupportedNetwork,
-      refetchInterval: 1000,
+      refetchInterval: 30000,
     },
   });
 
