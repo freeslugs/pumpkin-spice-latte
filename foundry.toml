@@ -3,19 +3,28 @@ src = "packages/foundry/src"
 out = "packages/foundry/out"
 libs = ["node_modules", "lib", "packages/foundry/lib"]
 test = "packages/foundry/test"
+eth_rpc_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13" # Default to Tenderly Virtual Mainnet (HTTP)
+fork_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13" # Default tests to forked mainnet
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
-# Sepolia network configuration
+# RPC endpoints
 [rpc_endpoints]
+# Tenderly Virtual Mainnet
+# Public Explorer: https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions
+mainnet_tenderly_http = "https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13"
+mainnet_tenderly_wss = "wss://virtual.mainnet.us-east.rpc.tenderly.co/559a7b58-b67d-4103-af70-fbc60a502bb0"
+
+# Sepolia (kept for reference)
 sepolia = "wss://ethereum-sepolia-rpc.publicnode.com"
 
-# Sepolia chain configuration
 [profile.chains]
+mainnet = 1
 sepolia = 11155111
 
 # Etherscan API keys for contract verification
 [etherscan]
+mainnet = { key = "${ETHERSCAN_API_KEY}" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
 
 # Verification settings
