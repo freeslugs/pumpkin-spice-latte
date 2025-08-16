@@ -35,6 +35,9 @@ jobs:
         id: build
 
       - name: Run Forge tests
+        env:
+          TENDERLY_VIRTUAL_TESTNET_RPC_URL: na
+          TENDERLY_ACCESS_KEY: na
         run: |
           forge test -vvv
         id: test
