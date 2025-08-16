@@ -5,19 +5,20 @@ import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/con
 import { formatUnits } from 'viem';
 
 // Helper function to format time remaining
-const formatTimeRemaining = (timestamp: bigint) => {
+  const formatTimeRemaining = (timestamp: bigint) => {
   const now = BigInt(Math.floor(Date.now() / 1000));
   const secondsRemaining = timestamp - now;
 
-  if (secondsRemaining <= 0) {
+  if (secondsRemaining <= 0n) {
     return 'Next round starting soon!';
   }
 
-  const days = secondsRemaining / BigInt(86400);
-  const hours = (secondsRemaining % BigInt(86400)) / BigInt(3600);
-  const minutes = (secondsRemaining % BigInt(3600)) / BigInt(60);
+  const days = secondsRemaining / 86400n;
+  const hours = (secondsRemaining % 86400n) / 3600n;
+  const minutes = (secondsRemaining % 3600n) / 60n;
+  const seconds = secondsRemaining % 60n;
 
-  return `${days}d ${hours}h ${minutes}m`;
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 };
 
 const PrizePool = () => {
@@ -32,7 +33,7 @@ const PrizePool = () => {
     abi: pumpkinSpiceLatteAbi,
     functionName: 'prizePool',
     query: {
-      refetchInterval: 5000, // Refetch every 5 seconds
+      refetchInterval: 10000, // Refetch every 10 seconds
       enabled: isConnected && !!isSupportedNetwork,
     },
   });

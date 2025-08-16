@@ -8,10 +8,11 @@ import { useToast } from '@/components/ui/use-toast';
 const formatTimeRemaining = (timestamp: bigint) => {
   const now = BigInt(Math.floor(Date.now() / 1000));
   const secondsRemaining = timestamp - now;
-  if (secondsRemaining <= 0) return 'Ready to draw';
+  if (secondsRemaining <= 0n) return 'Ready to draw';
   const hours = secondsRemaining / 3600n;
   const minutes = (secondsRemaining % 3600n) / 60n;
-  return `${hours}h ${minutes}m`;
+  const seconds = secondsRemaining % 60n;
+  return `${hours}h ${minutes}m ${seconds}s`;
 };
 
 const UserStats = () => {
