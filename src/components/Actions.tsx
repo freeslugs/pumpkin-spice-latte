@@ -66,6 +66,21 @@ const Actions = () => {
     hash: approvalHash,
   });
 
+  // Declare deposit hook BEFORE any effects that reference it
+  const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
+    onSuccess: (hash: `0x${string}`) => {
+      setDepositHash(hash);
+      toast({ title: 'Deposit submitted', description: 'Waiting for on-chain confirmation...' });
+    },
+    onError: (error) => {
+      toast({
+        title: 'Deposit Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
+  });
+
   useEffect(() => {
     if (isApprovalConfirmed) {
       refetchAllowance();
@@ -81,20 +96,6 @@ const Actions = () => {
       }
     }
   }, [isApprovalConfirmed, refetchAllowance, toast, pendingDepositAmount, contractAddress, deposit]);
-
-  const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
-    onSuccess: (hash: `0x${string}`) => {
-      setDepositHash(hash);
-      toast({ title: 'Deposit submitted', description: 'Waiting for on-chain confirmation...' });
-    },
-    onError: (error) => {
-      toast({
-        title: 'Deposit Failed',
-        description: error.message,
-        variant: 'destructive',
-      });
-    },
-  });
 
   const { isLoading: isConfirmingDeposit, isSuccess: isDepositConfirmed } = useWaitForTransactionReceipt({
     hash: depositHash,
