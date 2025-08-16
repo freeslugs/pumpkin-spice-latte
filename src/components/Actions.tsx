@@ -27,6 +27,7 @@ const Actions = () => {
     args: [address, contractAddress],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
+      refetchInterval: 5000,
     },
   });
 
@@ -213,6 +214,9 @@ const Actions = () => {
       autoDepositTriggeredRef.current = false;
       approvalToastShownRef.current = false;
 
+      // Ensure UI reflects the latest allowance immediately
+      refetchAllowance();
+
       // Best-effort revoke approval to 0 after successful deposit
       if (allowance > 0n && isAddress(currentTokenAddress) && isAddress(contractAddress)) {
         revoke({
@@ -223,7 +227,7 @@ const Actions = () => {
         });
       }
     }
-  }, [isDepositConfirmed, depositHash, depositStatus, toast, allowance, currentTokenAddress, contractAddress, revoke]);
+  }, [isDepositConfirmed, depositHash, depositStatus, toast, allowance, currentTokenAddress, contractAddress, revoke, refetchAllowance]);
 
   useEffect(() => {
     if (isRevokeConfirmed) {
@@ -314,7 +318,7 @@ const Actions = () => {
               ? 'Approve USDC'
               : 'Deposit USDC';
 
-  const step1Complete = !needsApproval || isApprovalConfirmed || allowance >= parsedDepositAmount;
+  const step1Complete = parsedDepositAmount > 0n && allowance >= parsedDepositAmount;
   const step2Complete = isDepositConfirmed;
   const progress = step1Complete && step2Complete ? 100 : step1Complete ? 50 : 0;
 
