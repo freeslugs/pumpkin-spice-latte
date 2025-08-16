@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect } from 'react';
+import { useState, useMemo, useEffect, useRef } from 'react';
 import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -44,6 +44,7 @@ const Actions = () => {
   const [approvalHash, setApprovalHash] = useState<`0x${string}` | undefined>(undefined);
   const [depositHash, setDepositHash] = useState<`0x${string}` | undefined>(undefined);
   const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | undefined>(undefined);
+  const autoDepositTriggeredRef = useRef(false);
 
   const { writeContract: approve, isPending: isApproving } = useWriteContract({
     onSuccess: (hash: `0x${string}`) => {
@@ -86,7 +87,9 @@ const Actions = () => {
       refetchAllowance();
       toast({ title: 'Approval Confirmed', description: 'You can now deposit your USDC.' });
       setApprovalHash(undefined);
-      if (pendingDepositAmount && isAddress(contractAddress)) {
+      // Auto-trigger deposit once after approval confirmation
+      if (!autoDepositTriggeredRef.current && pendingDepositAmount && isAddress(contractAddress)) {
+        autoDepositTriggeredRef.current = true;
         deposit({
           address: contractAddress,
           abi: pumpkinSpiceLatteAbi,
@@ -107,6 +110,7 @@ const Actions = () => {
       setDepositAmount('');
       setDepositHash(undefined);
       setPendingDepositAmount(undefined);
+      autoDepositTriggeredRef.current = false;
     }
   }, [isDepositConfirmed, toast]);
 
@@ -143,6 +147,7 @@ const Actions = () => {
 
     if (allowance < parsedDepositAmount) {
       setPendingDepositAmount(parsedDepositAmount);
+      autoDepositTriggeredRef.current = false;
       approve({
         address: currentTokenAddress,
         abi: usdcAbi,
@@ -187,6 +192,10 @@ const Actions = () => {
             ? 'Approve USDC'
             : 'Deposit USDC';
 
+  const step1Complete = !needsApproval || isApprovalConfirmed || allowance >= parsedDepositAmount;
+  const step2Complete = isDepositConfirmed;
+  const progress = step1Complete && step2Complete ? 100 : step1Complete ? 50 : 0;
+
   return (
     <Card>
       <CardHeader>
@@ -217,6 +226,30 @@ const Actions = () => {
                 onChange={(e) => setDepositAmount(e.target.value)}
               />
               <div className="text-xs text-muted-foreground text-center">Wallet balance: {formatUnits(walletBalance as bigint, 6)} USDC</div>
+
+              {/* Approval status */}
+              <div className="text-xs rounded border p-2 flex items-center justify-between">
+                <span>Current approval to PSL</span>
+                <span className="font-medium">{formatUnits(allowance, 6)} USDC</span>
+              </div>
+
+              {/* Stepper / Progress */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <div className={`flex items-center gap-2 ${step1Complete ? 'text-green-600' : (isApproving || isConfirmingApproval) ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: step1Complete ? '#16a34a' : (isApproving || isConfirmingApproval) ? '#d97706' : '#9ca3af' }} />
+                    <span>1. Approve</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${step2Complete ? 'text-green-600' : (isDepositing || isConfirmingDeposit) ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: step2Complete ? '#16a34a' : (isDepositing || isConfirmingDeposit) ? '#d97706' : '#9ca3af' }} />
+                    <span>2. Deposit</span>
+                  </div>
+                </div>
+                <div className="w-full h-2 bg-muted rounded overflow-hidden">
+                  <div className="h-full bg-orange-500 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+
               <Button
                 className="w-full"
                 disabled={isPrimaryDisabled}
