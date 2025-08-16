@@ -3,35 +3,17 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
-/**
- * @title IMorpho
- * @dev Interface for the Morpho Blue protocol.
- *      This is a minimal interface containing only the functions needed.
- */
-interface IMorpho {
-    function supply(
-        bytes32 marketId,
-        uint256 assets,
-        uint256 shares,
-        address onBehalf,
-        bytes calldata data
-    ) external returns (uint256 sharesOut, uint256 assetsOut);
-
-    function withdraw(
-        bytes32 marketId,
-        uint256 assets,
-        uint256 shares,
-        address to,
-        address owner
-    ) external returns (uint256 sharesOut, uint256 assetsOut);
-
-    function market(bytes32 marketId) external view returns (uint128 totalSupplyAssets, uint128 totalSupplyShares, uint128 totalBorrowAssets, uint128 totalBorrowShares, uint128 lastUpdate, uint128 fee);
+interface IERC4626Vault {
+    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
+    function convertToAssets(uint256 shares) external view returns (uint256 assets);
+    function asset() external view returns (address);
 }
 
 /**
  * @title PumpkinSpiceLatte
- * @dev A prize-linked savings account (PLSA) built on top of Morpho Blue.
- *      Users deposit a common asset, the contract supplies it to a Morpho Blue market
+ * @dev A prize-linked savings account (PLSA) built on top of a Morpho vault (ERC4626-style).
+ *      Users deposit a common asset, the contract deposits into the vault
  *      to generate yield, and the accumulated yield is awarded as a prize to a
  *      lucky depositor periodically.
  */
@@ -40,14 +22,11 @@ contract PumpkinSpiceLatte {
     //                           STATE
     //-//////////////////////////////////////////////////////////
 
-    /// @dev The underlying ERC20 asset being deposited and supplied to Morpho.
+    /// @dev The underlying ERC20 asset being deposited and supplied to the vault.
     address public immutable asset;
 
-    /// @dev The Morpho Blue protocol contract.
-    address public immutable morpho;
-
-    /// @dev The specific Morpho Blue market to supply assets to.
-    bytes32 public immutable marketId;
+    /// @dev The Morpho vault (ERC4626-style) contract address.
+    address public immutable vault;
 
     /// @dev The duration of each prize round in seconds.
     uint256 public roundDuration;
@@ -74,8 +53,8 @@ contract PumpkinSpiceLatte {
     /// @dev The amount of the last prize awarded.
     uint256 public lastPrizeAmount;
 
-    /// @dev The number of Morpho supply shares owned by this contract.
-    uint256 public suppliedShares;
+    /// @dev The number of vault shares owned by this contract.
+    uint256 public vaultShares;
 
     //-//////////////////////////////////////////////////////////
     //                          EVENTS
@@ -91,13 +70,12 @@ contract PumpkinSpiceLatte {
 
     constructor(
         address _asset,
-        address _morpho,
-        bytes32 _marketId,
+        address _vault,
         uint256 _roundDuration
     ) {
+        require(IERC4626Vault(_vault).asset() == _asset, "Vault asset mismatch");
         asset = _asset;
-        morpho = _morpho;
-        marketId = _marketId;
+        vault = _vault;
         roundDuration = _roundDuration;
         nextRoundTimestamp = block.timestamp + _roundDuration;
     }
@@ -127,16 +105,10 @@ contract PumpkinSpiceLatte {
         // Pull funds from user
         IERC20(asset).transferFrom(msg.sender, address(this), _amount);
 
-        // Approve and supply to Morpho on behalf of this contract
-        IERC20(asset).approve(morpho, _amount);
-        (uint256 sharesOut, ) = IMorpho(morpho).supply(
-            marketId,
-            _amount,
-            0,
-            address(this),
-            ""
-        );
-        suppliedShares += sharesOut;
+        // Approve and deposit into the vault on behalf of this contract
+        IERC20(asset).approve(vault, _amount);
+        uint256 sharesOut = IERC4626Vault(vault).deposit(_amount, address(this));
+        vaultShares += sharesOut;
     }
 
     /**
@@ -162,20 +134,12 @@ contract PumpkinSpiceLatte {
 
         emit Withdrawn(msg.sender, _amount);
 
-        // Withdraw from Morpho directly to the user
-        (uint256 sharesOut, ) = IMorpho(morpho).withdraw(
-            marketId,
-            _amount,
-            0,
-            msg.sender,
-            address(this)
-        );
-        // Update our supplied shares balance
-        if (sharesOut > suppliedShares) {
-            // Safety: should not happen with correct protocol behavior, but guard underflow
-            suppliedShares = 0;
+        // Withdraw from vault directly to the user
+        uint256 sharesBurned = IERC4626Vault(vault).withdraw(_amount, msg.sender, address(this));
+        if (sharesBurned > vaultShares) {
+            vaultShares = 0;
         } else {
-            suppliedShares -= sharesOut;
+            vaultShares -= sharesBurned;
         }
     }
 
@@ -202,18 +166,12 @@ contract PumpkinSpiceLatte {
         ) % depositors.length;
         address winner = depositors[idx];
 
-        // Withdraw prize amount from Morpho directly to the winner
-        (uint256 sharesOut, ) = IMorpho(morpho).withdraw(
-            marketId,
-            prize,
-            0,
-            winner,
-            address(this)
-        );
-        if (sharesOut > suppliedShares) {
-            suppliedShares = 0;
+        // Withdraw prize amount from the vault directly to the winner
+        uint256 sharesBurned = IERC4626Vault(vault).withdraw(prize, winner, address(this));
+        if (sharesBurned > vaultShares) {
+            vaultShares = 0;
         } else {
-            suppliedShares -= sharesOut;
+            vaultShares -= sharesBurned;
         }
 
         lastWinner = winner;
@@ -252,21 +210,12 @@ contract PumpkinSpiceLatte {
 
     /**
      * @notice Calculates the total value of assets held by this contract,
-     *         including principal and yield generated from Morpho.
+     *         including principal and yield generated via the vault.
      * @return The total asset balance.
      */
     function totalAssets() public view returns (uint256) {
-        if (suppliedShares == 0) return 0;
-        (
-            uint128 totalSupplyAssets,
-            uint128 totalSupplyShares,
-            ,
-            ,
-            ,
-            
-        ) = IMorpho(morpho).market(marketId);
-        if (totalSupplyShares == 0) return 0;
-        return (suppliedShares * uint256(totalSupplyAssets)) / uint256(totalSupplyShares);
+        if (vaultShares == 0) return 0;
+        return IERC4626Vault(vault).convertToAssets(vaultShares);
     }
 
     /**

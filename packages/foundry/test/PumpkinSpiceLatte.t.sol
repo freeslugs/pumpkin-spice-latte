@@ -23,14 +23,14 @@ contract MockERC20 is IERC20 {
         decimals = _decimals;
     }
 
-    	function _mint(address _to, uint256 _amount) internal {
-		balanceOf[_to] += _amount;
-		totalSupply += _amount;
-	}
+    function _mint(address _to, uint256 _amount) internal {
+        balanceOf[_to] += _amount;
+        totalSupply += _amount;
+    }
 
-	function mint(address to, uint256 amount) external {
-		_mint(to, amount);
-	}
+    function mint(address to, uint256 amount) external {
+        _mint(to, amount);
+    }
 
     function transfer(address _to, uint256 _amount) external returns (bool) {
         balanceOf[msg.sender] -= _amount;
@@ -51,49 +51,62 @@ contract MockERC20 is IERC20 {
     }
 }
 
-contract MockMorpho {
-    mapping(bytes32 => uint256) public suppliedAssets;
-    mapping(bytes32 => uint256) public suppliedShares;
-    IERC20 public asset;
-
-    constructor(address _asset) {
-        asset = IERC20(_asset);
-    }
-
-    function supply(bytes32 marketId, uint256 assets, uint256, address, bytes calldata) external returns (uint256 sharesOut, uint256) {
-        uint256 totalAssetsBefore = asset.balanceOf(address(this));
-        if (suppliedShares[marketId] == 0) {
-            sharesOut = assets;
-        } else {
-            // sharesOut = assets * totalShares / totalAssets
-            sharesOut = (assets * suppliedShares[marketId]) / (totalAssetsBefore == 0 ? 1 : totalAssetsBefore);
-        }
-        suppliedAssets[marketId] += assets;
-        suppliedShares[marketId] += sharesOut;
-        asset.transferFrom(msg.sender, address(this), assets);
-        return (sharesOut, assets);
-    }
-
-    function withdraw(bytes32 marketId, uint256 assets, uint256, address to, address) external returns (uint256 sharesOut, uint256) {
-        uint256 totalAssetsBefore = asset.balanceOf(address(this));
-        require(totalAssetsBefore > 0, "no assets");
-        // shares = assets * totalShares / totalAssets
-        sharesOut = (assets * suppliedShares[marketId]) / totalAssetsBefore;
-        suppliedAssets[marketId] -= assets;
-        suppliedShares[marketId] -= sharesOut;
-        asset.transfer(to, assets);
-        return (sharesOut, assets);
-    }
-
-    function market(bytes32 marketId) external view returns (uint128, uint128, uint128, uint128, uint128, uint128) {
-        return (
-            uint128(asset.balanceOf(address(this))),
-            uint128(suppliedShares[marketId]),
-            0, 0, 0, 0
-        );
-    }
+interface IERC4626VaultLike {
+    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
+    function convertToAssets(uint256 shares) external view returns (uint256 assets);
+    function asset() external view returns (address);
 }
 
+contract MockVault is IERC4626VaultLike {
+    IERC20 public immutable token;
+    uint256 public totalShares;
+
+    mapping(address => uint256) public shareOf;
+
+    constructor(address _asset) {
+        token = IERC20(_asset);
+    }
+
+    function asset() external view returns (address) {
+        return address(token);
+    }
+
+    function deposit(uint256 assets, address receiver) external returns (uint256 shares) {
+        uint256 assetsBefore = token.balanceOf(address(this));
+        uint256 sharesBefore = totalShares;
+        // Pull in assets first
+        token.transferFrom(msg.sender, address(this), assets);
+        uint256 assetsAfter = token.balanceOf(address(this));
+        uint256 received = assetsAfter - assetsBefore;
+
+        if (sharesBefore == 0) {
+            shares = received;
+        } else {
+            shares = assetsBefore == 0 ? received : (received * sharesBefore) / assetsBefore;
+        }
+
+        totalShares = sharesBefore + shares;
+        shareOf[receiver] += shares;
+    }
+
+    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares) {
+        uint256 assetsCurrent = token.balanceOf(address(this));
+        require(assetsCurrent > 0 && totalShares > 0, "no liquidity");
+        shares = (assets * totalShares) / assetsCurrent;
+        // Burn shares from owner
+        shareOf[owner] -= shares;
+        totalShares -= shares;
+        // Send assets to receiver
+        token.transfer(receiver, assets);
+    }
+
+    function convertToAssets(uint256 shares) external view returns (uint256 assets) {
+        uint256 assetsCurrent = token.balanceOf(address(this));
+        if (totalShares == 0) return 0;
+        return (shares * assetsCurrent) / totalShares;
+    }
+}
 
 //-//////////////////////////////////////////////////////////
 //                           TESTS
@@ -102,22 +115,21 @@ contract MockMorpho {
 contract PumpkinSpiceLatteTest is Test {
     PumpkinSpiceLatte public psl;
     MockERC20 public weth;
-    MockMorpho public morpho;
+    MockVault public vault;
 
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
-    bytes32 public marketId = keccak256("WETH/USDC Market");
     uint256 public constant ROUND_DURATION = 1 days;
 
     function setUp() public {
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
-        morpho = new MockMorpho(address(weth));
-        psl = new PumpkinSpiceLatte(address(weth), address(morpho), marketId, ROUND_DURATION);
+        vault = new MockVault(address(weth));
+        psl = new PumpkinSpiceLatte(address(weth), address(vault), ROUND_DURATION);
 
         // Mint some WETH for users
-        	weth.mint(user1, 100 ether);
-		weth.mint(user2, 100 ether);
+        weth.mint(user1, 100 ether);
+        weth.mint(user2, 100 ether);
     }
 
     function testDeposit() public {
@@ -129,7 +141,6 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(psl.balanceOf(user1), 10 ether, "User1 balance should be 10 ether");
         assertEq(psl.totalPrincipal(), 10 ether, "Total principal should be 10 ether");
         assertEq(psl.depositors(0), user1, "User1 should be in depositors array");
-        assertEq(morpho.suppliedAssets(marketId), 10 ether, "Assets should be supplied to Morpho");
         // totalAssets equals principal initially
         assertEq(psl.totalAssets(), 10 ether);
     }
@@ -147,7 +158,7 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(psl.balanceOf(user1), 7 ether, "User1 balance should be 7 ether");
         assertEq(psl.totalPrincipal(), 7 ether, "Total principal should be 7 ether");
         assertEq(weth.balanceOf(user1), 93 ether, "User1 WETH balance should be 93 ether");
-        assertEq(morpho.suppliedAssets(marketId), 7 ether, "Morpho assets should be reduced");
+        assertEq(psl.totalAssets(), 7 ether, "Vault assets should be reduced");
     }
 
     function testWithdrawFailsIfInsufficientBalance() public {
@@ -196,8 +207,8 @@ contract PumpkinSpiceLatteTest is Test {
         psl.deposit(10 ether);
         vm.stopPrank();
         
-        // Simulate yield from Morpho by minting assets to Morpho directly, raising exchange rate
-        	weth.mint(address(morpho), 1 ether);
+        // Simulate yield by donating assets directly to the vault (improves exchange rate)
+        weth.mint(address(vault), 1 ether);
         // Now totalAssets should be 21, principal is 20, prize is ~1
         assertEq(psl.totalAssets(), 21 ether);
         assertEq(psl.prizePool(), 1 ether);
@@ -215,7 +226,7 @@ contract PumpkinSpiceLatteTest is Test {
         assertApproxEqAbs(prizeAmount, 1 ether, 1, "Prize amount should be ~1 ether");
         assertEq(weth.balanceOf(winner), 90 ether + prizeAmount, "Winner should receive the prize");
         assertEq(psl.nextRoundTimestamp(), block.timestamp + ROUND_DURATION, "Next round timestamp should be reset");
-        		// Principal remains fully supplied (totalAssets equals totalPrincipal)
-		assertEq(psl.totalAssets(), psl.totalPrincipal(), "Principal should remain supplied after prize");
+        // Principal remains fully represented in totalAssets
+        assertEq(psl.totalAssets(), psl.totalPrincipal(), "Principal should remain supplied after prize");
     }
 }
