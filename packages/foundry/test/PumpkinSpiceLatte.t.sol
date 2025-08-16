@@ -259,7 +259,7 @@ contract PumpkinSpiceLatteTest is Test {
         // Now totalAssets should be 21, principal is 20, prize is ~1
         assertEq(psl.totalAssets(), 21 ether);
         assertEq(psl.prizePool(), 1 ether);
-        
+
         // Move time forward to end of round and set RNG
         vm.warp(block.timestamp + ROUND_DURATION + 1);
         rng.set(5);

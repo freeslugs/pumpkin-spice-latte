@@ -95,9 +95,7 @@ contract ChainlinkVRFAdapter is IRandomnessProvider, VRFConsumerBaseV2Plus {
             requestConfirmations: VRF_REQUEST_CONFIRMATIONS,
             callbackGasLimit: VRF_CALLBACK_GAS_LIMIT,
             numWords: 1,
-            extraArgs: VRFV2PlusClient._argsToBytes(
-                VRFV2PlusClient.ExtraArgsV1({nativePayment: VRF_NATIVE_PAYMENT})
-            )
+            extraArgs: VRFV2PlusClient._argsToBytes(VRFV2PlusClient.ExtraArgsV1({nativePayment: VRF_NATIVE_PAYMENT}))
         });
 
         requestId = s_vrfCoordinator.requestRandomWords(req);
@@ -112,5 +110,3 @@ contract ChainlinkVRFAdapter is IRandomnessProvider, VRFConsumerBaseV2Plus {
         emit RandomnessFulfilled(requestId, word);
     }
 }
-
-
