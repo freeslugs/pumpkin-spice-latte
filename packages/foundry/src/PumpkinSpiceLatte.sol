@@ -34,7 +34,7 @@ contract PumpkinSpiceLatte is Ownable {
 
     /// @dev The timestamp when the next prize round ends.
     uint256 public nextRoundTimestamp;
-    
+
     /// @dev The total principal amount deposited by all users. This should only
     //      increase on deposit and decrease on withdraw.
     uint256 public totalPrincipal;
@@ -70,11 +70,7 @@ contract PumpkinSpiceLatte is Ownable {
     //                        CONSTRUCTOR
     //-//////////////////////////////////////////////////////////
 
-    constructor(
-        address _asset,
-        address _vault,
-        uint256 _roundDuration
-    ) Ownable(msg.sender) {
+    constructor(address _asset, address _vault, uint256 _roundDuration) Ownable(msg.sender) {
         require(IERC4626Vault(_vault).asset() == _asset, "Vault asset mismatch");
         ASSET = _asset;
         VAULT = _vault;
@@ -162,9 +158,7 @@ contract PumpkinSpiceLatte is Ownable {
 
         // Pseudo-random selection (not secure; for testnet/demo)
         uint256 idx = uint256(
-            keccak256(
-                abi.encodePacked(block.prevrandao, block.timestamp, address(this), depositors.length)
-            )
+            keccak256(abi.encodePacked(block.prevrandao, block.timestamp, address(this), depositors.length))
         ) % depositors.length;
         address winner = depositors[idx];
 
