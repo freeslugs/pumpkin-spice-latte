@@ -2,59 +2,91 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
+import {ReentrancyGuard} from "@openzeppelin/contracts/utils/ReentrancyGuard.sol";
 
 interface IERC4626Vault {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
     function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
     function convertToAssets(uint256 shares) external view returns (uint256 assets);
     function asset() external view returns (address);
+    function maxWithdraw(address owner) external view returns (uint256);
 }
 
 /**
- * @title PumpkinSpiceLatte
- * @dev A prize-linked savings account (PLSA) built on top of a Morpho vault (ERC4626-style).
- *      Users deposit a common asset, the contract deposits into the vault
- *      to generate yield, and the accumulated yield is awarded as a prize to a
- *      lucky depositor periodically.
+ * @title PumpkinSpiceLatteEnhanced
+ * @dev Enhanced PLSA contract that works with Uniswap V4 hook for dynamic liquidity management.
+ *      Handles all business logic while the hook provides V4 integration.
+ * 
+ * Key Features:
+ * - User deposits and withdrawals
+ * - Morpho vault integration for yield
+ * - Dynamic liquidity management (pool vs vault)
+ * - Prize distribution system
+ * - Liquidity provider tracking and bonuses
+ * - Swap fee accumulation
  */
-contract PumpkinSpiceLatte {
+contract PumpkinSpiceLatteEnhanced is Ownable, ReentrancyGuard {
+
     //-//////////////////////////////////////////////////////////
     //                           STATE
     //-//////////////////////////////////////////////////////////
 
-    /// @dev The underlying ERC20 asset being deposited and supplied to the vault.
+    /// @dev The underlying ERC20 asset (USDC)
     address public immutable ASSET;
 
-    /// @dev The Morpho vault (ERC4626-style) contract address.
+    /// @dev The Morpho vault contract address
     address public immutable VAULT;
 
-    /// @dev The duration of each prize round in seconds.
+    /// @dev The V4 hook contract address
+    address public hookContract;
+
+    /// @dev Prize round duration in seconds
     uint256 public roundDuration;
 
-    /// @dev The timestamp when the next prize round ends.
+    /// @dev Timestamp when next prize round ends
     uint256 public nextRoundTimestamp;
     
-    /// @dev The total principal amount deposited by all users. This should only
-    //      increase on deposit and decrease on withdraw.
+    /// @dev Total principal deposited by users
     uint256 public totalPrincipal;
 
-    /// @dev Mapping from user address to their principal balance.
+    /// @dev User balances (principal + prizes won)
     mapping(address => uint256) public balanceOf;
 
-    /// @dev Array of all unique depositors, used for the prize draw.
+    /// @dev Array of depositors for prize draw
     address[] public depositors;
 
-    /// @dev Mapping to track the index of a depositor in the `depositors` array for O(1) removal.
+    /// @dev Depositor index mapping for O(1) removal
     mapping(address => uint256) private depositorIndex;
 
-    /// @dev The winner of the last prize round.
+    /// @dev Last prize winner
     address public lastWinner;
 
-    /// @dev The amount of the last prize awarded.
+    /// @dev Last prize amount
     uint256 public lastPrizeAmount;
 
-    /// @dev The number of vault shares owned by this contract.
+    /// @dev Vault shares owned by this contract
     uint256 public vaultShares;
+
+    /// @dev Liquidity provider tracking
+    mapping(address => uint256) public lpBalances;
+    address[] public liquidityProviders;
+    mapping(address => uint256) private lpIndex;
+
+    /// @dev Accumulated swap fees from hook
+    uint256 public accumulatedSwapFees;
+
+    /// @dev Pool liquidity management
+    uint256 public poolLiquidity; // Amount currently in pool
+    uint256 public totalLiquidity; // Total managed liquidity
+
+    /// @dev Configuration
+    uint256 public targetPoolBufferBps = 1000; // 10% target in pool
+    uint256 public minimumPoolBuffer = 10000 * 10**6; // 10k USDC minimum
+    uint256 public lpBonusBps = 500; // 5% bonus for LP depositors
+
+    /// @dev Emergency pause
+    bool public paused = false;
 
     //-//////////////////////////////////////////////////////////
     //                          EVENTS
@@ -62,7 +94,27 @@ contract PumpkinSpiceLatte {
 
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
-    event PrizeAwarded(address indexed winner, uint256 amount);
+    event PrizeAwarded(address indexed winner, uint256 amount, uint256 round);
+    event LiquidityProviderAdded(address indexed provider, uint256 amount);
+    event LiquidityProviderRemoved(address indexed provider, uint256 amount);
+    event SwapFeesReceived(uint256 amount);
+    event LiquidityRequested(uint256 requested, uint256 provided);
+    event VaultRebalanced(uint256 amount, bool toVault);
+    event HookContractUpdated(address indexed newHook);
+
+    //-//////////////////////////////////////////////////////////
+    //                        MODIFIERS
+    //-//////////////////////////////////////////////////////////
+
+    modifier onlyHook() {
+        require(msg.sender == hookContract, "Only hook contract");
+        _;
+    }
+
+    modifier whenNotPaused() {
+        require(!paused, "Contract is paused");
+        _;
+    }
 
     //-//////////////////////////////////////////////////////////
     //                        CONSTRUCTOR
@@ -72,8 +124,12 @@ contract PumpkinSpiceLatte {
         address _asset,
         address _vault,
         uint256 _roundDuration
-    ) {
+    ) Ownable(msg.sender) {
+        require(_asset != address(0), "Invalid asset");
+        require(_vault != address(0), "Invalid vault");
+        require(_roundDuration > 0, "Invalid round duration");
         require(IERC4626Vault(_vault).asset() == _asset, "Vault asset mismatch");
+        
         ASSET = _asset;
         VAULT = _vault;
         roundDuration = _roundDuration;
@@ -81,16 +137,15 @@ contract PumpkinSpiceLatte {
     }
 
     //-//////////////////////////////////////////////////////////
-    //                     USER-FACING FUNCTIONS
+    //                     USER FUNCTIONS
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @notice Deposits assets into the PLSA.
-     * @param _amount The amount of `asset` to deposit.
-     * @dev The caller must have approved the contract to spend `_amount` of `asset`.
+     * @notice Deposit assets into the PLSA
+     * @param _amount Amount to deposit
      */
-    function deposit(uint256 _amount) external {
-        require(_amount > 0, "Deposit amount must be greater than zero");
+    function deposit(uint256 _amount) external nonReentrant whenNotPaused {
+        require(_amount > 0, "Amount must be greater than zero");
 
         if (balanceOf[msg.sender] == 0) {
             depositors.push(msg.sender);
@@ -102,102 +157,233 @@ contract PumpkinSpiceLatte {
 
         emit Deposited(msg.sender, _amount);
 
-        // Pull funds from user
+        // Transfer from user and deposit to vault
         require(IERC20(ASSET).transferFrom(msg.sender, address(this), _amount), "Transfer failed");
-
-        // Approve and deposit into the vault on behalf of this contract
-        require(IERC20(ASSET).approve(VAULT, _amount), "Approval failed");
-        uint256 sharesOut = IERC4626Vault(VAULT).deposit(_amount, address(this));
-        vaultShares += sharesOut;
+        
+        IERC20(ASSET).approve(VAULT, _amount);
+        uint256 shares = IERC4626Vault(VAULT).deposit(_amount, address(this));
+        vaultShares += shares;
+        totalLiquidity += _amount;
     }
 
     /**
-     * @notice Withdraws principal from the PLSA.
-     * @param _amount The amount of `asset` to withdraw.
-     * @dev Users can only withdraw up to their deposited principal.
+     * @notice Withdraw principal from PLSA
+     * @param _amount Amount to withdraw
      */
-    function withdraw(uint256 _amount) external {
-        require(_amount > 0, "Withdraw amount must be greater than zero");
-        uint256 userBalance = balanceOf[msg.sender];
-        require(userBalance >= _amount, "Insufficient balance");
-
-        // Note: This check implicitly protects the prize pool. Users can only withdraw
-        // their principal, not the yield generated from it.
-        require(totalAssets() >= totalPrincipal, "Contract is undercollateralized");
+    function withdraw(uint256 _amount) external nonReentrant whenNotPaused {
+        require(_amount > 0, "Amount must be greater than zero");
+        require(balanceOf[msg.sender] >= _amount, "Insufficient balance");
+        require(totalAssets() >= totalPrincipal, "Contract undercollateralized");
 
         balanceOf[msg.sender] -= _amount;
         totalPrincipal -= _amount;
+        totalLiquidity -= _amount;
 
-        if (userBalance - _amount == 0) {
+        if (balanceOf[msg.sender] == 0) {
             _removeDepositor(msg.sender);
         }
 
         emit Withdrawn(msg.sender, _amount);
 
-        // Withdraw from vault directly to the user
+        // Withdraw from vault to user
         uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(_amount, msg.sender, address(this));
-        if (sharesBurned > vaultShares) {
-            vaultShares = 0;
-        } else {
-            vaultShares -= sharesBurned;
-        }
+        vaultShares = sharesBurned > vaultShares ? 0 : vaultShares - sharesBurned;
     }
 
     //-//////////////////////////////////////////////////////////
-    //                    PRIZE-RELATED FUNCTIONS
+    //                     HOOK INTERFACE
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @notice Calculates the total yield generated and awards it to a random depositor.
-     * @dev Can be called by anyone after the `nextRoundTimestamp` has passed.
+     * @notice Handle liquidity addition from hook
+     * @param provider LP address
+     * @param amount Liquidity amount
      */
-    function awardPrize() external {
+    function handleLiquidityAdded(address provider, uint256 amount) external onlyHook {
+        if (lpBalances[provider] == 0) {
+            liquidityProviders.push(provider);
+            lpIndex[provider] = liquidityProviders.length - 1;
+        }
+
+        lpBalances[provider] += amount;
+        poolLiquidity += amount;
+        totalLiquidity += amount;
+
+        // Award bonus if user is also a depositor
+        if (balanceOf[provider] > 0) {
+            uint256 bonus = (amount * lpBonusBps) / 10000;
+            if (bonus > 0) {
+                balanceOf[provider] += bonus;
+                totalPrincipal += bonus;
+            }
+        }
+
+        emit LiquidityProviderAdded(provider, amount);
+    }
+
+    /**
+     * @notice Handle liquidity removal from hook
+     * @param provider LP address  
+     * @param amount Liquidity amount
+     */
+    function handleLiquidityRemoved(address provider, uint256 amount) external onlyHook {
+        require(lpBalances[provider] >= amount, "Insufficient LP balance");
+
+        lpBalances[provider] -= amount;
+        poolLiquidity = poolLiquidity > amount ? poolLiquidity - amount : 0;
+        totalLiquidity = totalLiquidity > amount ? totalLiquidity - amount : 0;
+
+        if (lpBalances[provider] == 0) {
+            _removeLiquidityProvider(provider);
+        }
+
+        emit LiquidityProviderRemoved(provider, amount);
+    }
+
+    /**
+     * @notice Request liquidity for swap (called by hook)
+     * @param amount Requested liquidity amount
+     * @return available Amount of liquidity made available
+     */
+    function requestLiquidity(uint256 amount) external onlyHook returns (uint256 available) {
+        uint256 needed = amount > poolLiquidity ? amount - poolLiquidity : 0;
+        
+        if (needed > 0) {
+            // Withdraw from vault to increase pool liquidity
+            uint256 maxWithdraw = IERC4626Vault(VAULT).maxWithdraw(address(this));
+            uint256 toWithdraw = needed < maxWithdraw ? needed : maxWithdraw;
+            
+            if (toWithdraw > 0) {
+                uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(toWithdraw, address(this), address(this));
+                vaultShares = sharesBurned > vaultShares ? 0 : vaultShares - sharesBurned;
+                poolLiquidity += toWithdraw;
+                
+                emit VaultRebalanced(toWithdraw, false);
+            }
+        }
+
+        available = poolLiquidity > amount ? amount : poolLiquidity;
+        poolLiquidity = poolLiquidity > available ? poolLiquidity - available : 0;
+        
+        emit LiquidityRequested(amount, available);
+        return available;
+    }
+
+    /**
+     * @notice Deposit swap fees from hook
+     * @param amount Fee amount
+     */
+    function depositSwapFees(uint256 amount) external onlyHook {
+        accumulatedSwapFees += amount;
+        emit SwapFeesReceived(amount);
+    }
+
+    /**
+     * @notice Rebalance excess liquidity to vault
+     * @param amount Excess amount
+     */
+    function rebalanceExcess(uint256 amount) external onlyHook {
+        poolLiquidity += amount;
+        _rebalanceToVault();
+    }
+
+    //-//////////////////////////////////////////////////////////
+    //                     PRIZE FUNCTIONS
+    //-//////////////////////////////////////////////////////////
+
+    /**
+     * @notice Award prize to random depositor
+     */
+    function awardPrize() external nonReentrant whenNotPaused {
         require(block.timestamp >= nextRoundTimestamp, "Round not finished");
         require(depositors.length > 0, "No depositors");
 
         uint256 prize = prizePool();
         require(prize > 0, "No prize to award");
 
-        // Pseudo-random selection (not secure; for testnet/demo)
+        // Pseudo-random selection (use Chainlink VRF in production)
         uint256 idx = uint256(
-            keccak256(
-                abi.encodePacked(block.prevrandao, block.timestamp, address(this), depositors.length)
-            )
+            keccak256(abi.encodePacked(block.prevrandao, block.timestamp, depositors.length))
         ) % depositors.length;
         address winner = depositors[idx];
 
-        // Credit the winner's principal balance with the prize, keeping assets in the vault
+        // Award prize
         balanceOf[winner] += prize;
         totalPrincipal += prize;
 
         lastWinner = winner;
         lastPrizeAmount = prize;
         nextRoundTimestamp = block.timestamp + roundDuration;
+        accumulatedSwapFees = 0; // Reset fees
 
-        emit PrizeAwarded(winner, prize);
+        emit PrizeAwarded(winner, prize, _getCurrentRound());
     }
 
     //-//////////////////////////////////////////////////////////
-    //                  INTERNAL HELPER FUNCTIONS
+    //                  INTERNAL FUNCTIONS
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @dev Removes a depositor from the `depositors` array.
-     *      Uses the swap-and-pop technique for O(1) removal.
+     * @dev Rebalance excess pool liquidity to vault
+     */
+    function _rebalanceToVault() internal {
+        if (totalLiquidity == 0) return;
+
+        uint256 targetPool = (totalLiquidity * targetPoolBufferBps) / 10000;
+        if (targetPool < minimumPoolBuffer) {
+            targetPool = minimumPoolBuffer;
+        }
+
+        if (poolLiquidity > targetPool) {
+            uint256 excess = poolLiquidity - targetPool;
+            poolLiquidity -= excess;
+
+            // Deposit excess to vault
+            IERC20(ASSET).approve(VAULT, excess);
+            uint256 shares = IERC4626Vault(VAULT).deposit(excess, address(this));
+            vaultShares += shares;
+
+            emit VaultRebalanced(excess, true);
+        }
+    }
+
+    /**
+     * @dev Remove depositor from array
      */
     function _removeDepositor(address _depositor) private {
         uint256 index = depositorIndex[_depositor];
         address lastDepositor = depositors[depositors.length - 1];
 
-        // If the depositor to remove is not the last one, swap it
         if (index < depositors.length - 1) {
             depositors[index] = lastDepositor;
             depositorIndex[lastDepositor] = index;
         }
 
-        // Remove the last element
         depositors.pop();
         delete depositorIndex[_depositor];
+    }
+
+    /**
+     * @dev Remove liquidity provider from array
+     */
+    function _removeLiquidityProvider(address provider) private {
+        uint256 index = lpIndex[provider];
+        address lastProvider = liquidityProviders[liquidityProviders.length - 1];
+
+        if (index < liquidityProviders.length - 1) {
+            liquidityProviders[index] = lastProvider;
+            lpIndex[lastProvider] = index;
+        }
+
+        liquidityProviders.pop();
+        delete lpIndex[provider];
+    }
+
+    /**
+     * @dev Get current round number
+     */
+    function _getCurrentRound() private view returns (uint256) {
+        return (block.timestamp - (nextRoundTimestamp - roundDuration)) / roundDuration;
     }
 
     //-//////////////////////////////////////////////////////////
@@ -205,28 +391,90 @@ contract PumpkinSpiceLatte {
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @notice Calculates the total value of assets held by this contract,
-     *         including principal and yield generated via the vault.
-     * @return The total asset balance.
+     * @notice Get total assets (vault + pool)
      */
     function totalAssets() public view returns (uint256) {
-        if (vaultShares == 0) return 0;
-        return IERC4626Vault(VAULT).convertToAssets(vaultShares);
+        uint256 vaultAssets = vaultShares > 0 ? IERC4626Vault(VAULT).convertToAssets(vaultShares) : 0;
+        return vaultAssets + IERC20(ASSET).balanceOf(address(this));
     }
 
     /**
-     * @notice Calculates the current prize pool amount.
-     * @return The prize amount, which is the yield generated so far.
+     * @notice Get current prize pool
      */
     function prizePool() public view returns (uint256) {
         uint256 ta = totalAssets();
-        return ta > totalPrincipal ? (ta - totalPrincipal) : 0;
+        uint256 yield = ta > totalPrincipal ? ta - totalPrincipal : 0;
+        return yield + accumulatedSwapFees;
     }
 
     /**
-     * @notice Returns the number of unique depositors.
+     * @notice Check if address is a liquidity provider
+     */
+    function isProvider(address provider) external view returns (bool) {
+        return lpBalances[provider] > 0;
+    }
+
+    /**
+     * @notice Get depositor count
      */
     function numberOfDepositors() public view returns (uint256) {
         return depositors.length;
+    }
+
+    /**
+     * @notice Get LP count
+     */
+    function numberOfLiquidityProviders() public view returns (uint256) {
+        return liquidityProviders.length;
+    }
+
+    /**
+     * @notice Time until next prize
+     */
+    function timeUntilNextPrize() public view returns (uint256) {
+        return block.timestamp >= nextRoundTimestamp ? 0 : nextRoundTimestamp - block.timestamp;
+    }
+
+    //-//////////////////////////////////////////////////////////
+    //                      ADMIN FUNCTIONS
+    //-//////////////////////////////////////////////////////////
+
+    /**
+     * @notice Set hook contract address
+     */
+    function setHookContract(address _hookContract) external onlyOwner {
+        hookContract = _hookContract;
+        emit HookContractUpdated(_hookContract);
+    }
+
+    /**
+     * @notice Set target pool buffer
+     */
+    function setTargetPoolBufferBps(uint256 _bps) external onlyOwner {
+        require(_bps <= 5000, "Buffer too high"); // Max 50%
+        targetPoolBufferBps = _bps;
+    }
+
+    /**
+     * @notice Set LP bonus percentage
+     */
+    function setLpBonusBps(uint256 _bps) external onlyOwner {
+        require(_bps <= 2000, "Bonus too high"); // Max 20%
+        lpBonusBps = _bps;
+    }
+
+    /**
+     * @notice Emergency pause
+     */
+    function setPaused(bool _paused) external onlyOwner {
+        paused = _paused;
+    }
+
+    /**
+     * @notice Emergency withdraw (when paused)
+     */
+    function emergencyWithdraw(address token, uint256 amount) external onlyOwner {
+        require(paused, "Must be paused");
+        IERC20(token).transfer(owner(), amount);
     }
 }

@@ -2,7 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {Test} from "forge-std/Test.sol";
-import {PumpkinSpiceLatte} from "../src/PumpkinSpiceLatte.sol";
+import {PumpkinSpiceLatteEnhanced} from "../src/PumpkinSpiceLatte.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 
 //-//////////////////////////////////////////////////////////
@@ -113,7 +113,7 @@ contract MockVault is IERC4626VaultLike {
 //-//////////////////////////////////////////////////////////
 
 contract PumpkinSpiceLatteTest is Test {
-    PumpkinSpiceLatte public psl;
+    PumpkinSpiceLatteEnhanced public psl;
     MockERC20 public weth;
     MockVault public vault;
 
@@ -125,7 +125,7 @@ contract PumpkinSpiceLatteTest is Test {
     function setUp() public {
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
         vault = new MockVault(address(weth));
-        psl = new PumpkinSpiceLatte(address(weth), address(vault), ROUND_DURATION);
+        psl = new PumpkinSpiceLatteEnhanced(address(weth), address(vault), ROUND_DURATION);
 
         // Mint some WETH for users
         weth.mint(user1, 100 ether);
