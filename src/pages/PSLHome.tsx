@@ -1,6 +1,7 @@
 import PrizePool from '@/components/PrizePool';
 import Actions from '@/components/Actions';
 import UserStats from '@/components/UserStats';
+import Winners from '@/components/Winners';
 import { useAccount } from 'wagmi';
 import { CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
 import { AlertCircle, CheckCircle } from 'lucide-react';
@@ -13,11 +14,11 @@ const PSLHome = () => {
     <div className="container mx-auto p-6 space-y-8">
       {/* Header */}
       <div className="text-center space-y-4">
-        <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-500 to-yellow-500 bg-clip-text text-transparent">
-          Pumpkin Spice Latte PLSA
+        <h1 className="text-4xl font-bold bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-400 bg-clip-text text-transparent">
+          Pumpkin Spice Latte ☕️🎃 PLSA
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Deposit WETH, earn yield, and get a chance to win the prize pool. No loss, just juicy prizes!
+          Deposit WETH, brew some yield, and sip the spice of winning the weekly prize pool. No loss, just cozy vibes.
         </p>
       </div>
 
@@ -51,18 +52,17 @@ const PSLHome = () => {
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">
-        
         {/* Left Column: Prize Info and Actions */}
         <div className="lg:col-span-2 space-y-8">
           <PrizePool />
           <Actions />
         </div>
 
-        {/* Right Column: User Stats */}
+        {/* Right Column: User Stats & Winners */}
         <div className="space-y-8">
           <UserStats />
+          <Winners />
         </div>
-
       </div>
     </div>
   );

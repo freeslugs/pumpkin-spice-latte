@@ -3,6 +3,11 @@ import { CONTRACTS } from './PumpkinSpiceLatte';
 // Use the WETH address from the main contract configuration
 export const wethAddress = CONTRACTS[11155111].weth; // Sepolia testnet WETH
 
+export const getWethAddressForChain = (chainId?: number) => {
+	if (!chainId) return wethAddress;
+	return (CONTRACTS as any)[chainId]?.weth ?? wethAddress;
+};
+
 export const wethAbi = [
     {
         "constant": true,

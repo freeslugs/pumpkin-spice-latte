@@ -1,4 +1,4 @@
-import { useState } from 'react';
+import { useState, useMemo } from 'react';
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
@@ -6,7 +6,7 @@ import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
 import { wethAddress, wethAbi } from '@/contracts/WETH';
-import { parseEther } from 'viem';
+import { isAddress, parseEther } from 'viem';
 import { useToast } from '@/components/ui/use-toast';
 
 const Actions = () => {
@@ -20,103 +20,118 @@ const Actions = () => {
   const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
   const currentWethAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].weth : wethAddress;
 
-  const { data: allowance, refetch: refetchAllowance } = useReadContract({
+  const { data: allowance = 0n, refetch: refetchAllowance } = useReadContract({
     address: currentWethAddress,
     abi: wethAbi,
     functionName: 'allowance',
     args: [address, contractAddress],
     query: {
-        enabled: isConnected && !!address && isSupportedNetwork,
-    }
+      enabled: isConnected && !!address && !!isSupportedNetwork,
+    },
   });
 
   const { writeContract: approve, isPending: isApproving } = useWriteContract({
     onSuccess: () => {
-        toast({
-            title: "Approval Successful",
-            description: "You can now deposit your WETH.",
-        });
-        refetchAllowance();
+      toast({
+        title: 'Approval Successful',
+        description: 'You can now deposit your WETH.',
+      });
+      refetchAllowance();
     },
     onError: (error) => {
-        toast({
-            title: "Approval Failed",
-            description: error.message,
-            variant: "destructive",
-        });
-    }
+      toast({
+        title: 'Approval Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
   const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
     onSuccess: () => {
-        toast({
-            title: "Deposit Successful",
-            description: "Your WETH has been deposited.",
-        });
-        setDepositAmount('');
+      toast({
+        title: 'Deposit Successful',
+        description: 'Your WETH has been deposited.',
+      });
+      setDepositAmount('');
     },
     onError: (error) => {
-        toast({
-            title: "Deposit Failed",
-            description: error.message,
-            variant: "destructive",
-        });
-    }
+      toast({
+        title: 'Deposit Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
   const { writeContract: withdraw, isPending: isWithdrawing } = useWriteContract({
     onSuccess: () => {
-        toast({
-            title: "Withdrawal Successful",
-            description: "Your WETH has been withdrawn.",
-        });
-        setWithdrawAmount('');
+      toast({
+        title: 'Withdrawal Successful',
+        description: 'Your WETH has been withdrawn.',
+      });
+      setWithdrawAmount('');
     },
     onError: (error) => {
-        toast({
-            title: "Withdrawal Failed",
-            description: error.message,
-            variant: "destructive",
-        });
-    }
+      toast({
+        title: 'Withdrawal Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
+  const parsedDepositAmount = useMemo(() => {
+    if (!depositAmount || Number(depositAmount) <= 0) return 0n;
+    try { return parseEther(depositAmount); } catch { return 0n; }
+  }, [depositAmount]);
+
+  const parsedWithdrawAmount = useMemo(() => {
+    if (!withdrawAmount || Number(withdrawAmount) <= 0) return 0n;
+    try { return parseEther(withdrawAmount); } catch { return 0n; }
+  }, [withdrawAmount]);
+
   const handleDeposit = () => {
-    const amount = parseEther(depositAmount);
-    
-    if (allowance < amount) {
-        approve({
-            address: currentWethAddress,
-            abi: wethAbi,
-            functionName: 'approve',
-            args: [contractAddress, amount],
-        });
+    if (parsedDepositAmount === 0n) return;
+    if (!isAddress(contractAddress)) return;
+
+    if (allowance < parsedDepositAmount) {
+      approve({
+        address: currentWethAddress,
+        abi: wethAbi,
+        functionName: 'approve',
+        args: [contractAddress, parsedDepositAmount],
+      });
     } else {
-        deposit({
-            address: contractAddress,
-            abi: pumpkinSpiceLatteAbi,
-            functionName: 'deposit',
-            args: [amount],
-        });
+      deposit({
+        address: contractAddress,
+        abi: pumpkinSpiceLatteAbi,
+        functionName: 'deposit',
+        args: [parsedDepositAmount],
+      });
     }
   };
 
   const handleWithdraw = () => {
-    const amount = parseEther(withdrawAmount);
+    if (parsedWithdrawAmount === 0n) return;
+    if (!isAddress(contractAddress)) return;
     withdraw({
-        address: contractAddress,
-        abi: pumpkinSpiceLatteAbi,
-        functionName: 'withdraw',
-        args: [amount],
+      address: contractAddress,
+      abi: pumpkinSpiceLatteAbi,
+      functionName: 'withdraw',
+      args: [parsedWithdrawAmount],
     });
   };
 
-  const needsApproval = isConnected && allowance < parseEther(depositAmount || '0');
+  const needsApproval = isConnected && parsedDepositAmount > 0n && allowance < parsedDepositAmount;
 
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Manage Your Funds</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <span className="inline-block">☕️</span>
+          Manage Your Funds
+        </CardTitle>
         <CardDescription>Deposit to enter the prize draw or withdraw your principal at any time.</CardDescription>
         {!isSupportedNetwork && isConnected && (
           <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
@@ -131,37 +146,40 @@ const Actions = () => {
             <TabsTrigger value="withdraw">Withdraw</TabsTrigger>
           </TabsList>
           <TabsContent value="deposit" className="pt-4">
-            <div className="space-y-4">
-              <Input 
-                type="number" 
-                placeholder="Amount in WETH" 
+            <div className="space-y-3">
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Amount in WETH"
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
               />
-              <Button 
-                className="w-full" 
-                disabled={!isConnected || !isSupportedNetwork || isApproving || isDepositing}
+              <Button
+                className="w-full"
+                disabled={!isConnected || !isSupportedNetwork || isApproving || isDepositing || parsedDepositAmount === 0n}
                 onClick={handleDeposit}
               >
-                {isApproving ? "Approving..." : isDepositing ? "Depositing..." : needsApproval ? "Approve WETH" : "Deposit WETH"}
+                {isApproving ? 'Approving...' : isDepositing ? 'Depositing...' : needsApproval ? 'Approve WETH' : 'Deposit WETH'}
               </Button>
+              <p className="text-xs text-muted-foreground text-center">You may be asked to approve WETH before depositing.</p>
             </div>
           </TabsContent>
           <TabsContent value="withdraw" className="pt-4">
-            <div className="space-y-4">
-              <Input 
-                type="number" 
-                placeholder="Amount in WETH" 
+            <div className="space-y-3">
+              <Input
+                type="number"
+                inputMode="decimal"
+                placeholder="Amount in WETH"
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
               />
-              <Button 
-                variant="secondary" 
-                className="w-full" 
-                disabled={!isConnected || !isSupportedNetwork || isWithdrawing}
+              <Button
+                variant="secondary"
+                className="w-full"
+                disabled={!isConnected || !isSupportedNetwork || isWithdrawing || parsedWithdrawAmount === 0n}
                 onClick={handleWithdraw}
               >
-                {isWithdrawing ? "Withdrawing..." : "Withdraw WETH"}
+                {isWithdrawing ? 'Withdrawing...' : 'Withdraw WETH'}
               </Button>
             </div>
           </TabsContent>

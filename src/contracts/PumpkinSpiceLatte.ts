@@ -14,17 +14,6 @@ export const CONTRACTS = {
 export const pumpkinSpiceLatteAddress = CONTRACTS[11155111].pumpkinSpiceLatte;
 
 export const pumpkinSpiceLatteAbi = [
-  // Constructor
-  {
-    "inputs": [
-      { "internalType": "address", "name": "_asset", "type": "address" },
-      { "internalType": "address", "name": "_morpho", "type": "address" },
-      { "internalType": "bytes32", "name": "_marketId", "type": "bytes32" },
-      { "internalType": "uint256", "name": "_roundDuration", "type": "uint256" }
-    ],
-    "stateMutability": "nonpayable",
-    "type": "constructor"
-  },
   // Events
   {
     "anonymous": false,
@@ -56,99 +45,92 @@ export const pumpkinSpiceLatteAbi = [
   // Read Functions
   {
     "inputs": [],
-    "name": "asset",
+    "name": "ASSET",
     "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
     "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "inputs": [],
+    "name": "VAULT",
+    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "stateMutability": "view",
+    "type": "function"
+  },
+  {
+    "inputs": [ { "internalType": "address", "name": "", "type": "address" } ],
     "name": "balanceOf",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "inputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "name": "depositors",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [ { "internalType": "address", "name": "", "type": "address" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "lastPrizeAmount",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "lastWinner",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "marketId",
-    "outputs": [{ "internalType": "bytes32", "name": "", "type": "bytes32" }],
-    "stateMutability": "view",
-    "type": "function"
-  },
-  {
-    "inputs": [],
-    "name": "morpho",
-    "outputs": [{ "internalType": "address", "name": "", "type": "address" }],
+    "outputs": [ { "internalType": "address", "name": "", "type": "address" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "nextRoundTimestamp",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "numberOfDepositors",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "prizePool",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "roundDuration",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "totalAssets",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
     "name": "totalPrincipal",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
   {
     "inputs": [],
-    "name": "totalShares",
-    "outputs": [{ "internalType": "uint256", "name": "", "type": "uint256" }],
+    "name": "vaultShares",
+    "outputs": [ { "internalType": "uint256", "name": "", "type": "uint256" } ],
     "stateMutability": "view",
     "type": "function"
   },
@@ -161,14 +143,14 @@ export const pumpkinSpiceLatteAbi = [
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "uint256", "name": "_amount", "type": "uint256" }],
+    "inputs": [ { "internalType": "uint256", "name": "_amount", "type": "uint256" } ],
     "name": "deposit",
     "outputs": [],
     "stateMutability": "nonpayable",
     "type": "function"
   },
   {
-    "inputs": [{ "internalType": "uint256", "name": "_amount", "type": "uint256" }],
+    "inputs": [ { "internalType": "uint256", "name": "_amount", "type": "uint256" } ],
     "name": "withdraw",
     "outputs": [],
     "stateMutability": "nonpayable",
