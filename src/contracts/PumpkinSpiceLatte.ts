@@ -5,13 +5,14 @@ export const CONTRACTS = {
     usdc: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8'
   },
   1: { // Ethereum mainnet
-    pumpkinSpiceLatte: '0x0000000000000000000000000000000000000000', // Not deployed yet
-    usdc: '0xA0b86991c6218b36c1d19d4a2e9eb0ce3606eb48'
+    // When using Tenderly Virtual Mainnet, set this to the fork's deployed address
+    pumpkinSpiceLatte: '0x3Cb0F6582683204d013c1BaB52067ce351aa3beF',
+    usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
   }
 } as const;
 
-// Default to Sepolia for now
-export const pumpkinSpiceLatteAddress = CONTRACTS[11155111].pumpkinSpiceLatte;
+// Default to mainnet (Tenderly fork) as the primary testing env; fallback to Sepolia
+export const pumpkinSpiceLatteAddress = CONTRACTS[1].pumpkinSpiceLatte || CONTRACTS[11155111].pumpkinSpiceLatte;
 
 export const pumpkinSpiceLatteAbi = [
   // Events

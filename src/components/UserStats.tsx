@@ -61,7 +61,7 @@ const UserStats = () => {
 
   const getUserBalanceDisplay = () => {
     if (!isConnected) return "Connect wallet to view";
-    if (!isSupportedNetwork) return "Switch to Sepolia testnet";
+    if (!isSupportedNetwork) return "Switch to a supported network";
     if (balanceError) return "Error loading balance";
     if (balanceLoading) return "Loading...";
     if (userBalanceData === undefined) return "0.00 USDC";

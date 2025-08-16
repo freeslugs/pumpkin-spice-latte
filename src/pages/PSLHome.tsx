@@ -42,7 +42,7 @@ const PSLHome = () => {
               <p className="text-sm">
                 {isSupportedNetwork 
                   ? `You're connected to ${chain?.name} and can interact with the contract.`
-                  : `Please switch to Sepolia testnet to interact with the Pumpkin Spice Latte contract.`
+                  : `Please switch to a supported network to interact with the Pumpkin Spice Latte contract.`
                 }
               </p>
             </div>

@@ -146,7 +146,7 @@ const Actions = () => {
         <CardDescription>Deposit to enter the prize draw or withdraw your principal at any time.</CardDescription>
         {!isSupportedNetwork && isConnected && (
           <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
-            ⚠️ Please switch to Sepolia testnet to interact with the contract
+            ⚠️ Please switch to a supported network to interact with the contract
           </div>
         )}
       </CardHeader>
