@@ -13,7 +13,21 @@ contract DeployPumpkinSpiceLatte is Script {
         // Morpho Blue Vault on Sepolia (USDC-based)
         // address vaultAddress = 0x1Ae025197a765bD2263d6eb89B76d82e05286543; //sepolia 
         address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // ethereum
-        uint256 roundDuration = 86400; // 1 day
+
+        // Chainlink VRF params (provide via env for network):
+        // VRF_COORDINATOR, VRF_KEY_HASH, VRF_SUBSCRIPTION_ID, VRF_CALLBACK_GAS_LIMIT, VRF_REQUEST_CONFIRMATIONS
+        address vrfCoordinator = vm.envAddress("VRF_COORDINATOR");
+        bytes32 vrfKeyHash = vm.envBytes32("VRF_KEY_HASH");
+        uint256 vrfSubId = vm.envUint("VRF_SUBSCRIPTION_ID");
+        uint32 vrfCallbackGasLimit = uint32(vm.envUint("VRF_CALLBACK_GAS_LIMIT"));
+        uint16 vrfRequestConfs = uint16(vm.envUint("VRF_REQUEST_CONFIRMATIONS"));
+
+        // Prize policy params (also from env):
+        // BASE_THRESHOLD, MAX_THRESHOLD, TIME_TO_MAX_THRESHOLD, DRAW_COOLDOWN
+        uint8 baseThreshold = uint8(vm.envUint("BASE_THRESHOLD"));
+        uint8 maxThreshold = uint8(vm.envUint("MAX_THRESHOLD"));
+        uint256 timeToMaxThreshold = vm.envUint("TIME_TO_MAX_THRESHOLD");
+        uint256 drawCooldown = vm.envUint("DRAW_COOLDOWN");
 
         uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
         vm.startBroadcast(deployerPrivateKey);
@@ -21,7 +35,15 @@ contract DeployPumpkinSpiceLatte is Script {
         PumpkinSpiceLatte psl = new PumpkinSpiceLatte(
             usdcAddress,
             vaultAddress,
-            roundDuration
+            vrfCoordinator,
+            vrfKeyHash,
+            vrfSubId,
+            vrfCallbackGasLimit,
+            vrfRequestConfs,
+            baseThreshold,
+            maxThreshold,
+            timeToMaxThreshold,
+            drawCooldown
         );
 
         vm.stopBroadcast();

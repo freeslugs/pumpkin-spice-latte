@@ -4,6 +4,8 @@ pragma solidity ^0.8.20;
 import {Test} from "forge-std/Test.sol";
 import {PumpkinSpiceLatte} from "../src/PumpkinSpiceLatte.sol";
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 //-//////////////////////////////////////////////////////////
 //                           MOCKS
@@ -108,6 +110,65 @@ contract MockVault is IERC4626VaultLike {
     }
 }
 
+// Minimal VRF Coordinator mock compatible with V2.5 interfaces
+contract MinimalVRFCoordinatorV2_5Mock {
+    struct Request {
+        uint256 subId;
+        uint32 callbackGasLimit;
+        uint32 numWords;
+        address sender;
+    }
+
+    uint256 internal _nextSubId = 1;
+    uint256 internal _nextRequestId = 1;
+    mapping(uint256 => Request) internal _requests; // requestId => Request
+
+    function createSubscription() external returns (uint256 subId) {
+        subId = _nextSubId++;
+    }
+
+    function addConsumer(uint256 /*subId*/, address /*consumer*/) external {}
+    function removeConsumer(uint256, address) external {}
+    function cancelSubscription(uint256, address) external {}
+    function pendingRequestExists(uint256) external pure returns (bool) { return false; }
+
+    function requestRandomWords(
+        VRFV2PlusClient.RandomWordsRequest calldata req
+    ) external returns (uint256 requestId) {
+        requestId = _nextRequestId++;
+        _requests[requestId] = Request({
+            subId: req.subId,
+            callbackGasLimit: req.callbackGasLimit,
+            numWords: req.numWords,
+            sender: msg.sender
+        });
+    }
+
+    // Test helper to fulfill with controlled words
+    function fulfillRandomWordsWithOverride(
+        uint256 requestId,
+        address consumer,
+        uint256[] memory words
+    ) external {
+        Request memory r = _requests[requestId];
+        require(r.numWords == words.length || words.length == 0, "bad words len");
+        if (words.length == 0) {
+            words = new uint256[](r.numWords);
+            for (uint256 i = 0; i < r.numWords; i++) {
+                words[i] = uint256(keccak256(abi.encode(requestId, i)));
+            }
+        }
+        VRFConsumerBaseV2Plus v;
+        bytes memory callReq = abi.encodeWithSelector(v.rawFulfillRandomWords.selector, requestId, words);
+        // call with provided gas limit
+        (bool ok, ) = consumer.call{gas: r.callbackGasLimit}(callReq);
+        require(ok, "fulfill failed");
+        delete _requests[requestId];
+    }
+
+    // No-op stubs for subscription management used in tests
+}
+
 //-//////////////////////////////////////////////////////////
 //                           TESTS
 //-//////////////////////////////////////////////////////////
@@ -116,16 +177,41 @@ contract PumpkinSpiceLatteTest is Test {
     PumpkinSpiceLatte public psl;
     MockERC20 public weth;
     MockVault public vault;
+    MinimalVRFCoordinatorV2_5Mock public vrf;
 
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
     uint256 public constant ROUND_DURATION = 1 days;
 
+    // VRF params (mock)
+    bytes32 internal constant KEY_HASH = bytes32(uint256(1));
+    uint32 internal constant CALLBACK_GAS_LIMIT = 500000;
+    uint16 internal constant REQUEST_CONFIRMATIONS = 1;
+    uint256 internal subId;
+
     function setUp() public {
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
         vault = new MockVault(address(weth));
-        psl = new PumpkinSpiceLatte(address(weth), address(vault), ROUND_DURATION);
+
+        // Deploy minimal VRF coordinator mock
+        vrf = new MinimalVRFCoordinatorV2_5Mock();
+        subId = vrf.createSubscription();
+
+        psl = new PumpkinSpiceLatte(
+            address(weth),
+            address(vault),
+            address(vrf),
+            KEY_HASH,
+            subId,
+            CALLBACK_GAS_LIMIT,
+            REQUEST_CONFIRMATIONS,
+            10,      // baseThreshold
+            20,      // maxThreshold
+            7 days,  // timeToMaxThreshold
+            1 hours  // drawCooldown
+        );
+        vrf.addConsumer(subId, address(psl));
 
         // Mint some WETH for users
         weth.mint(user1, 100 ether);
@@ -216,20 +302,55 @@ contract PumpkinSpiceLatteTest is Test {
         // Fast forward time to the next round
         vm.warp(block.timestamp + ROUND_DURATION + 1);
 
-        // Award the prize
+        // Trigger VRF request
         psl.awardPrize();
+        // Fulfill with a random word that causes d100 < 10 (e.g., 5)
+        uint256[] memory words = new uint256[](1);
+        words[0] = 5;
+        vrf.fulfillRandomWordsWithOverride(psl.lastRequestId(), address(psl), words);
 
         address winner = psl.lastWinner();
         uint256 prizeAmount = psl.lastPrizeAmount();
-        
+
         assertTrue(winner == user1 || winner == user2, "Winner should be user1 or user2");
         assertApproxEqAbs(prizeAmount, 1 ether, 1, "Prize amount should be ~1 ether");
         // With new accounting, no tokens are withdrawn to the winner. Their external balance remains unchanged.
         assertEq(weth.balanceOf(winner), 90 ether, "Winner's external token balance should be unchanged");
         // Winner's principal balance is credited with the prize
         assertEq(psl.balanceOf(winner), 10 ether + prizeAmount, "Winner's principal should increase by prize");
-        assertEq(psl.nextRoundTimestamp(), block.timestamp + ROUND_DURATION, "Next round timestamp should be reset");
+        // No round scheduling any more; ensure lastPrizeTimestamp updated on success
+        assertEq(psl.lastPrizeTimestamp(), block.timestamp, "lastPrizeTimestamp should update on payout");
         // Principal remains fully represented in totalAssets
         assertEq(psl.totalAssets(), psl.totalPrincipal(), "Principal should remain supplied after prize");
+    }
+
+    function testAwardPrize_NoAwardWhenD100Gte10() public {
+        // User1 and User2 deposit
+        vm.startPrank(user1);
+        weth.approve(address(psl), 10 ether);
+        psl.deposit(10 ether);
+        vm.stopPrank();
+
+        vm.startPrank(user2);
+        weth.approve(address(psl), 10 ether);
+        psl.deposit(10 ether);
+        vm.stopPrank();
+
+        // Simulate yield by donating assets directly to the vault (improves exchange rate)
+        weth.mint(address(vault), 1 ether);
+
+        // Fast forward time to the next round
+        vm.warp(block.timestamp + ROUND_DURATION + 1);
+
+        // Trigger VRF request
+        psl.awardPrize();
+        // Fulfill with a random word that causes d100 >= 10 (e.g., 10 -> maps to 10)
+        uint256[] memory words = new uint256[](1);
+        words[0] = 10;
+        vrf.fulfillRandomWordsWithOverride(psl.lastRequestId(), address(psl), words);
+
+        // No updates expected on no-award path
+        assertEq(psl.lastWinner(), address(0), "No winner expected");
+        assertEq(psl.lastPrizeAmount(), 0, "No prize expected");
     }
 }

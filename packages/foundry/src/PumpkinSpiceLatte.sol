@@ -2,6 +2,8 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {VRFConsumerBaseV2Plus} from "@chainlink/contracts/src/v0.8/vrf/dev/VRFConsumerBaseV2Plus.sol";
+import {VRFV2PlusClient} from "@chainlink/contracts/src/v0.8/vrf/dev/libraries/VRFV2PlusClient.sol";
 
 interface IERC4626Vault {
     function deposit(uint256 assets, address receiver) external returns (uint256 shares);
@@ -17,7 +19,7 @@ interface IERC4626Vault {
  *      to generate yield, and the accumulated yield is awarded as a prize to a
  *      lucky depositor periodically.
  */
-contract PumpkinSpiceLatte {
+contract PumpkinSpiceLatte is VRFConsumerBaseV2Plus {
     //-//////////////////////////////////////////////////////////
     //                           STATE
     //-//////////////////////////////////////////////////////////
@@ -28,11 +30,11 @@ contract PumpkinSpiceLatte {
     /// @dev The Morpho vault (ERC4626-style) contract address.
     address public immutable VAULT;
 
-    /// @dev The duration of each prize round in seconds.
-    uint256 public roundDuration;
+    /// @dev Timestamp of the last successful prize payout.
+    uint256 public lastPrizeTimestamp;
 
-    /// @dev The timestamp when the next prize round ends.
-    uint256 public nextRoundTimestamp;
+    /// @dev Timestamp of the last prize drawing attempt (VRF request attempt time).
+    uint256 public lastDrawingTimestamp;
     
     /// @dev The total principal amount deposited by all users. This should only
     //      increase on deposit and decrease on withdraw.
@@ -57,6 +59,46 @@ contract PumpkinSpiceLatte {
     uint256 public vaultShares;
 
     //-//////////////////////////////////////////////////////////
+    //                          VRF STATE
+    //-//////////////////////////////////////////////////////////
+
+    /// @dev Chainlink VRF coordinator address.
+    address public immutable VRF_COORDINATOR;
+
+    /// @dev Chainlink VRF keyHash (gas lane).
+    bytes32 public immutable VRF_KEY_HASH;
+
+    /// @dev Chainlink VRF subscription id used for funding randomness requests.
+    uint256 public immutable VRF_SUBSCRIPTION_ID;
+
+    /// @dev VRF callback gas limit.
+    uint32 public immutable VRF_CALLBACK_GAS_LIMIT;
+
+    /// @dev VRF request confirmations.
+    uint16 public immutable VRF_REQUEST_CONFIRMATIONS;
+
+    /// @dev Whether there is a pending VRF request.
+    bool public vrfRequestPending;
+    //-//////////////////////////////////////////////////////////
+    //                       PRIZE POLICY STATE
+    //-//////////////////////////////////////////////////////////
+
+    /// @dev Base threshold used for d100 comparison (e.g., 10 means d100 < 10 wins).
+    uint8 public immutable BASE_THRESHOLD;
+
+    /// @dev Maximum threshold cap (<= 100).
+    uint8 public immutable MAX_THRESHOLD;
+
+    /// @dev Time in seconds since the last prize payout required to reach `MAX_THRESHOLD` linearly.
+    uint256 public immutable TIME_TO_MAX_THRESHOLD;
+
+    /// @dev Time in seconds for the spam-damping to fully wear off since the last drawing attempt.
+    uint256 public immutable DRAW_COOLDOWN;
+
+    /// @dev The last VRF request id issued by this contract.
+    uint256 public lastRequestId;
+
+    //-//////////////////////////////////////////////////////////
     //                          EVENTS
     //-//////////////////////////////////////////////////////////
 
@@ -71,13 +113,33 @@ contract PumpkinSpiceLatte {
     constructor(
         address _asset,
         address _vault,
-        uint256 _roundDuration
-    ) {
+        address _vrfCoordinator,
+        bytes32 _vrfKeyHash,
+        uint256 _vrfSubscriptionId,
+        uint32 _vrfCallbackGasLimit,
+        uint16 _vrfRequestConfirmations,
+        uint8 _baseThreshold,
+        uint8 _maxThreshold,
+        uint256 _timeToMaxThreshold,
+        uint256 _drawCooldown
+    ) VRFConsumerBaseV2Plus(_vrfCoordinator) {
         require(IERC4626Vault(_vault).asset() == _asset, "Vault asset mismatch");
         ASSET = _asset;
         VAULT = _vault;
-        roundDuration = _roundDuration;
-        nextRoundTimestamp = block.timestamp + _roundDuration;
+        lastPrizeTimestamp = block.timestamp;
+        lastDrawingTimestamp = block.timestamp;
+
+        VRF_COORDINATOR = _vrfCoordinator;
+        VRF_KEY_HASH = _vrfKeyHash;
+        VRF_SUBSCRIPTION_ID = _vrfSubscriptionId;
+        VRF_CALLBACK_GAS_LIMIT = _vrfCallbackGasLimit;
+        VRF_REQUEST_CONFIRMATIONS = _vrfRequestConfirmations;
+
+        require(_maxThreshold <= 100 && _baseThreshold <= _maxThreshold, "Bad thresholds");
+        BASE_THRESHOLD = _baseThreshold;
+        MAX_THRESHOLD = _maxThreshold;
+        TIME_TO_MAX_THRESHOLD = _timeToMaxThreshold;
+        DRAW_COOLDOWN = _drawCooldown;
     }
 
     //-//////////////////////////////////////////////////////////
@@ -148,38 +210,92 @@ contract PumpkinSpiceLatte {
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @notice Calculates the total yield generated and awards it to a random depositor.
-     * @dev Can be called by anyone after the `nextRoundTimestamp` has passed.
+     * @notice Attempts to award the current prize pool to a random depositor using Chainlink VRF.
+     * @dev Can be called by anyone at any time. The probability of payout increases with time
+     *      elapsed since the last successful prize payout.
      */
     function awardPrize() external {
-        require(block.timestamp >= nextRoundTimestamp, "Round not finished");
         require(depositors.length > 0, "No depositors");
 
-        uint256 prize = prizePool();
-        require(prize > 0, "No prize to award");
+        // Record the drawing attempt time irrespective of outcome.
+        lastDrawingTimestamp = block.timestamp;
 
-        // Pseudo-random selection (not secure; for testnet/demo)
-        uint256 idx = uint256(
-            keccak256(
-                abi.encodePacked(block.prevrandao, block.timestamp, address(this), depositors.length)
+        // If no yield accrued, do not request VRF; leave lastWinner/lastPrizeAmount unchanged.
+        if (prizePool() == 0) return;
+
+        require(!vrfRequestPending, "VRF request pending");
+
+        // Build a randomness request for 1 word, paid in LINK by default.
+        VRFV2PlusClient.RandomWordsRequest memory req = VRFV2PlusClient.RandomWordsRequest({
+            keyHash: VRF_KEY_HASH,
+            subId: VRF_SUBSCRIPTION_ID,
+            requestConfirmations: VRF_REQUEST_CONFIRMATIONS,
+            callbackGasLimit: VRF_CALLBACK_GAS_LIMIT,
+            numWords: 1,
+            extraArgs: VRFV2PlusClient._argsToBytes(
+                VRFV2PlusClient.ExtraArgsV1({nativePayment: false})
             )
-        ) % depositors.length;
-        address winner = depositors[idx];
+        });
 
-        // Credit the winner's principal balance with the prize, keeping assets in the vault
-        balanceOf[winner] += prize;
-        totalPrincipal += prize;
-
-        lastWinner = winner;
-        lastPrizeAmount = prize;
-        nextRoundTimestamp = block.timestamp + roundDuration;
-
-        emit PrizeAwarded(winner, prize);
+        uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
+        lastRequestId = requestId;
+        vrfRequestPending = true;
     }
 
     //-//////////////////////////////////////////////////////////
     //                  INTERNAL HELPER FUNCTIONS
     //-//////////////////////////////////////////////////////////
+
+    /**
+     * @dev Chainlink VRF callback. Generates a d100 and awards prize if d100 < 10.
+     *      Also uses the same random word to select a winner index.
+     */
+    function fulfillRandomWords(uint256 /*requestId*/, uint256[] calldata randomWords) internal override {
+        vrfRequestPending = false;
+
+        if (depositors.length == 0) {
+            // Edge case: no depositors at fulfillment time
+            return;
+        }
+
+        uint256 rand = randomWords[0];
+        uint256 d100 = (rand % 100) + 1; // [1, 100]
+
+        if (d100 < currentThreshold()) {
+            uint256 prize = prizePool();
+            if (prize == 0) {
+                return;
+            }
+
+            // Select winner with probability proportional to their principal balance.
+            // Use a weighted reservoir by drawing a ticket in [0, totalPrincipal-1] and
+            // walking the cumulative balances until exceeding the ticket.
+            uint256 ticket = rand % totalPrincipal;
+            uint256 cumulative = 0;
+            address winner = address(0);
+            for (uint256 i = 0; i < depositors.length; i++) {
+                cumulative += balanceOf[depositors[i]];
+                if (cumulative > ticket) {
+                    winner = depositors[i];
+                    break;
+                }
+            }
+            // Fallback (should not happen if totalPrincipal reflects sum of balances)
+            if (winner == address(0)) {
+                winner = depositors[depositors.length - 1];
+            }
+
+            // Credit the winner's principal balance with the prize, keeping assets in the vault
+            balanceOf[winner] += prize;
+            totalPrincipal += prize;
+
+            lastWinner = winner;
+            lastPrizeAmount = prize;
+            lastPrizeTimestamp = block.timestamp;
+
+            emit PrizeAwarded(winner, prize);
+        }
+    }
 
     /**
      * @dev Removes a depositor from the `depositors` array.
@@ -228,5 +344,34 @@ contract PumpkinSpiceLatte {
      */
     function numberOfDepositors() public view returns (uint256) {
         return depositors.length;
+    }
+
+    /**
+     * @notice Returns the current threshold used for d100 comparison (d100 < threshold wins).
+     *         The threshold increases linearly from `baseThreshold` to `maxThreshold` over
+     *         `timeToMaxThreshold` seconds since the last successful prize payout.
+     */
+    function currentThreshold() public view returns (uint256) {
+        if (MAX_THRESHOLD == BASE_THRESHOLD) return uint256(MAX_THRESHOLD);
+
+        // Progressive increase since last prize payout
+        uint256 potential;
+        if (TIME_TO_MAX_THRESHOLD == 0) {
+            potential = uint256(MAX_THRESHOLD);
+        } else {
+            uint256 elapsedPrize = block.timestamp - lastPrizeTimestamp;
+            uint256 increase = (uint256(MAX_THRESHOLD - BASE_THRESHOLD) * elapsedPrize) / TIME_TO_MAX_THRESHOLD;
+            potential = uint256(BASE_THRESHOLD) + increase;
+            if (potential > MAX_THRESHOLD) potential = MAX_THRESHOLD;
+        }
+
+        // Anti-spam damping since last drawing attempt
+        if (DRAW_COOLDOWN == 0) return potential;
+        uint256 elapsedDraw = block.timestamp - lastDrawingTimestamp;
+        if (elapsedDraw >= DRAW_COOLDOWN) return potential;
+
+        // Scale the incremental part by how much of the cooldown has elapsed
+        uint256 scaledIncrease = ((potential - uint256(BASE_THRESHOLD)) * elapsedDraw) / DRAW_COOLDOWN;
+        return uint256(BASE_THRESHOLD) + scaledIncrease;
     }
 }
