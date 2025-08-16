@@ -5,6 +5,6 @@ import {IRandomnessProvider} from "../interfaces/IRandomnessProvider.sol";
 
 contract PseudoRandomAdapter is IRandomnessProvider {
     function randomUint256(bytes32 salt) external view returns (uint256) {
-    return uint256(keccak256(abi.encodePacked(block.prevrandao, block.timestamp, address(this), salt)));
+        return uint256(keccak256(abi.encodePacked(block.prevrandao, block.timestamp, address(this), salt)));
     }
 }

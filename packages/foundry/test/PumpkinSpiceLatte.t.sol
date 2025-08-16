@@ -141,8 +141,14 @@ contract MockAdapter is ILendingAdapter {
 
 contract DeterministicRNG is IRandomnessProvider {
     uint256 public n;
-    function set(uint256 v) external { n = v; }
-    function randomUint256(bytes32 salt) external view returns (uint256) { return uint256(keccak256(abi.encodePacked(n, salt))); }
+
+    function set(uint256 v) external {
+        n = v;
+    }
+
+    function randomUint256(bytes32 salt) external view returns (uint256) {
+        return uint256(keccak256(abi.encodePacked(n, salt)));
+    }
 }
 
 //-//////////////////////////////////////////////////////////

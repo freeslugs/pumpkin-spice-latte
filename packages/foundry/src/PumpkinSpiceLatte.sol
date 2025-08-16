@@ -69,12 +69,12 @@ contract PumpkinSpiceLatte is Ownable {
     //-//////////////////////////////////////////////////////////
 
     constructor(address _adapter, address _randomnessProvider, uint256 _roundDuration) Ownable(msg.sender) {
-    ASSET = ILendingAdapter(_adapter).asset();
-    LENDING_ADAPTER = ILendingAdapter(_adapter);
-    randomnessProvider = IRandomnessProvider(_randomnessProvider);
-    require(_roundDuration > 0, "Duration must be > 0");
-    roundDuration = _roundDuration;
-    nextRoundTimestamp = block.timestamp + _roundDuration;
+        ASSET = ILendingAdapter(_adapter).asset();
+        LENDING_ADAPTER = ILendingAdapter(_adapter);
+        randomnessProvider = IRandomnessProvider(_randomnessProvider);
+        require(_roundDuration > 0, "Duration must be > 0");
+        roundDuration = _roundDuration;
+        nextRoundTimestamp = block.timestamp + _roundDuration;
     }
 
     //-//////////////////////////////////////////////////////////
@@ -87,17 +87,17 @@ contract PumpkinSpiceLatte is Ownable {
      * @dev The caller must have approved the contract to spend `_amount` of `asset`.
      */
     function deposit(uint256 _amount) external {
-    require(_amount > 0, "Deposit amount must be greater than zero");
+        require(_amount > 0, "Deposit amount must be greater than zero");
 
-    if (balanceOf[msg.sender] == 0) {
-    depositors.push(msg.sender);
-    depositorIndex[msg.sender] = depositors.length - 1;
-    }
+        if (balanceOf[msg.sender] == 0) {
+            depositors.push(msg.sender);
+            depositorIndex[msg.sender] = depositors.length - 1;
+        }
 
-    balanceOf[msg.sender] += _amount;
-    totalPrincipal += _amount;
+        balanceOf[msg.sender] += _amount;
+        totalPrincipal += _amount;
 
-    emit Deposited(msg.sender, _amount);
+        emit Deposited(msg.sender, _amount);
 
         // Pull funds from user into this contract
         require(IERC20(ASSET).transferFrom(msg.sender, address(this), _amount), "Transfer failed");
@@ -105,7 +105,7 @@ contract PumpkinSpiceLatte is Ownable {
         require(IERC20(ASSET).approve(address(LENDING_ADAPTER), _amount), "Approval failed");
         uint256 sharesOut = LENDING_ADAPTER.deposit(_amount);
         vaultShares += sharesOut;
-}
+    }
 
     /**
      * @notice Withdraws principal from the PLSA.
@@ -113,30 +113,30 @@ contract PumpkinSpiceLatte is Ownable {
      * @dev Users can only withdraw up to their deposited principal.
      */
     function withdraw(uint256 _amount) external {
-    require(_amount > 0, "Withdraw amount must be greater than zero");
-    uint256 userBalance = balanceOf[msg.sender];
-    require(userBalance >= _amount, "Insufficient balance");
+        require(_amount > 0, "Withdraw amount must be greater than zero");
+        uint256 userBalance = balanceOf[msg.sender];
+        require(userBalance >= _amount, "Insufficient balance");
 
-    // Note: This check implicitly protects the prize pool. Users can only withdraw
-    // their principal, not the yield generated from it.
-    require(totalAssets() >= totalPrincipal, "Contract is undercollateralized");
+        // Note: This check implicitly protects the prize pool. Users can only withdraw
+        // their principal, not the yield generated from it.
+        require(totalAssets() >= totalPrincipal, "Contract is undercollateralized");
 
-    balanceOf[msg.sender] -= _amount;
-    totalPrincipal -= _amount;
+        balanceOf[msg.sender] -= _amount;
+        totalPrincipal -= _amount;
 
-    if (userBalance - _amount == 0) {
-    _removeDepositor(msg.sender);
-    }
+        if (userBalance - _amount == 0) {
+            _removeDepositor(msg.sender);
+        }
 
-    emit Withdrawn(msg.sender, _amount);
+        emit Withdrawn(msg.sender, _amount);
 
-    // Withdraw from adapter directly to the user
-    uint256 sharesBurned = LENDING_ADAPTER.withdraw(_amount, msg.sender);
-    if (sharesBurned > vaultShares) {
-    vaultShares = 0;
-    } else {
-    vaultShares -= sharesBurned;
-    }
+        // Withdraw from adapter directly to the user
+        uint256 sharesBurned = LENDING_ADAPTER.withdraw(_amount, msg.sender);
+        if (sharesBurned > vaultShares) {
+            vaultShares = 0;
+        } else {
+            vaultShares -= sharesBurned;
+        }
     }
 
     //-//////////////////////////////////////////////////////////
@@ -148,25 +148,25 @@ contract PumpkinSpiceLatte is Ownable {
      * @dev Can be called by anyone after the `nextRoundTimestamp` has passed.
      */
     function awardPrize() external {
-    require(block.timestamp >= nextRoundTimestamp, "Round not finished");
-    require(depositors.length > 0, "No depositors");
+        require(block.timestamp >= nextRoundTimestamp, "Round not finished");
+        require(depositors.length > 0, "No depositors");
 
-    uint256 prize = prizePool();
-    require(prize > 0, "No prize to award");
+        uint256 prize = prizePool();
+        require(prize > 0, "No prize to award");
 
-    // Random selection via adapter
-    uint256 idx = randomnessProvider.randomUint256(bytes32(depositors.length)) % depositors.length;
-    address winner = depositors[idx];
+        // Random selection via adapter
+        uint256 idx = randomnessProvider.randomUint256(bytes32(depositors.length)) % depositors.length;
+        address winner = depositors[idx];
 
-    // Credit the winner's principal balance with the prize, keeping assets in the adapter
-    balanceOf[winner] += prize;
-    totalPrincipal += prize;
+        // Credit the winner's principal balance with the prize, keeping assets in the adapter
+        balanceOf[winner] += prize;
+        totalPrincipal += prize;
 
-    lastWinner = winner;
-    lastPrizeAmount = prize;
-    nextRoundTimestamp = block.timestamp + roundDuration;
+        lastWinner = winner;
+        lastPrizeAmount = prize;
+        nextRoundTimestamp = block.timestamp + roundDuration;
 
-    emit PrizeAwarded(winner, prize);
+        emit PrizeAwarded(winner, prize);
     }
 
     //-//////////////////////////////////////////////////////////
@@ -179,16 +179,16 @@ contract PumpkinSpiceLatte is Ownable {
      * @dev This change applies to future rounds. The current `nextRoundTimestamp` is not modified.
      */
     function setRoundDuration(uint256 _roundDuration) external onlyOwner {
-    require(_roundDuration > 0, "Duration must be > 0");
-    uint256 old = roundDuration;
-    roundDuration = _roundDuration;
-    emit RoundDurationUpdated(old, _roundDuration);
+        require(_roundDuration > 0, "Duration must be > 0");
+        uint256 old = roundDuration;
+        roundDuration = _roundDuration;
+        emit RoundDurationUpdated(old, _roundDuration);
     }
 
     function setRandomnessProvider(address _provider) external onlyOwner {
-    require(_provider != address(0), "Invalid provider");
-    randomnessProvider = IRandomnessProvider(_provider);
-    emit RandomnessProviderUpdated(_provider);
+        require(_provider != address(0), "Invalid provider");
+        randomnessProvider = IRandomnessProvider(_provider);
+        emit RandomnessProviderUpdated(_provider);
     }
 
     //-//////////////////////////////////////////////////////////
@@ -200,18 +200,18 @@ contract PumpkinSpiceLatte is Ownable {
      *      Uses the swap-and-pop technique for O(1) removal.
      */
     function _removeDepositor(address _depositor) private {
-    uint256 index = depositorIndex[_depositor];
-    address lastDepositor = depositors[depositors.length - 1];
+        uint256 index = depositorIndex[_depositor];
+        address lastDepositor = depositors[depositors.length - 1];
 
-    // If the depositor to remove is not the last one, swap it
-    if (index < depositors.length - 1) {
-    depositors[index] = lastDepositor;
-    depositorIndex[lastDepositor] = index;
-    }
+        // If the depositor to remove is not the last one, swap it
+        if (index < depositors.length - 1) {
+            depositors[index] = lastDepositor;
+            depositorIndex[lastDepositor] = index;
+        }
 
-    // Remove the last element
-    depositors.pop();
-    delete depositorIndex[_depositor];
+        // Remove the last element
+        depositors.pop();
+        delete depositorIndex[_depositor];
     }
 
     //-//////////////////////////////////////////////////////////
@@ -224,8 +224,8 @@ contract PumpkinSpiceLatte is Ownable {
      * @return The total asset balance.
      */
     function totalAssets() public view returns (uint256) {
-    if (vaultShares == 0) return 0;
-    return LENDING_ADAPTER.convertToAssets(vaultShares);
+        if (vaultShares == 0) return 0;
+        return LENDING_ADAPTER.convertToAssets(vaultShares);
     }
 
     /**
@@ -233,19 +233,19 @@ contract PumpkinSpiceLatte is Ownable {
      * @return The prize amount, which is the yield generated so far.
      */
     function prizePool() public view returns (uint256) {
-    uint256 ta = totalAssets();
-    return ta > totalPrincipal ? (ta - totalPrincipal) : 0;
+        uint256 ta = totalAssets();
+        return ta > totalPrincipal ? (ta - totalPrincipal) : 0;
     }
 
     /**
      * @notice Returns the number of unique depositors.
      */
     function numberOfDepositors() public view returns (uint256) {
-    return depositors.length;
+        return depositors.length;
     }
 
     // Back-compat: expose a VAULT() view that returns the adapter address
     function VAULT() external view returns (address) {
-    return address(LENDING_ADAPTER);
+        return address(LENDING_ADAPTER);
     }
 }
