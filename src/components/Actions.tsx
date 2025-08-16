@@ -49,6 +49,8 @@ const Actions = () => {
   const { writeContract: approve, isPending: isApproving } = useWriteContract({
     onSuccess: (hash: `0x${string}`) => {
       setApprovalHash(hash);
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Approval tx submitted:', hash);
       toast({
         title: 'Approval submitted',
         description: 'Waiting for on-chain confirmation...'
@@ -63,14 +65,19 @@ const Actions = () => {
     },
   });
 
-  const { isLoading: isConfirmingApproval, isSuccess: isApprovalConfirmed } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirmingApproval, isSuccess: isApprovalConfirmed, status: approvalStatus, error: approvalError } = useWaitForTransactionReceipt({
+    chainId: chain?.id,
     hash: approvalHash,
-  });
+    confirmations: 1,
+    query: { enabled: Boolean(approvalHash), refetchInterval: 1000 },
+  } as any);
 
   // Declare deposit hook BEFORE any effects that reference it
   const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
     onSuccess: (hash: `0x${string}`) => {
       setDepositHash(hash);
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Deposit tx submitted:', hash);
       toast({ title: 'Deposit submitted', description: 'Waiting for on-chain confirmation...' });
     },
     onError: (error) => {
@@ -83,7 +90,17 @@ const Actions = () => {
   });
 
   useEffect(() => {
+    if (approvalError) {
+      // eslint-disable-next-line no-console
+      console.error('[PSL] Approval receipt error:', approvalError);
+      toast({ title: 'Approval Error', description: approvalError.message, variant: 'destructive' });
+    }
+  }, [approvalError, toast]);
+
+  useEffect(() => {
     if (isApprovalConfirmed) {
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Approval confirmed:', { approvalHash, approvalStatus });
       refetchAllowance();
       toast({ title: 'Approval Confirmed', description: 'You can now deposit your USDC.' });
       setApprovalHash(undefined);
@@ -98,21 +115,34 @@ const Actions = () => {
         });
       }
     }
-  }, [isApprovalConfirmed, refetchAllowance, toast, pendingDepositAmount, contractAddress, deposit]);
+  }, [isApprovalConfirmed, approvalHash, approvalStatus, refetchAllowance, toast, pendingDepositAmount, contractAddress, deposit]);
 
-  const { isLoading: isConfirmingDeposit, isSuccess: isDepositConfirmed } = useWaitForTransactionReceipt({
+  const { isLoading: isConfirmingDeposit, isSuccess: isDepositConfirmed, status: depositStatus, error: depositError } = useWaitForTransactionReceipt({
+    chainId: chain?.id,
     hash: depositHash,
-  });
+    confirmations: 1,
+    query: { enabled: Boolean(depositHash), refetchInterval: 1000 },
+  } as any);
+
+  useEffect(() => {
+    if (depositError) {
+      // eslint-disable-next-line no-console
+      console.error('[PSL] Deposit receipt error:', depositError);
+      toast({ title: 'Deposit Error', description: depositError.message, variant: 'destructive' });
+    }
+  }, [depositError, toast]);
 
   useEffect(() => {
     if (isDepositConfirmed) {
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Deposit confirmed:', { depositHash, depositStatus });
       toast({ title: 'Deposit Successful', description: 'Your USDC has been deposited.' });
       setDepositAmount('');
       setDepositHash(undefined);
       setPendingDepositAmount(undefined);
       autoDepositTriggeredRef.current = false;
     }
-  }, [isDepositConfirmed, toast]);
+  }, [isDepositConfirmed, depositHash, depositStatus, toast]);
 
   const { writeContract: withdraw, isPending: isWithdrawing } = useWriteContract({
     onSuccess: () => {
