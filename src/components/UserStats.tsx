@@ -2,7 +2,7 @@ import { useAccount, useReadContract, useWriteContract } from 'wagmi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
-import { formatEther } from 'viem';
+import { formatUnits } from 'viem';
 import { useToast } from '@/components/ui/use-toast';
 
 const UserStats = () => {
@@ -45,8 +45,8 @@ const UserStats = () => {
     if (!isSupportedNetwork) return "Switch to Sepolia testnet";
     if (balanceError) return "Error loading balance";
     if (balanceLoading) return "Loading...";
-    if (userBalanceData === undefined) return "0.00 WETH";
-    return `${formatEther(userBalanceData as bigint)} WETH`;
+    if (userBalanceData === undefined) return "0.00 USDC";
+    return `${formatUnits(userBalanceData as bigint, 6)} USDC`;
   };
 
   const userBalance = getUserBalanceDisplay();

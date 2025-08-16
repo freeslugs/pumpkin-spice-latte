@@ -1,6 +1,6 @@
 # Pumpkin Spice Latte PLSA
 
-Welcome to the Pumpkin Spice Latte Prize-Linked Savings Account! This is a decentralized application where users can deposit WETH to earn yield from the Morpho Blue protocol. The accumulated yield is then awarded as a prize to a random depositor in a weekly draw. It's a no-loss savings game: you can always withdraw your principal, and you get a chance to win the prize pool!
+Welcome to the Pumpkin Spice Latte Prize-Linked Savings Account! This is a decentralized application where users can deposit USDC to earn yield from the Morpho Blue protocol. The accumulated yield is then awarded as a prize to a random depositor in a weekly draw. It's a no-loss savings game: you can always withdraw your principal, and you get a chance to win the prize pool!
 
 This project is a full-stack dApp with a Solidity smart contract and a React frontend.
 
@@ -99,7 +99,7 @@ A deployment script is included to make deploying to the Sepolia testnet easy.
 5.  **Update the Frontend**:
     *   Open `packages/nextjs/src/contracts/PumpkinSpiceLatte.ts`.
     *   Paste the new contract address into the `pumpkinSpiceLatteAddress` variable.
-    *   You may also need to update the `wethAddress` if you are using a different testnet. The current one is for Sepolia.
+    *   You may also need to update the `usdc` address if you are using a different testnet. The current one is for Sepolia.
 
 ### Deploying the Frontend
 
@@ -130,4 +130,15 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
   --private-key $PRIVATE_KEY \
   --broadcast \
   --verify
+```
+
+and if it forgets to verify 
+
+```
+forge verify-contract \
+  --chain-id 11155111 \
+  --watch \
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  0x3Cb0F6582683204d013c1BaB52067ce351aa3beF \
+  packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
 ```

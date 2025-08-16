@@ -1,0 +1,49 @@
+import { CONTRACTS } from './PumpkinSpiceLatte';
+
+// Use the USDC address from the main contract configuration
+export const usdcAddress = CONTRACTS[11155111].usdc; // Sepolia testnet USDC
+
+// Minimal ERC-20 ABI needed for approve/allowance/transferFrom
+export const usdcAbi = [
+    {
+        constant: true,
+        inputs: [
+            { name: 'owner', type: 'address' },
+            { name: 'spender', type: 'address' }
+        ],
+        name: 'allowance',
+        outputs: [ { name: '', type: 'uint256' } ],
+        payable: false,
+        stateMutability: 'view',
+        type: 'function'
+    },
+    {
+        constant: false,
+        inputs: [ { name: 'spender', type: 'address' }, { name: 'amount', type: 'uint256' } ],
+        name: 'approve',
+        outputs: [ { name: '', type: 'bool' } ],
+        payable: false,
+        stateMutability: 'nonpayable',
+        type: 'function'
+    },
+    {
+        constant: false,
+        inputs: [ { name: 'sender', type: 'address' }, { name: 'recipient', type: 'address' }, { name: 'amount', type: 'uint256' } ],
+        name: 'transferFrom',
+        outputs: [ { name: '', type: 'bool' } ],
+        payable: false,
+        stateMutability: 'nonpayable',
+        type: 'function'
+    },
+    {
+        constant: true,
+        inputs: [],
+        name: 'decimals',
+        outputs: [ { name: '', type: 'uint8' } ],
+        payable: false,
+        stateMutability: 'view',
+        type: 'function'
+    }
+] as const;
+
+

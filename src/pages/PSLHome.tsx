@@ -17,7 +17,7 @@ const PSLHome = () => {
           Pumpkin Spice Latte PLSA
         </h1>
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
-          Deposit WETH, earn yield, and get a chance to win the prize pool. No loss, just juicy prizes!
+          Deposit USDC, earn yield, and get a chance to win the prize pool. No loss, just juicy prizes!
         </p>
       </div>
 

@@ -5,8 +5,8 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
-import { wethAddress, wethAbi } from '@/contracts/WETH';
-import { parseEther } from 'viem';
+import { usdcAddress, usdcAbi } from '@/contracts/USDC';
+import { parseUnits } from 'viem';
 import { useToast } from '@/components/ui/use-toast';
 
 const Actions = () => {
@@ -18,11 +18,11 @@ const Actions = () => {
   // Check if we're on a supported network
   const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
   const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
-  const currentWethAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].weth : wethAddress;
+  const currentTokenAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].usdc : usdcAddress;
 
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: currentWethAddress,
-    abi: wethAbi,
+    address: currentTokenAddress,
+    abi: usdcAbi,
     functionName: 'allowance',
     args: [address, contractAddress],
     query: {
@@ -34,7 +34,7 @@ const Actions = () => {
     onSuccess: () => {
         toast({
             title: "Approval Successful",
-            description: "You can now deposit your WETH.",
+            description: "You can now deposit your USDC.",
         });
         refetchAllowance();
     },
@@ -51,7 +51,7 @@ const Actions = () => {
     onSuccess: () => {
         toast({
             title: "Deposit Successful",
-            description: "Your WETH has been deposited.",
+            description: "Your USDC has been deposited.",
         });
         setDepositAmount('');
     },
@@ -68,7 +68,7 @@ const Actions = () => {
     onSuccess: () => {
         toast({
             title: "Withdrawal Successful",
-            description: "Your WETH has been withdrawn.",
+            description: "Your USDC has been withdrawn.",
         });
         setWithdrawAmount('');
     },
@@ -82,12 +82,13 @@ const Actions = () => {
   });
 
   const handleDeposit = () => {
-    const amount = parseEther(depositAmount);
+    const amount = parseUnits(depositAmount, 6);
     
-    if (allowance < amount) {
+    const allowanceBig = (allowance ?? 0n) as bigint;
+    if (allowanceBig < amount) {
         approve({
-            address: currentWethAddress,
-            abi: wethAbi,
+            address: currentTokenAddress,
+            abi: usdcAbi,
             functionName: 'approve',
             args: [contractAddress, amount],
         });
@@ -102,7 +103,7 @@ const Actions = () => {
   };
 
   const handleWithdraw = () => {
-    const amount = parseEther(withdrawAmount);
+    const amount = parseUnits(withdrawAmount, 6);
     withdraw({
         address: contractAddress,
         abi: pumpkinSpiceLatteAbi,
@@ -111,7 +112,7 @@ const Actions = () => {
     });
   };
 
-  const needsApproval = isConnected && allowance < parseEther(depositAmount || '0');
+  const needsApproval = isConnected && ((allowance ?? 0n) as bigint) < parseUnits(depositAmount || '0', 6);
 
   return (
     <Card>
@@ -134,7 +135,7 @@ const Actions = () => {
             <div className="space-y-4">
               <Input 
                 type="number" 
-                placeholder="Amount in WETH" 
+                placeholder="Amount in USDC" 
                 value={depositAmount}
                 onChange={(e) => setDepositAmount(e.target.value)}
               />
@@ -143,7 +144,7 @@ const Actions = () => {
                 disabled={!isConnected || !isSupportedNetwork || isApproving || isDepositing}
                 onClick={handleDeposit}
               >
-                {isApproving ? "Approving..." : isDepositing ? "Depositing..." : needsApproval ? "Approve WETH" : "Deposit WETH"}
+                {isApproving ? "Approving..." : isDepositing ? "Depositing..." : needsApproval ? "Approve USDC" : "Deposit USDC"}
               </Button>
             </div>
           </TabsContent>
@@ -151,7 +152,7 @@ const Actions = () => {
             <div className="space-y-4">
               <Input 
                 type="number" 
-                placeholder="Amount in WETH" 
+                placeholder="Amount in USDC" 
                 value={withdrawAmount}
                 onChange={(e) => setWithdrawAmount(e.target.value)}
               />
@@ -161,7 +162,7 @@ const Actions = () => {
                 disabled={!isConnected || !isSupportedNetwork || isWithdrawing}
                 onClick={handleWithdraw}
               >
-                {isWithdrawing ? "Withdrawing..." : "Withdraw WETH"}
+                {isWithdrawing ? "Withdrawing..." : "Withdraw USDC"}
               </Button>
             </div>
           </TabsContent>

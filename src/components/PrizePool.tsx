@@ -2,7 +2,7 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Award, Clock, Wallet, AlertCircle } from 'lucide-react';
 import { useReadContract, useAccount } from 'wagmi';
 import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
-import { formatEther } from 'viem';
+import { formatUnits } from 'viem';
 
 // Helper function to format time remaining
 const formatTimeRemaining = (timestamp: bigint) => {
@@ -62,7 +62,7 @@ const PrizePool = () => {
     if (prizePoolError) return "Error loading data";
     if (prizePoolLoading) return "Loading...";
     if (prizePoolData === undefined) return "No data";
-    return `${formatEther(prizePoolData as bigint)} WETH`;
+    return `${formatUnits(prizePoolData as bigint, 6)} USDC`;
   };
 
   const getTimeRemainingDisplay = () => {
