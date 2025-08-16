@@ -1,8 +1,14 @@
 import PrizePool from '@/components/PrizePool';
 import Actions from '@/components/Actions';
 import UserStats from '@/components/UserStats';
+import { useAccount } from 'wagmi';
+import { CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
+import { AlertCircle, CheckCircle } from 'lucide-react';
 
 const PSLHome = () => {
+  const { chain, isConnected } = useAccount();
+  const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
+
   return (
     <div className="container mx-auto p-6 space-y-8">
       {/* Header */}
@@ -14,6 +20,34 @@ const PSLHome = () => {
           Deposit WETH, earn yield, and get a chance to win the prize pool. No loss, just juicy prizes!
         </p>
       </div>
+
+      {/* Network Status */}
+      {isConnected && (
+        <div className={`p-4 rounded-lg border ${
+          isSupportedNetwork 
+            ? 'bg-green-50 border-green-200 text-green-800' 
+            : 'bg-amber-50 border-amber-200 text-amber-800'
+        }`}>
+          <div className="flex items-center gap-3">
+            {isSupportedNetwork ? (
+              <CheckCircle className="h-5 w-5 text-green-600" />
+            ) : (
+              <AlertCircle className="h-5 w-5 text-amber-600" />
+            )}
+            <div>
+              <p className="font-medium">
+                {isSupportedNetwork ? 'Ready to interact!' : 'Network not supported'}
+              </p>
+              <p className="text-sm">
+                {isSupportedNetwork 
+                  ? `You're connected to ${chain?.name} and can interact with the contract.`
+                  : `Please switch to Sepolia testnet to interact with the Pumpkin Spice Latte contract.`
+                }
+              </p>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Main Content Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-8">

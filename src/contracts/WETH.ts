@@ -1,4 +1,7 @@
-export const wethAddress = '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'; // Mainnet WETH, replace if on another network
+import { CONTRACTS } from './PumpkinSpiceLatte';
+
+// Use the WETH address from the main contract configuration
+export const wethAddress = CONTRACTS[11155111].weth; // Sepolia testnet WETH
 
 export const wethAbi = [
     {

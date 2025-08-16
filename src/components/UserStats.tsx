@@ -1,13 +1,18 @@
 import { useAccount, useReadContract, useWriteContract } from 'wagmi';
 import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
-import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi } from '@/contracts/PumpkinSpiceLatte';
+import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
 import { formatEther } from 'viem';
 import { useToast } from '@/components/ui/use-toast';
 
 const UserStats = () => {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const { toast } = useToast();
+  
+  // Check if we're on a supported network
+  const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
+  const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
+
   const { writeContract, isPending } = useWriteContract({
     onSuccess: () => {
       toast({
@@ -24,22 +29,31 @@ const UserStats = () => {
     }
   });
 
-  const { data: userBalanceData, refetch } = useReadContract({
-    address: pumpkinSpiceLatteAddress,
+  const { data: userBalanceData, refetch, isError: balanceError, isLoading: balanceLoading } = useReadContract({
+    address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'balanceOf',
     args: [address],
     query: {
-        enabled: isConnected,
+        enabled: isConnected && !!address && isSupportedNetwork,
         refetchInterval: 5000, // Refetch every 5 seconds
     }
   });
 
-  const userBalance = userBalanceData ? `${formatEther(userBalanceData as bigint)} WETH` : "0.00 WETH";
+  const getUserBalanceDisplay = () => {
+    if (!isConnected) return "Connect wallet to view";
+    if (!isSupportedNetwork) return "Switch to Sepolia testnet";
+    if (balanceError) return "Error loading balance";
+    if (balanceLoading) return "Loading...";
+    if (userBalanceData === undefined) return "0.00 WETH";
+    return `${formatEther(userBalanceData as bigint)} WETH`;
+  };
+
+  const userBalance = getUserBalanceDisplay();
 
   const handleAwardPrize = () => {
     writeContract({
-      address: pumpkinSpiceLatteAddress,
+      address: contractAddress,
       abi: pumpkinSpiceLatteAbi,
       functionName: 'awardPrize',
     });
@@ -53,16 +67,18 @@ const UserStats = () => {
       <CardContent className="space-y-4">
         <div className="flex justify-between items-center">
           <p className="text-muted-foreground">Your Deposits</p>
-          <p className="font-bold text-lg">{isConnected ? userBalance : "N/A"}</p>
+          <p className="font-bold text-lg">{userBalance}</p>
         </div>
         <div className="flex justify-between items-center">
           <p className="text-muted-foreground">Your Wallet</p>
-          <p className="font-bold text-lg truncate">{isConnected ? `${address.slice(0, 6)}...${address.slice(-4)}` : "N/A"}</p>
+          <p className="font-bold text-lg truncate">
+            {isConnected && address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Not connected"}
+          </p>
         </div>
         <Button 
             className="w-full" 
             variant="outline" 
-            disabled={!isConnected || isPending}
+            disabled={!isConnected || !isSupportedNetwork || isPending}
             onClick={handleAwardPrize}
         >
           {isPending ? "Awarding..." : "Award Prize"}

@@ -113,3 +113,21 @@ You can easily deploy the frontend to a service like Vercel or Netlify.
     *   **Output Directory**: `.next`
 4.  **Deploy**. Your dApp will be live!
 
+
+
+### Deploy to sepolia 
+
+```
+source .env
+```
+
+and then 
+
+
+```
+forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
+  --rpc-url sepolia \
+  --private-key $PRIVATE_KEY \
+  --broadcast \
+  --verify
+```

@@ -1,7 +1,7 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Award, Clock, Wallet } from 'lucide-react';
-import { useReadContract } from 'wagmi';
-import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi } from '@/contracts/PumpkinSpiceLatte';
+import { Award, Clock, Wallet, AlertCircle } from 'lucide-react';
+import { useReadContract, useAccount } from 'wagmi';
+import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
 import { formatEther } from 'viem';
 
 // Helper function to format time remaining
@@ -20,42 +20,85 @@ const formatTimeRemaining = (timestamp: bigint) => {
   return `${days}d ${hours}h ${minutes}m`;
 };
 
-
 const PrizePool = () => {
-  const { data: prizePoolData } = useReadContract({
-    address: pumpkinSpiceLatteAddress,
+  const { isConnected, chain } = useAccount();
+
+  // Check if we're on a supported network
+  const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
+  const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
+
+  const { data: prizePoolData, isError: prizePoolError, isLoading: prizePoolLoading } = useReadContract({
+    address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'prizePool',
     query: {
         refetchInterval: 5000, // Refetch every 5 seconds
+        enabled: isConnected && isSupportedNetwork,
     }
   });
 
-  const { data: nextRoundTimestampData } = useReadContract({
-    address: pumpkinSpiceLatteAddress,
+  const { data: nextRoundTimestampData, isError: timestampError, isLoading: timestampLoading } = useReadContract({
+    address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'nextRoundTimestamp',
     query: {
         refetchInterval: 1000, // Refetch every second for the countdown
+        enabled: isConnected && isSupportedNetwork,
     }
   });
 
-  const { data: lastWinnerData } = useReadContract({
-    address: pumpkinSpiceLatteAddress,
+  const { data: lastWinnerData, isError: winnerError, isLoading: winnerLoading } = useReadContract({
+    address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'lastWinner',
+    query: {
+        enabled: isConnected && isSupportedNetwork,
+    }
   });
 
-  const prizePool = prizePoolData ? `${formatEther(prizePoolData as bigint)} WETH` : "Loading...";
-  const timeRemaining = nextRoundTimestampData ? formatTimeRemaining(nextRoundTimestampData as bigint) : "Loading...";
-  const lastWinner = lastWinnerData ? `${(lastWinnerData as string).slice(0, 6)}...${(lastWinnerData as string).slice(-4)}` : "N/A";
+  const getPrizePoolDisplay = () => {
+    if (!isConnected) return "Connect wallet to view";
+    if (!isSupportedNetwork) return "Switch to Sepolia testnet";
+    if (prizePoolError) return "Error loading data";
+    if (prizePoolLoading) return "Loading...";
+    if (prizePoolData === undefined) return "No data";
+    return `${formatEther(prizePoolData as bigint)} WETH`;
+  };
 
+  const getTimeRemainingDisplay = () => {
+    if (!isConnected) return "Connect wallet to view";
+    if (!isSupportedNetwork) return "Switch to Sepolia testnet";
+    if (timestampError) return "Error loading data";
+    if (timestampLoading) return "Loading...";
+    if (nextRoundTimestampData === undefined) return "No data";
+    return formatTimeRemaining(nextRoundTimestampData as bigint);
+  };
+
+  const getLastWinnerDisplay = () => {
+    if (!isConnected) return "Connect wallet to view";
+    if (!isSupportedNetwork) return "Switch to Sepolia testnet";
+    if (winnerError) return "Error loading data";
+    if (winnerLoading) return "Loading...";
+    if (lastWinnerData === undefined) return "No data";
+    if (lastWinnerData === '0x0000000000000000000000000000000000000000') return "No winner yet";
+    return `${(lastWinnerData as string).slice(0, 6)}...${(lastWinnerData as string).slice(-4)}`;
+  };
+
+  const prizePool = getPrizePoolDisplay();
+  const timeRemaining = getTimeRemainingDisplay();
+  const lastWinner = getLastWinnerDisplay();
 
   return (
     <Card>
       <CardHeader>
         <CardTitle>Prize Pool</CardTitle>
         <CardDescription>The winner takes all the yield generated from the deposits.</CardDescription>
+        {!isSupportedNetwork && isConnected && (
+          <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-2 rounded">
+            <AlertCircle className="h-4 w-4" />
+            Please switch to Sepolia testnet to interact with the contract
+          </div>
+        )}
       </CardHeader>
       <CardContent className="grid grid-cols-1 md:grid-cols-3 gap-4 text-center">
         <div>

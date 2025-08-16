@@ -4,24 +4,29 @@ import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/com
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
-import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi } from '@/contracts/PumpkinSpiceLatte';
+import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
 import { wethAddress, wethAbi } from '@/contracts/WETH';
 import { parseEther } from 'viem';
 import { useToast } from '@/components/ui/use-toast';
 
 const Actions = () => {
-  const { address, isConnected } = useAccount();
+  const { address, isConnected, chain } = useAccount();
   const { toast } = useToast();
   const [depositAmount, setDepositAmount] = useState('');
   const [withdrawAmount, setWithdrawAmount] = useState('');
 
+  // Check if we're on a supported network
+  const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
+  const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
+  const currentWethAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].weth : wethAddress;
+
   const { data: allowance, refetch: refetchAllowance } = useReadContract({
-    address: wethAddress,
+    address: currentWethAddress,
     abi: wethAbi,
     functionName: 'allowance',
-    args: [address, pumpkinSpiceLatteAddress],
+    args: [address, contractAddress],
     query: {
-        enabled: isConnected,
+        enabled: isConnected && !!address && isSupportedNetwork,
     }
   });
 
@@ -76,20 +81,19 @@ const Actions = () => {
     }
   });
 
-
   const handleDeposit = () => {
     const amount = parseEther(depositAmount);
     
     if (allowance < amount) {
         approve({
-            address: wethAddress,
+            address: currentWethAddress,
             abi: wethAbi,
             functionName: 'approve',
-            args: [pumpkinSpiceLatteAddress, amount],
+            args: [contractAddress, amount],
         });
     } else {
         deposit({
-            address: pumpkinSpiceLatteAddress,
+            address: contractAddress,
             abi: pumpkinSpiceLatteAbi,
             functionName: 'deposit',
             args: [amount],
@@ -100,7 +104,7 @@ const Actions = () => {
   const handleWithdraw = () => {
     const amount = parseEther(withdrawAmount);
     withdraw({
-        address: pumpkinSpiceLatteAddress,
+        address: contractAddress,
         abi: pumpkinSpiceLatteAbi,
         functionName: 'withdraw',
         args: [amount],
@@ -114,6 +118,11 @@ const Actions = () => {
       <CardHeader>
         <CardTitle>Manage Your Funds</CardTitle>
         <CardDescription>Deposit to enter the prize draw or withdraw your principal at any time.</CardDescription>
+        {!isSupportedNetwork && isConnected && (
+          <div className="text-sm text-amber-600 bg-amber-50 p-2 rounded">
+            ⚠️ Please switch to Sepolia testnet to interact with the contract
+          </div>
+        )}
       </CardHeader>
       <CardContent>
         <Tabs defaultValue="deposit">
@@ -131,7 +140,7 @@ const Actions = () => {
               />
               <Button 
                 className="w-full" 
-                disabled={!isConnected || isApproving || isDepositing}
+                disabled={!isConnected || !isSupportedNetwork || isApproving || isDepositing}
                 onClick={handleDeposit}
               >
                 {isApproving ? "Approving..." : isDepositing ? "Depositing..." : needsApproval ? "Approve WETH" : "Deposit WETH"}
@@ -149,7 +158,7 @@ const Actions = () => {
               <Button 
                 variant="secondary" 
                 className="w-full" 
-                disabled={!isConnected || isWithdrawing}
+                disabled={!isConnected || !isSupportedNetwork || isWithdrawing}
                 onClick={handleWithdraw}
               >
                 {isWithdrawing ? "Withdrawing..." : "Withdraw WETH"}

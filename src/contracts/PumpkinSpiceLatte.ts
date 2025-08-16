@@ -1,4 +1,17 @@
-export const pumpkinSpiceLatteAddress = '0x5FbDB2315678afecb367f032d93F642f64180aa3'; // Example address, replace with your deployment
+// Network-based contract configuration
+export const CONTRACTS = {
+  11155111: { // Sepolia testnet
+    pumpkinSpiceLatte: '0x39279fc33dd53bacb445c963e231810747e8e6ad',
+    weth: '0x7b79995e5f793A07Bc00c21412e50Ecae098E7f9'
+  },
+  1: { // Ethereum mainnet
+    pumpkinSpiceLatte: '0x0000000000000000000000000000000000000000', // Not deployed yet
+    weth: '0xC02aaA39b223FE8D0A0e5C4F27eAD9083C756Cc2'
+  }
+} as const;
+
+// Default to Sepolia for now
+export const pumpkinSpiceLatteAddress = CONTRACTS[11155111].pumpkinSpiceLatte;
 
 export const pumpkinSpiceLatteAbi = [
   // Constructor
