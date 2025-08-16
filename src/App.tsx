@@ -37,7 +37,7 @@ const App = () => (
         <div className="flex min-h-screen w-full">
           <div className="flex-1 flex flex-col">
             <header className="flex justify-between items-center p-4 border-b">
-              <NetworkIndicator />
+              {/* <NetworkIndicator /> */}
               <ConnectButton />
             </header>
             <main className="flex-1 p-6 bg-background">

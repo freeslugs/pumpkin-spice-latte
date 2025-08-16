@@ -1,23 +1,26 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Award, Clock, Wallet, PiggyBank, Coins, AlertCircle } from 'lucide-react';
 import { useReadContract, useAccount } from 'wagmi';
-import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
+import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '../contracts/PumpkinSpiceLatte';
 import { formatUnits } from 'viem';
+import { getAddressExplorerUrl } from '../lib/utils';
 
 // Helper function to format time remaining
-const formatTimeRemaining = (timestamp: bigint) => {
+  const formatTimeRemaining = (timestamp: bigint) => {
   const now = BigInt(Math.floor(Date.now() / 1000));
   const secondsRemaining = timestamp - now;
 
-  if (secondsRemaining <= 0) {
+  if (secondsRemaining <= 0n) {
     return 'Next round starting soon!';
   }
 
-  const days = secondsRemaining / BigInt(86400);
-  const hours = (secondsRemaining % BigInt(86400)) / BigInt(3600);
-  const minutes = (secondsRemaining % BigInt(3600)) / BigInt(60);
+  const days = secondsRemaining / 86400n;
+  const hours = (secondsRemaining % 86400n) / 3600n;
+  const minutes = (secondsRemaining % 3600n) / 60n;
+  const seconds = secondsRemaining % 60n;
 
-  return `${days}d ${hours}h ${minutes}m`;
+  return `${days}d ${hours}h ${minutes}m ${seconds}s`;
 };
 
 const PrizePool = () => {
@@ -25,15 +28,17 @@ const PrizePool = () => {
 
   // Check if we're on a supported network
   const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
-  const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
+  const targetChainId = isSupportedNetwork ? chain!.id : 1;
+  const contractAddress = CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ?? pumpkinSpiceLatteAddress;
 
   const { data: prizePoolData, isError: prizePoolError, isLoading: prizePoolLoading } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'prizePool',
+    chainId: targetChainId,
     query: {
-      refetchInterval: 5000, // Refetch every 5 seconds
-      enabled: isConnected && !!isSupportedNetwork,
+      refetchInterval: 1000,
+      enabled: true,
     },
   });
 
@@ -41,9 +46,10 @@ const PrizePool = () => {
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'totalAssets',
+    chainId: targetChainId,
     query: {
       refetchInterval: 5000,
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
@@ -51,9 +57,10 @@ const PrizePool = () => {
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'totalPrincipal',
+    chainId: targetChainId,
     query: {
       refetchInterval: 5000,
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
@@ -61,9 +68,10 @@ const PrizePool = () => {
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'nextRoundTimestamp',
+    chainId: targetChainId,
     query: {
       refetchInterval: 1000, // Refetch every second for the countdown
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
@@ -71,14 +79,13 @@ const PrizePool = () => {
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'lastWinner',
+    chainId: targetChainId,
     query: {
-      enabled: isConnected && !!isSupportedNetwork,
+      enabled: true,
     },
   });
 
   const getPrizePoolDisplay = () => {
-    if (!isConnected) return "Connect wallet to view";
-    if (!isSupportedNetwork) return "Switch to a supported network";
     if (prizePoolError) return "Error loading data";
     if (prizePoolLoading) return "Loading...";
     if (prizePoolData === undefined) return "No data";
@@ -86,8 +93,6 @@ const PrizePool = () => {
   };
 
   const getTimeRemainingDisplay = () => {
-    if (!isConnected) return 'Connect wallet to view';
-    if (!isSupportedNetwork) return 'Switch to a supported network';
     if (timestampError) return 'Error loading data';
     if (timestampLoading) return 'Loading...';
     if (nextRoundTimestampData === undefined) return 'No data';
@@ -95,8 +100,6 @@ const PrizePool = () => {
   };
 
   const getLastWinnerDisplay = () => {
-    if (!isConnected) return 'Connect wallet to view';
-    if (!isSupportedNetwork) return 'Switch to a supported network';
     if (winnerError) return 'Error loading data';
     if (winnerLoading) return 'Loading...';
     if (lastWinnerData === undefined) return 'No data';
@@ -110,6 +113,11 @@ const PrizePool = () => {
 
   const totalAssets = totalAssetsData ? `${formatUnits(totalAssetsData as bigint, 6)} USDC` : '-';
   const totalPrincipal = totalPrincipalData ? `${formatUnits(totalPrincipalData as bigint, 6)} USDC` : '-';
+
+  const chainId = targetChainId;
+  const lastWinnerLink = typeof lastWinnerData === 'string' && lastWinnerData !== '0x0000000000000000000000000000000000000000'
+    ? getAddressExplorerUrl(chainId, lastWinnerData)
+    : undefined;
 
   return (
     <Card>
@@ -140,7 +148,13 @@ const PrizePool = () => {
         <div>
           <Wallet className="h-8 w-8 mx-auto mb-2 text-green-500" />
           <p className="text-sm text-muted-foreground">Last Winner</p>
-          <p className="text-2xl font-bold truncate">{lastWinner}</p>
+          {lastWinnerLink ? (
+            <a href={lastWinnerLink} target="_blank" rel="noreferrer" className="text-2xl font-bold truncate text-blue-600 hover:underline">
+              {lastWinner}
+            </a>
+          ) : (
+            <p className="text-2xl font-bold truncate">{lastWinner}</p>
+          )}
         </div>
         <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
           <div className="rounded border p-4 text-center">

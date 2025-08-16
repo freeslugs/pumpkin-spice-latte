@@ -1,10 +1,12 @@
+import React from 'react';
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { pumpkinSpiceLatteAbi, CONTRACTS, pumpkinSpiceLatteAddress } from '@/contracts/PumpkinSpiceLatte';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { CONTRACTS, pumpkinSpiceLatteAddress } from '../contracts/PumpkinSpiceLatte';
+import { ScrollArea } from './ui/scroll-area';
 import { formatUnits, parseAbiItem } from 'viem';
-import { Award, History, AlertCircle } from 'lucide-react';
+import { Award, History, AlertCircle, ExternalLink } from 'lucide-react';
+import { getAddressExplorerUrl, getTxExplorerUrl } from '../lib/utils';
 
 interface WinnerItem {
 	blockNumber: bigint;
@@ -13,19 +15,19 @@ interface WinnerItem {
 	txHash?: `0x${string}`;
 }
 
-const DEPLOYMENT_BLOCK_SEPOLIA = 0x894961n; // from broadcast
+const DEPLOYMENT_BLOCK_MAINNET = 0x161534en; // from broadcast (mainnet)
 
 const Winners = () => {
 	const { address, chain, isConnected } = useAccount();
-	const publicClient = usePublicClient();
-
 	const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
-	const contractAddress = isSupportedNetwork ? CONTRACTS[chain!.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
+	const targetChainId = isSupportedNetwork ? chain!.id : 1;
+	const publicClient = usePublicClient({ chainId: targetChainId });
+
+	const contractAddress = CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ?? pumpkinSpiceLatteAddress;
 	const fromBlock = useMemo(() => {
-		if (!chain) return DEPLOYMENT_BLOCK_SEPOLIA;
-		if (chain.id === 11155111) return DEPLOYMENT_BLOCK_SEPOLIA;
-		return 0n; // fallback
-	}, [chain]);
+		if (targetChainId === 1) return DEPLOYMENT_BLOCK_MAINNET;
+		return 0n; // fallback when deployment block is unknown
+	}, [targetChainId]);
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
@@ -34,7 +36,7 @@ const Winners = () => {
 	useEffect(() => {
 		let cancelled = false;
 		const fetchLogs = async () => {
-			if (!publicClient || !isSupportedNetwork) return;
+			if (!publicClient) return;
 			setLoading(true);
 			setError(null);
 			try {
@@ -63,12 +65,14 @@ const Winners = () => {
 		};
 		fetchLogs();
 		return () => { cancelled = true };
-	}, [publicClient, isSupportedNetwork, contractAddress, fromBlock]);
+	}, [publicClient, contractAddress, fromBlock]);
 
 	const yourTotalWinnings = useMemo(() => {
 		if (!address) return 0n;
 		return winners.reduce((acc, w) => (w.winner.toLowerCase() === address.toLowerCase() ? acc + w.amount : acc), 0n);
 	}, [winners, address]);
+
+	const chainId = targetChainId;
 
 	return (
 		<Card>
@@ -103,8 +107,31 @@ const Winners = () => {
 									{winners.map((w, idx) => (
 										<li key={`${w.txHash}-${idx}`} className="p-3 flex items-center justify-between gap-3">
 											<div className="min-w-0">
-												<p className="font-medium text-sm truncate">{w.winner.slice(0, 6)}...{w.winner.slice(-4)}</p>
-												<p className="text-xs text-muted-foreground">Block #{w.blockNumber.toString()}</p>
+												<a
+													href={getAddressExplorerUrl(chainId, w.winner)}
+													target="_blank"
+													rel="noreferrer"
+													className="font-medium text-sm truncate text-blue-600 hover:underline"
+												>
+													{w.winner.slice(0, 6)}...{w.winner.slice(-4)}
+												</a>
+												<p className="text-xs text-muted-foreground flex items-center gap-1">
+													Block #{w.blockNumber.toString()}
+													{w.txHash && (
+														<>
+															<span className="mx-1">·</span>
+															<a
+																href={getTxExplorerUrl(chainId, w.txHash!)}
+																target="_blank"
+																rel="noreferrer"
+																className="inline-flex items-center gap-1 hover:underline"
+															>
+															<span>tx</span>
+															<ExternalLink className="h-3 w-3" />
+															</a>
+														</>
+													)}
+												</p>
 											</div>
 											<div className="shrink-0 font-semibold">{formatUnits(w.amount, 6)} USDC</div>
 										</li>

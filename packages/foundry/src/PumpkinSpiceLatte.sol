@@ -105,6 +105,7 @@ contract PumpkinSpiceLatte is VRFConsumerBaseV2Plus {
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event PrizeAwarded(address indexed winner, uint256 amount);
+    event RoundDurationUpdated(uint256 oldDuration, uint256 newDuration);
 
     //-//////////////////////////////////////////////////////////
     //                        CONSTRUCTOR
@@ -240,6 +241,22 @@ contract PumpkinSpiceLatte is VRFConsumerBaseV2Plus {
         uint256 requestId = s_vrfCoordinator.requestRandomWords(req);
         lastRequestId = requestId;
         vrfRequestPending = true;
+    }
+
+    //-//////////////////////////////////////////////////////////
+    //                    OWNER-ONLY FUNCTIONS
+    //-//////////////////////////////////////////////////////////
+
+    /**
+     * @notice Updates the round duration. Only callable by the contract owner.
+     * @param _roundDuration The new round duration in seconds. Must be greater than zero.
+     * @dev This change applies to future rounds. The current `nextRoundTimestamp` is not modified.
+     */
+    function setRoundDuration(uint256 _roundDuration) external onlyOwner {
+        require(_roundDuration > 0, "Duration must be > 0");
+        uint256 old = roundDuration;
+        roundDuration = _roundDuration;
+        emit RoundDurationUpdated(old, _roundDuration);
     }
 
     //-//////////////////////////////////////////////////////////

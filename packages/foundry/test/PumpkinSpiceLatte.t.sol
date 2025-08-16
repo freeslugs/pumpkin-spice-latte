@@ -234,7 +234,7 @@ contract PumpkinSpiceLatteTest is Test {
         vm.startPrank(user1);
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
-        
+
         // Then, user1 withdraws
         psl.withdraw(3 ether);
         vm.stopPrank();
@@ -249,12 +249,12 @@ contract PumpkinSpiceLatteTest is Test {
         vm.startPrank(user1);
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
-        
+
         vm.expectRevert("Insufficient balance");
         psl.withdraw(11 ether);
         vm.stopPrank();
     }
-    
+
     function testFullWithdrawalRemovesDepositor() public {
         // User1 deposits
         vm.startPrank(user1);
@@ -269,7 +269,7 @@ contract PumpkinSpiceLatteTest is Test {
         vm.stopPrank();
 
         assertEq(psl.numberOfDepositors(), 2);
-        
+
         // User1 withdraws all
         vm.startPrank(user1);
         psl.withdraw(10 ether);
@@ -290,7 +290,7 @@ contract PumpkinSpiceLatteTest is Test {
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
         vm.stopPrank();
-        
+
         // Simulate yield by donating assets directly to the vault (improves exchange rate)
         weth.mint(address(vault), 1 ether);
         // Now totalAssets should be 21, principal is 20, prize is ~1

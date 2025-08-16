@@ -1,14 +1,19 @@
-import PrizePool from '@/components/PrizePool';
-import Actions from '@/components/Actions';
-import UserStats from '@/components/UserStats';
-import Winners from '@/components/Winners';
+import React from 'react';
+import PrizePool from '../components/PrizePool';
+import Actions from '../components/Actions';
+import UserStats from '../components/UserStats';
+import Winners from '../components/Winners';
 import { useAccount } from 'wagmi';
-import { CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { CONTRACTS, pumpkinSpiceLatteAddress } from '../contracts/PumpkinSpiceLatte';
+import { AlertCircle, CheckCircle, ExternalLink } from 'lucide-react';
+import { getAddressExplorerUrl } from '../lib/utils';
 
 const PSLHome = () => {
   const { chain, isConnected } = useAccount();
   const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
+  const chainId = chain?.id ?? 1;
+  const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
+  const contractExplorerUrl = getAddressExplorerUrl(chainId, contractAddress);
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -20,30 +25,27 @@ const PSLHome = () => {
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Deposit USDC, brew some yield, and sip the spice of winning the weekly prize pool. No loss, just cozy vibes.
         </p>
+        <div className="flex justify-center">
+          <a
+            href={contractExplorerUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          >
+            View contract on explorer
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </div>
 
       {/* Network Status */}
-      {isConnected && (
-        <div className={`p-4 rounded-lg border ${
-          isSupportedNetwork 
-            ? 'bg-green-50 border-green-200 text-green-800' 
-            : 'bg-amber-50 border-amber-200 text-amber-800'
-        }`}>
+      {isConnected && !isSupportedNetwork && (
+        <div className="p-4 rounded-lg border bg-amber-50 border-amber-200 text-amber-800">
           <div className="flex items-center gap-3">
-            {isSupportedNetwork ? (
-              <CheckCircle className="h-5 w-5 text-green-600" />
-            ) : (
-              <AlertCircle className="h-5 w-5 text-amber-600" />
-            )}
+            <AlertCircle className="h-5 w-5 text-amber-600" />
             <div>
               <p className="font-medium">
-                {isSupportedNetwork ? 'Ready to interact!' : 'Network not supported'}
-              </p>
-              <p className="text-sm">
-                {isSupportedNetwork 
-                  ? `You're connected to ${chain?.name} and can interact with the contract.`
-                  : `Please switch to a supported network to interact with the Pumpkin Spice Latte contract.`
-                }
+                Network not supported
               </p>
             </div>
           </div>

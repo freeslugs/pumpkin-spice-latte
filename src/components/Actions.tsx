@@ -1,5 +1,5 @@
-import { useState, useMemo } from 'react';
-import { useAccount, useReadContract, useWriteContract } from 'wagmi';
+import { useState, useMemo, useEffect, useRef } from 'react';
+import { useAccount, useReadContract, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
@@ -41,13 +41,20 @@ const Actions = () => {
     },
   } as any);
 
+  const [approvalHash, setApprovalHash] = useState<`0x${string}` | undefined>(undefined);
+  const [depositHash, setDepositHash] = useState<`0x${string}` | undefined>(undefined);
+  const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | undefined>(undefined);
+  const autoDepositTriggeredRef = useRef(false);
+
   const { writeContract: approve, isPending: isApproving } = useWriteContract({
-    onSuccess: () => {
+    onSuccess: (hash: `0x${string}`) => {
+      setApprovalHash(hash);
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Approval tx submitted:', hash);
       toast({
-        title: 'Approval Successful',
-        description: 'You can now deposit your USDC.',
+        title: 'Approval submitted',
+        description: 'Waiting for on-chain confirmation...'
       });
-      refetchAllowance();
     },
     onError: (error) => {
       toast({
@@ -58,13 +65,20 @@ const Actions = () => {
     },
   });
 
+  const { isLoading: isConfirmingApproval, isSuccess: isApprovalConfirmed, status: approvalStatus, error: approvalError } = useWaitForTransactionReceipt({
+    chainId: chain?.id,
+    hash: approvalHash,
+    confirmations: 1,
+    query: { enabled: Boolean(approvalHash), refetchInterval: 1000 },
+  } as any);
+
+  // Declare deposit hook BEFORE any effects that reference it
   const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
-    onSuccess: () => {
-      toast({
-        title: 'Deposit Successful',
-        description: 'Your USDC has been deposited.',
-      });
-      setDepositAmount('');
+    onSuccess: (hash: `0x${string}`) => {
+      setDepositHash(hash);
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Deposit tx submitted:', hash);
+      toast({ title: 'Deposit submitted', description: 'Waiting for on-chain confirmation...' });
     },
     onError: (error) => {
       toast({
@@ -75,11 +89,66 @@ const Actions = () => {
     },
   });
 
+  useEffect(() => {
+    if (approvalError) {
+      // eslint-disable-next-line no-console
+      console.error('[PSL] Approval receipt error:', approvalError);
+      toast({ title: 'Approval Error', description: approvalError.message, variant: 'destructive' });
+    }
+  }, [approvalError, toast]);
+
+  useEffect(() => {
+    if (isApprovalConfirmed) {
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Approval confirmed:', { approvalHash, approvalStatus });
+      refetchAllowance();
+      toast({ title: 'Approval Confirmed', description: 'You can now deposit your USDC.' });
+      setApprovalHash(undefined);
+      // Auto-trigger deposit once after approval confirmation
+      if (!autoDepositTriggeredRef.current && pendingDepositAmount && isAddress(contractAddress)) {
+        autoDepositTriggeredRef.current = true;
+        deposit({
+          address: contractAddress,
+          abi: pumpkinSpiceLatteAbi,
+          functionName: 'deposit',
+          args: [pendingDepositAmount],
+        });
+      }
+    }
+  }, [isApprovalConfirmed, approvalHash, approvalStatus, refetchAllowance, toast, pendingDepositAmount, contractAddress, deposit]);
+
+  const { isLoading: isConfirmingDeposit, isSuccess: isDepositConfirmed, status: depositStatus, error: depositError } = useWaitForTransactionReceipt({
+    chainId: chain?.id,
+    hash: depositHash,
+    confirmations: 1,
+    query: { enabled: Boolean(depositHash), refetchInterval: 1000 },
+  } as any);
+
+  useEffect(() => {
+    if (depositError) {
+      // eslint-disable-next-line no-console
+      console.error('[PSL] Deposit receipt error:', depositError);
+      toast({ title: 'Deposit Error', description: depositError.message, variant: 'destructive' });
+    }
+  }, [depositError, toast]);
+
+  useEffect(() => {
+    if (isDepositConfirmed) {
+      // eslint-disable-next-line no-console
+      console.log('[PSL] Deposit confirmed:', { depositHash, depositStatus });
+      toast({ title: 'Deposit Successful', description: 'Your USDC has been deposited.' });
+      setDepositAmount('');
+      setDepositHash(undefined);
+      setPendingDepositAmount(undefined);
+      autoDepositTriggeredRef.current = false;
+    }
+  }, [isDepositConfirmed, depositHash, depositStatus, toast]);
+
   const { writeContract: withdraw, isPending: isWithdrawing } = useWriteContract({
     onSuccess: () => {
       toast({
-        title: 'Withdrawal Successful',
-        description: 'Your USDC has been withdrawn.',
+        title: 'Withdrawal Submitted',
+        description: 'Waiting for on-chain confirmation...'
       });
       setWithdrawAmount('');
     },
@@ -107,6 +176,8 @@ const Actions = () => {
     if (!isAddress(contractAddress)) return;
 
     if (allowance < parsedDepositAmount) {
+      setPendingDepositAmount(parsedDepositAmount);
+      autoDepositTriggeredRef.current = false;
       approve({
         address: currentTokenAddress,
         abi: usdcAbi,
@@ -114,6 +185,7 @@ const Actions = () => {
         args: [contractAddress, parsedDepositAmount],
       });
     } else {
+      setPendingDepositAmount(undefined);
       deposit({
         address: contractAddress,
         abi: pumpkinSpiceLatteAbi,
@@ -135,6 +207,24 @@ const Actions = () => {
   };
 
   const needsApproval = isConnected && parsedDepositAmount > 0n && allowance < parsedDepositAmount;
+
+  const isPrimaryDisabled = !isConnected || !isSupportedNetwork || isApproving || isDepositing || isConfirmingApproval || isConfirmingDeposit || parsedDepositAmount === 0n;
+
+  const primaryLabel = isApproving
+    ? 'Approve in wallet...'
+    : isConfirmingApproval
+      ? 'Confirming approval...'
+      : isDepositing
+        ? 'Deposit in wallet...'
+        : isConfirmingDeposit
+          ? 'Confirming deposit...'
+          : needsApproval
+            ? 'Approve USDC'
+            : 'Deposit USDC';
+
+  const step1Complete = !needsApproval || isApprovalConfirmed || allowance >= parsedDepositAmount;
+  const step2Complete = isDepositConfirmed;
+  const progress = step1Complete && step2Complete ? 100 : step1Complete ? 50 : 0;
 
   return (
     <Card>
@@ -166,14 +256,38 @@ const Actions = () => {
                 onChange={(e) => setDepositAmount(e.target.value)}
               />
               <div className="text-xs text-muted-foreground text-center">Wallet balance: {formatUnits(walletBalance as bigint, 6)} USDC</div>
+
+              {/* Approval status */}
+              <div className="text-xs rounded border p-2 flex items-center justify-between">
+                <span>Current approval to PSL</span>
+                <span className="font-medium">{formatUnits(allowance, 6)} USDC</span>
+              </div>
+
+              {/* Stepper / Progress */}
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <div className={`flex items-center gap-2 ${step1Complete ? 'text-green-600' : (isApproving || isConfirmingApproval) ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: step1Complete ? '#16a34a' : (isApproving || isConfirmingApproval) ? '#d97706' : '#9ca3af' }} />
+                    <span>1. Approve</span>
+                  </div>
+                  <div className={`flex items-center gap-2 ${step2Complete ? 'text-green-600' : (isDepositing || isConfirmingDeposit) ? 'text-amber-600' : 'text-muted-foreground'}`}>
+                    <span className="inline-block w-2 h-2 rounded-full" style={{ backgroundColor: step2Complete ? '#16a34a' : (isDepositing || isConfirmingDeposit) ? '#d97706' : '#9ca3af' }} />
+                    <span>2. Deposit</span>
+                  </div>
+                </div>
+                <div className="w-full h-2 bg-muted rounded overflow-hidden">
+                  <div className="h-full bg-orange-500 transition-all" style={{ width: `${progress}%` }} />
+                </div>
+              </div>
+
               <Button
                 className="w-full"
-                disabled={!isConnected || !isSupportedNetwork || isApproving || isDepositing || parsedDepositAmount === 0n}
+                disabled={isPrimaryDisabled}
                 onClick={handleDeposit}
               >
-                {isApproving ? 'Approving...' : isDepositing ? 'Depositing...' : needsApproval ? 'Approve USDC' : 'Deposit USDC'}
+                {primaryLabel}
               </Button>
-              <p className="text-xs text-muted-foreground text-center">You may be asked to approve USDC before depositing.</p>
+              <p className="text-xs text-muted-foreground text-center">{needsApproval ? 'You must approve USDC before depositing.' : 'Ready to deposit.'}</p>
             </div>
           </TabsContent>
           <TabsContent value="withdraw" className="pt-4">

@@ -136,7 +136,7 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
 
 You can deploy and test against your Tenderly Virtual Mainnet fork. The repository is already configured to default to the Tenderly RPC in `foundry.toml`.
 
-- **RPC (HTTP)**: `https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13`
+- **RPC (HTTP)**: `https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2`
 - **RPC (WSS)**: `wss://virtual.mainnet.us-east.rpc.tenderly.co/559a7b58-b67d-4103-af70-fbc60a502bb0`
 - **Explorer**: `https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions`
 
@@ -152,9 +152,10 @@ You can deploy and test against your Tenderly Virtual Mainnet fork. The reposito
 
     ```bash
     forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
-      --rpc-url https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13 \
+      --rpc-url https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2 \
       --private-key $PRIVATE_KEY \
       --broadcast
+      --verify
     ```
 
 3. After deployment, copy the deployed address and update the frontend config:
@@ -168,14 +169,14 @@ You can deploy and test against your Tenderly Virtual Mainnet fork. The reposito
 
     ```bash
     # Optional: set RPC via env override
-    export VITE_MAINNET_TENDERLY_RPC_HTTP=https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13
+    export VITE_MAINNET_TENDERLY_RPC_HTTP=https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2
     export VITE_WALLETCONNECT_PROJECT_ID=<YOUR_WC_ID>
     npm run dev
     ```
 
 Links:
 
-- Tenderly RPC (HTTP): https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13
+- Tenderly RPC (HTTP): https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2
 - Tenderly RPC (WSS): wss://virtual.mainnet.us-east.rpc.tenderly.co/559a7b58-b67d-4103-af70-fbc60a502bb0
 - Tenderly Explorer: https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions
 
@@ -191,9 +192,9 @@ forge verify-contract \
 ```
 
 ```
-forge verify-contract 0x3Cb0F6582683204d013c1BaB52067ce351aa3beF \
+forge verify-contract 0x3cb0f6582683204d013c1bab52067ce351aa3bef \
 PumpkinSpiceLatte \
 --etherscan-api-key $TENDERLY_ACCESS_KEY \
---verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/15cd7478-f127-4d1a-b1e3-68ab95ae2c13/verify/etherscan \
+--verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/599cbccf-89bd-4882-a246-be73f62ceda2/verify/etherscan \
 --watch
 ```
