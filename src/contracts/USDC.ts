@@ -3,7 +3,7 @@ import { CONTRACTS } from './PumpkinSpiceLatte';
 // Use the USDC address from the main contract configuration
 export const usdcAddress = CONTRACTS[11155111].usdc; // Sepolia testnet USDC
 
-// Minimal ERC-20 ABI needed for approve/allowance/transferFrom
+// Minimal ERC-20 ABI needed for approve/allowance/transferFrom/balanceOf/decimals
 export const usdcAbi = [
     {
         constant: true,
@@ -33,6 +33,15 @@ export const usdcAbi = [
         outputs: [ { name: '', type: 'bool' } ],
         payable: false,
         stateMutability: 'nonpayable',
+        type: 'function'
+    },
+    {
+        constant: true,
+        inputs: [ { name: 'account', type: 'address' } ],
+        name: 'balanceOf',
+        outputs: [ { name: '', type: 'uint256' } ],
+        payable: false,
+        stateMutability: 'view',
         type: 'function'
     },
     {
