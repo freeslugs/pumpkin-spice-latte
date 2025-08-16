@@ -1,10 +1,11 @@
 import { useEffect, useMemo, useState } from 'react';
 import { useAccount, usePublicClient } from 'wagmi';
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { pumpkinSpiceLatteAbi, CONTRACTS, pumpkinSpiceLatteAddress } from '@/contracts/PumpkinSpiceLatte';
-import { ScrollArea } from '@/components/ui/scroll-area';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
+import { pumpkinSpiceLatteAbi, CONTRACTS, pumpkinSpiceLatteAddress } from '../contracts/PumpkinSpiceLatte';
+import { ScrollArea } from './ui/scroll-area';
 import { formatUnits, parseAbiItem } from 'viem';
 import { Award, History, AlertCircle, ExternalLink } from 'lucide-react';
+import { getAddressExplorerUrl, getTxExplorerUrl } from '../lib/utils';
 
 interface WinnerItem {
 	blockNumber: bigint;
@@ -70,8 +71,7 @@ const Winners = () => {
 		return winners.reduce((acc, w) => (w.winner.toLowerCase() === address.toLowerCase() ? acc + w.amount : acc), 0n);
 	}, [winners, address]);
 
-	const chainId = chain?.id ?? 11155111;
-	const explorerBase = chainId === 1 ? 'https://etherscan.io' : chainId === 11155111 ? 'https://sepolia.etherscan.io' : 'https://etherscan.io';
+	const chainId = chain?.id ?? 1;
 
 	return (
 		<Card>
@@ -107,7 +107,7 @@ const Winners = () => {
 										<li key={`${w.txHash}-${idx}`} className="p-3 flex items-center justify-between gap-3">
 											<div className="min-w-0">
 												<a
-													href={`${explorerBase}/address/${w.winner}`}
+													href={getAddressExplorerUrl(chainId, w.winner)}
 													target="_blank"
 													rel="noreferrer"
 													className="font-medium text-sm truncate text-blue-600 hover:underline"
@@ -120,7 +120,7 @@ const Winners = () => {
 														<>
 															<span className="mx-1">·</span>
 															<a
-																href={`${explorerBase}/tx/${w.txHash}`}
+																href={getTxExplorerUrl(chainId, w.txHash!)}
 																target="_blank"
 																rel="noreferrer"
 																className="inline-flex items-center gap-1 hover:underline"

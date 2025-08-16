@@ -1,8 +1,10 @@
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
+import React from 'react';
+import { Card, CardContent, CardDescription, CardHeader, CardTitle } from './ui/card';
 import { Award, Clock, Wallet, PiggyBank, Coins, AlertCircle } from 'lucide-react';
 import { useReadContract, useAccount } from 'wagmi';
-import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
+import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '../contracts/PumpkinSpiceLatte';
 import { formatUnits } from 'viem';
+import { getAddressExplorerUrl } from '../lib/utils';
 
 // Helper function to format time remaining
   const formatTimeRemaining = (timestamp: bigint) => {
@@ -33,23 +35,8 @@ const PrizePool = () => {
     abi: pumpkinSpiceLatteAbi,
     functionName: 'prizePool',
     query: {
-      refetchInterval: 1000, // Refetch every 10 seconds
+      refetchInterval: 1000,
       enabled: isConnected && !!isSupportedNetwork,
-      onSuccess: (data) => {
-        try {
-          const formatted = typeof data !== 'undefined' ? `${formatUnits(data as bigint, 6)} USDC` : 'undefined';
-          // Log both formatted and raw data for debugging/visibility
-          // eslint-disable-next-line no-console
-          console.log('[PSL] Current Prize (refetched):', { formatted, raw: data });
-        } catch (e) {
-          // eslint-disable-next-line no-console
-          console.log('[PSL] Failed to format Current Prize for logging:', e);
-        }
-      },
-      onError: (error) => {
-        // eslint-disable-next-line no-console
-        console.error('[PSL] Error fetching Current Prize:', error);
-      },
     },
   });
 
@@ -127,10 +114,9 @@ const PrizePool = () => {
   const totalAssets = totalAssetsData ? `${formatUnits(totalAssetsData as bigint, 6)} USDC` : '-';
   const totalPrincipal = totalPrincipalData ? `${formatUnits(totalPrincipalData as bigint, 6)} USDC` : '-';
 
-  const chainId = chain?.id ?? 11155111;
-  const explorerBase = chainId === 1 ? 'https://etherscan.io' : chainId === 11155111 ? 'https://sepolia.etherscan.io' : 'https://etherscan.io';
+  const chainId = chain?.id ?? 1;
   const lastWinnerLink = typeof lastWinnerData === 'string' && lastWinnerData !== '0x0000000000000000000000000000000000000000'
-    ? `${explorerBase}/address/${lastWinnerData}`
+    ? getAddressExplorerUrl(chainId, lastWinnerData)
     : undefined;
 
   return (

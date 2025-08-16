@@ -150,7 +150,7 @@ contract PumpkinSpiceLatteTest is Test {
         vm.startPrank(user1);
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
-        
+
         // Then, user1 withdraws
         psl.withdraw(3 ether);
         vm.stopPrank();
@@ -165,12 +165,12 @@ contract PumpkinSpiceLatteTest is Test {
         vm.startPrank(user1);
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
-        
+
         vm.expectRevert("Insufficient balance");
         psl.withdraw(11 ether);
         vm.stopPrank();
     }
-    
+
     function testFullWithdrawalRemovesDepositor() public {
         // User1 deposits
         vm.startPrank(user1);
@@ -185,7 +185,7 @@ contract PumpkinSpiceLatteTest is Test {
         vm.stopPrank();
 
         assertEq(psl.numberOfDepositors(), 2);
-        
+
         // User1 withdraws all
         vm.startPrank(user1);
         psl.withdraw(10 ether);
@@ -206,13 +206,13 @@ contract PumpkinSpiceLatteTest is Test {
         weth.approve(address(psl), 10 ether);
         psl.deposit(10 ether);
         vm.stopPrank();
-        
+
         // Simulate yield by donating assets directly to the vault (improves exchange rate)
         weth.mint(address(vault), 1 ether);
         // Now totalAssets should be 21, principal is 20, prize is ~1
         assertEq(psl.totalAssets(), 21 ether);
         assertEq(psl.prizePool(), 1 ether);
-        
+
         // Fast forward time to the next round
         vm.warp(block.timestamp + ROUND_DURATION + 1);
 
@@ -221,7 +221,7 @@ contract PumpkinSpiceLatteTest is Test {
 
         address winner = psl.lastWinner();
         uint256 prizeAmount = psl.lastPrizeAmount();
-        
+
         assertTrue(winner == user1 || winner == user2, "Winner should be user1 or user2");
         assertApproxEqAbs(prizeAmount, 1 ether, 1, "Prize amount should be ~1 ether");
         // With new accounting, no tokens are withdrawn to the winner. Their external balance remains unchanged.

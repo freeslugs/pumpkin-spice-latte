@@ -1,14 +1,19 @@
-import PrizePool from '@/components/PrizePool';
-import Actions from '@/components/Actions';
-import UserStats from '@/components/UserStats';
-import Winners from '@/components/Winners';
+import React from 'react';
+import PrizePool from '../components/PrizePool';
+import Actions from '../components/Actions';
+import UserStats from '../components/UserStats';
+import Winners from '../components/Winners';
 import { useAccount } from 'wagmi';
-import { CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
-import { AlertCircle, CheckCircle } from 'lucide-react';
+import { CONTRACTS, pumpkinSpiceLatteAddress } from '../contracts/PumpkinSpiceLatte';
+import { AlertCircle, CheckCircle, ExternalLink } from 'lucide-react';
+import { getAddressExplorerUrl } from '../lib/utils';
 
 const PSLHome = () => {
   const { chain, isConnected } = useAccount();
   const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
+  const chainId = chain?.id ?? 1;
+  const contractAddress = isSupportedNetwork ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte : pumpkinSpiceLatteAddress;
+  const contractExplorerUrl = getAddressExplorerUrl(chainId, contractAddress);
 
   return (
     <div className="container mx-auto p-6 space-y-8">
@@ -20,6 +25,17 @@ const PSLHome = () => {
         <p className="text-lg text-muted-foreground max-w-2xl mx-auto">
           Deposit USDC, brew some yield, and sip the spice of winning the weekly prize pool. No loss, just cozy vibes.
         </p>
+        <div className="flex justify-center">
+          <a
+            href={contractExplorerUrl}
+            target="_blank"
+            rel="noreferrer"
+            className="inline-flex items-center gap-1 text-sm text-blue-600 hover:underline"
+          >
+            View contract on explorer
+            <ExternalLink className="h-3 w-3" />
+          </a>
+        </div>
       </div>
 
       {/* Network Status */}
