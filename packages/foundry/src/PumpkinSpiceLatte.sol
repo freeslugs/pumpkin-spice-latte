@@ -3,31 +3,28 @@ pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
-
-interface IERC4626Vault {
-    function deposit(uint256 assets, address receiver) external returns (uint256 shares);
-    function withdraw(uint256 assets, address receiver, address owner) external returns (uint256 shares);
-    function convertToAssets(uint256 shares) external view returns (uint256 assets);
-    function asset() external view returns (address);
-}
+import {ILendingAdapter} from "./interfaces/ILendingAdapter.sol";
+import {IRandomnessProvider} from "./interfaces/IRandomnessProvider.sol";
 
 /**
  * @title PumpkinSpiceLatte
- * @dev A prize-linked savings account (PLSA) built on top of a Morpho vault (ERC4626-style).
- *      Users deposit a common asset, the contract deposits into the vault
- *      to generate yield, and the accumulated yield is awarded as a prize to a
- *      lucky depositor periodically.
+ * @dev A prize-linked savings account (PLSA) built on top of a lending adapter (ERC4626-style behind an adapter).
+ *      Users deposit a common asset, the contract deposits via the adapter to generate yield, and the accumulated
+ *      yield is awarded as a prize to a lucky depositor periodically.
  */
 contract PumpkinSpiceLatte is Ownable {
     //-//////////////////////////////////////////////////////////
     //                           STATE
     //-//////////////////////////////////////////////////////////
 
-    /// @dev The underlying ERC20 asset being deposited and supplied to the vault.
+    /// @dev The underlying ERC20 asset being deposited and supplied via the lending adapter.
     address public immutable ASSET;
 
-    /// @dev The Morpho vault (ERC4626-style) contract address.
-    address public immutable VAULT;
+    /// @dev Lending adapter implementing ERC4626-like interface.
+    ILendingAdapter public immutable LENDING_ADAPTER;
+
+    /// @dev Randomness provider adapter.
+    IRandomnessProvider public randomnessProvider;
 
     /// @dev The duration of each prize round in seconds.
     uint256 public roundDuration;
@@ -65,15 +62,17 @@ contract PumpkinSpiceLatte is Ownable {
     event Withdrawn(address indexed user, uint256 amount);
     event PrizeAwarded(address indexed winner, uint256 amount);
     event RoundDurationUpdated(uint256 oldDuration, uint256 newDuration);
+    event RandomnessProviderUpdated(address indexed newProvider);
 
     //-//////////////////////////////////////////////////////////
     //                        CONSTRUCTOR
     //-//////////////////////////////////////////////////////////
 
-    constructor(address _asset, address _vault, uint256 _roundDuration) Ownable(msg.sender) {
-        require(IERC4626Vault(_vault).asset() == _asset, "Vault asset mismatch");
-        ASSET = _asset;
-        VAULT = _vault;
+    constructor(address _adapter, address _randomnessProvider, uint256 _roundDuration) Ownable(msg.sender) {
+        ASSET = ILendingAdapter(_adapter).asset();
+        LENDING_ADAPTER = ILendingAdapter(_adapter);
+        randomnessProvider = IRandomnessProvider(_randomnessProvider);
+        require(_roundDuration > 0, "Duration must be > 0");
         roundDuration = _roundDuration;
         nextRoundTimestamp = block.timestamp + _roundDuration;
     }
@@ -100,12 +99,11 @@ contract PumpkinSpiceLatte is Ownable {
 
         emit Deposited(msg.sender, _amount);
 
-        // Pull funds from user
+        // Pull funds from user into this contract
         require(IERC20(ASSET).transferFrom(msg.sender, address(this), _amount), "Transfer failed");
-
-        // Approve and deposit into the vault on behalf of this contract
-        require(IERC20(ASSET).approve(VAULT, _amount), "Approval failed");
-        uint256 sharesOut = IERC4626Vault(VAULT).deposit(_amount, address(this));
+        // Approve adapter to pull from this contract and deposit
+        require(IERC20(ASSET).approve(address(LENDING_ADAPTER), _amount), "Approval failed");
+        uint256 sharesOut = LENDING_ADAPTER.deposit(_amount);
         vaultShares += sharesOut;
     }
 
@@ -132,8 +130,8 @@ contract PumpkinSpiceLatte is Ownable {
 
         emit Withdrawn(msg.sender, _amount);
 
-        // Withdraw from vault directly to the user
-        uint256 sharesBurned = IERC4626Vault(VAULT).withdraw(_amount, msg.sender, address(this));
+        // Withdraw from adapter directly to the user
+        uint256 sharesBurned = LENDING_ADAPTER.withdraw(_amount, msg.sender);
         if (sharesBurned > vaultShares) {
             vaultShares = 0;
         } else {
@@ -156,13 +154,11 @@ contract PumpkinSpiceLatte is Ownable {
         uint256 prize = prizePool();
         require(prize > 0, "No prize to award");
 
-        // Pseudo-random selection (not secure; for testnet/demo)
-        uint256 idx = uint256(
-            keccak256(abi.encodePacked(block.prevrandao, block.timestamp, address(this), depositors.length))
-        ) % depositors.length;
+        // Random selection via adapter
+        uint256 idx = randomnessProvider.randomUint256(bytes32(depositors.length)) % depositors.length;
         address winner = depositors[idx];
 
-        // Credit the winner's principal balance with the prize, keeping assets in the vault
+        // Credit the winner's principal balance with the prize, keeping assets in the adapter
         balanceOf[winner] += prize;
         totalPrincipal += prize;
 
@@ -187,6 +183,12 @@ contract PumpkinSpiceLatte is Ownable {
         uint256 old = roundDuration;
         roundDuration = _roundDuration;
         emit RoundDurationUpdated(old, _roundDuration);
+    }
+
+    function setRandomnessProvider(address _provider) external onlyOwner {
+        require(_provider != address(0), "Invalid provider");
+        randomnessProvider = IRandomnessProvider(_provider);
+        emit RandomnessProviderUpdated(_provider);
     }
 
     //-//////////////////////////////////////////////////////////
@@ -218,12 +220,12 @@ contract PumpkinSpiceLatte is Ownable {
 
     /**
      * @notice Calculates the total value of assets held by this contract,
-     *         including principal and yield generated via the vault.
+     *         including principal and yield generated via the adapter.
      * @return The total asset balance.
      */
     function totalAssets() public view returns (uint256) {
         if (vaultShares == 0) return 0;
-        return IERC4626Vault(VAULT).convertToAssets(vaultShares);
+        return LENDING_ADAPTER.convertToAssets(vaultShares);
     }
 
     /**
@@ -240,5 +242,10 @@ contract PumpkinSpiceLatte is Ownable {
      */
     function numberOfDepositors() public view returns (uint256) {
         return depositors.length;
+    }
+
+    // Back-compat: expose a VAULT() view that returns the adapter address
+    function VAULT() external view returns (address) {
+        return address(LENDING_ADAPTER);
     }
 }
