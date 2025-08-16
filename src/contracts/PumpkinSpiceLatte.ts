@@ -14,16 +14,6 @@ export const CONTRACTS = {
 export const pumpkinSpiceLatteAddress = CONTRACTS[11155111].pumpkinSpiceLatte;
 
 export const pumpkinSpiceLatteAbi = [
-  // Constructor
-  {
-    inputs: [
-      { internalType: 'address', name: '_asset', type: 'address' },
-      { internalType: 'address', name: '_vault', type: 'address' },
-      { internalType: 'uint256', name: '_roundDuration', type: 'uint256' }
-    ],
-    stateMutability: 'nonpayable',
-    type: 'constructor'
-  },
   // Events
   {
     anonymous: false,
@@ -56,9 +46,11 @@ export const pumpkinSpiceLatteAbi = [
   { inputs: [], name: 'ASSET', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'VAULT', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [{ internalType: 'address', name: '', type: 'address' }], name: 'balanceOf', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], name: 'depositors', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'lastPrizeAmount', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'lastWinner', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'nextRoundTimestamp', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'numberOfDepositors', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'prizePool', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'roundDuration', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'totalAssets', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },

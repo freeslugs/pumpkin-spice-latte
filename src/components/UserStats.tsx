@@ -5,6 +5,15 @@ import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/con
 import { formatUnits } from 'viem';
 import { useToast } from '@/components/ui/use-toast';
 
+const formatTimeRemaining = (timestamp: bigint) => {
+  const now = BigInt(Math.floor(Date.now() / 1000));
+  const secondsRemaining = timestamp - now;
+  if (secondsRemaining <= 0) return 'Ready to draw';
+  const hours = secondsRemaining / 3600n;
+  const minutes = (secondsRemaining % 3600n) / 60n;
+  return `${hours}h ${minutes}m`;
+};
+
 const UserStats = () => {
   const { address, isConnected, chain } = useAccount();
   const { toast } = useToast();
@@ -16,28 +25,38 @@ const UserStats = () => {
   const { writeContract, isPending } = useWriteContract({
     onSuccess: () => {
       toast({
-        title: "Prize Awarded!",
-        description: "The prize has been awarded to a lucky winner.",
+        title: 'Prize Awarded!',
+        description: 'The prize has been awarded to a lucky winner.',
       });
     },
     onError: (error) => {
-        toast({
-            title: "Error",
-            description: error.message,
-            variant: "destructive",
-        });
-    }
+      toast({
+        title: 'Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+    },
   });
 
-  const { data: userBalanceData, refetch, isError: balanceError, isLoading: balanceLoading } = useReadContract({
+  const { data: userBalanceData, isError: balanceError, isLoading: balanceLoading } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'balanceOf',
     args: [address],
     query: {
-        enabled: isConnected && !!address && isSupportedNetwork,
-        refetchInterval: 5000, // Refetch every 5 seconds
-    }
+      enabled: isConnected && !!address && !!isSupportedNetwork,
+      refetchInterval: 5000, // Refetch every 5 seconds
+    },
+  });
+
+  const { data: nextRoundTimestampData } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'nextRoundTimestamp',
+    query: {
+      enabled: isConnected && !!isSupportedNetwork,
+      refetchInterval: 1000,
+    },
   });
 
   const getUserBalanceDisplay = () => {
@@ -62,7 +81,7 @@ const UserStats = () => {
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Your Stats</CardTitle>
+        <CardTitle>Your PSL Stats</CardTitle>
       </CardHeader>
       <CardContent className="space-y-4">
         <div className="flex justify-between items-center">
@@ -72,16 +91,22 @@ const UserStats = () => {
         <div className="flex justify-between items-center">
           <p className="text-muted-foreground">Your Wallet</p>
           <p className="font-bold text-lg truncate">
-            {isConnected && address ? `${address.slice(0, 6)}...${address.slice(-4)}` : "Not connected"}
+            {isConnected && address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Not connected'}
+          </p>
+        </div>
+        <div className="flex justify-between items-center">
+          <p className="text-muted-foreground">Next Draw</p>
+          <p className="font-medium text-sm">
+            {nextRoundTimestampData ? formatTimeRemaining(nextRoundTimestampData as bigint) : '-'}
           </p>
         </div>
         <Button 
-            className="w-full" 
-            variant="outline" 
-            disabled={!isConnected || !isSupportedNetwork || isPending}
-            onClick={handleAwardPrize}
+          className="w-full" 
+          variant="outline" 
+          disabled={!isConnected || !isSupportedNetwork || isPending}
+          onClick={handleAwardPrize}
         >
-          {isPending ? "Awarding..." : "Award Prize"}
+          {isPending ? 'Awarding...' : 'Award Prize'}
         </Button>
       </CardContent>
     </Card>

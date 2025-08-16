@@ -1,5 +1,5 @@
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
-import { Award, Clock, Wallet, AlertCircle } from 'lucide-react';
+import { Award, Clock, Wallet, PiggyBank, Coins, AlertCircle } from 'lucide-react';
 import { useReadContract, useAccount } from 'wagmi';
 import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
 import { formatUnits } from 'viem';
@@ -10,7 +10,7 @@ const formatTimeRemaining = (timestamp: bigint) => {
   const secondsRemaining = timestamp - now;
 
   if (secondsRemaining <= 0) {
-    return "Next round starting soon!";
+    return 'Next round starting soon!';
   }
 
   const days = secondsRemaining / BigInt(86400);
@@ -32,9 +32,29 @@ const PrizePool = () => {
     abi: pumpkinSpiceLatteAbi,
     functionName: 'prizePool',
     query: {
-        refetchInterval: 5000, // Refetch every 5 seconds
-        enabled: isConnected && isSupportedNetwork,
-    }
+      refetchInterval: 5000, // Refetch every 5 seconds
+      enabled: isConnected && !!isSupportedNetwork,
+    },
+  });
+
+  const { data: totalAssetsData } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'totalAssets',
+    query: {
+      refetchInterval: 5000,
+      enabled: isConnected && !!isSupportedNetwork,
+    },
+  });
+
+  const { data: totalPrincipalData } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'totalPrincipal',
+    query: {
+      refetchInterval: 5000,
+      enabled: isConnected && !!isSupportedNetwork,
+    },
   });
 
   const { data: nextRoundTimestampData, isError: timestampError, isLoading: timestampLoading } = useReadContract({
@@ -42,9 +62,9 @@ const PrizePool = () => {
     abi: pumpkinSpiceLatteAbi,
     functionName: 'nextRoundTimestamp',
     query: {
-        refetchInterval: 1000, // Refetch every second for the countdown
-        enabled: isConnected && isSupportedNetwork,
-    }
+      refetchInterval: 1000, // Refetch every second for the countdown
+      enabled: isConnected && !!isSupportedNetwork,
+    },
   });
 
   const { data: lastWinnerData, isError: winnerError, isLoading: winnerLoading } = useReadContract({
@@ -52,8 +72,8 @@ const PrizePool = () => {
     abi: pumpkinSpiceLatteAbi,
     functionName: 'lastWinner',
     query: {
-        enabled: isConnected && isSupportedNetwork,
-    }
+      enabled: isConnected && !!isSupportedNetwork,
+    },
   });
 
   const getPrizePoolDisplay = () => {
@@ -66,21 +86,21 @@ const PrizePool = () => {
   };
 
   const getTimeRemainingDisplay = () => {
-    if (!isConnected) return "Connect wallet to view";
-    if (!isSupportedNetwork) return "Switch to Sepolia testnet";
-    if (timestampError) return "Error loading data";
-    if (timestampLoading) return "Loading...";
-    if (nextRoundTimestampData === undefined) return "No data";
+    if (!isConnected) return 'Connect wallet to view';
+    if (!isSupportedNetwork) return 'Switch to Sepolia testnet';
+    if (timestampError) return 'Error loading data';
+    if (timestampLoading) return 'Loading...';
+    if (nextRoundTimestampData === undefined) return 'No data';
     return formatTimeRemaining(nextRoundTimestampData as bigint);
   };
 
   const getLastWinnerDisplay = () => {
-    if (!isConnected) return "Connect wallet to view";
-    if (!isSupportedNetwork) return "Switch to Sepolia testnet";
-    if (winnerError) return "Error loading data";
-    if (winnerLoading) return "Loading...";
-    if (lastWinnerData === undefined) return "No data";
-    if (lastWinnerData === '0x0000000000000000000000000000000000000000') return "No winner yet";
+    if (!isConnected) return 'Connect wallet to view';
+    if (!isSupportedNetwork) return 'Switch to Sepolia testnet';
+    if (winnerError) return 'Error loading data';
+    if (winnerLoading) return 'Loading...';
+    if (lastWinnerData === undefined) return 'No data';
+    if (lastWinnerData === '0x0000000000000000000000000000000000000000') return 'No winner yet';
     return `${(lastWinnerData as string).slice(0, 6)}...${(lastWinnerData as string).slice(-4)}`;
   };
 
@@ -88,10 +108,16 @@ const PrizePool = () => {
   const timeRemaining = getTimeRemainingDisplay();
   const lastWinner = getLastWinnerDisplay();
 
+  const totalAssets = totalAssetsData ? `${formatUnits(totalAssetsData as bigint, 6)} USDC` : '-';
+  const totalPrincipal = totalPrincipalData ? `${formatUnits(totalPrincipalData as bigint, 6)} USDC` : '-';
+
   return (
     <Card>
       <CardHeader>
-        <CardTitle>Prize Pool</CardTitle>
+        <CardTitle className="flex items-center gap-2">
+          <span className="inline-block text-2xl">🎃</span>
+          Prize Pool
+        </CardTitle>
         <CardDescription>The winner takes all the yield generated from the deposits.</CardDescription>
         {!isSupportedNetwork && isConnected && (
           <div className="flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-2 rounded">
@@ -107,7 +133,7 @@ const PrizePool = () => {
           <p className="text-2xl font-bold">{prizePool}</p>
         </div>
         <div>
-          <Clock className="h-8 w-8 mx-auto mb-2 text-blue-500" />
+          <Clock className="h-8 w-8 mx-auto mb-2 text-orange-500" />
           <p className="text-sm text-muted-foreground">Time Remaining</p>
           <p className="text-2xl font-bold">{timeRemaining}</p>
         </div>
@@ -115,6 +141,18 @@ const PrizePool = () => {
           <Wallet className="h-8 w-8 mx-auto mb-2 text-green-500" />
           <p className="text-sm text-muted-foreground">Last Winner</p>
           <p className="text-2xl font-bold truncate">{lastWinner}</p>
+        </div>
+        <div className="md:col-span-3 grid grid-cols-1 sm:grid-cols-2 gap-4 mt-2">
+          <div className="rounded border p-4 text-center">
+            <PiggyBank className="h-6 w-6 mx-auto mb-1 text-pink-600" />
+            <p className="text-xs text-muted-foreground">Total Assets (principal + yield)</p>
+            <p className="text-lg font-semibold">{totalAssets}</p>
+          </div>
+          <div className="rounded border p-4 text-center">
+            <Coins className="h-6 w-6 mx-auto mb-1 text-amber-600" />
+            <p className="text-xs text-muted-foreground">Total Principal</p>
+            <p className="text-lg font-semibold">{totalPrincipal}</p>
+          </div>
         </div>
       </CardContent>
     </Card>
