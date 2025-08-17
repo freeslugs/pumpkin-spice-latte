@@ -107,7 +107,9 @@ const PSLHome = () => {
   const onChainAsset =
     typeof assetOnChain === 'string' ? (assetOnChain as string) : undefined;
   const currentTokenAddress =
-    onChainAsset && isAddress(onChainAsset) && onChainAsset.toLowerCase() !== zeroAddress
+    onChainAsset &&
+    isAddress(onChainAsset) &&
+    onChainAsset.toLowerCase() !== zeroAddress
       ? (onChainAsset as `0x${string}`)
       : (mappedTokenAddress as `0x${string}`);
 
@@ -1029,7 +1031,7 @@ const PSLHome = () => {
               </div>
 
               {/* Content */}
-              <div className='p-6 space-y-6 overflow-y-auto h-[calc(80vh-80px)]'>
+              <div className='p-4 space-y-6 overflow-y-auto h-[calc(80vh-80px)]'>
                 {/* Amount Input */}
                 <div className='space-y-2'>
                   <label className='text-sm font-medium text-gray-700'>
@@ -1061,7 +1063,7 @@ const PSLHome = () => {
                     <div className='p-4 rounded-lg bg-green-50 border border-green-200'>
                       <div className='flex items-center gap-2 mb-2'>
                         <span className='text-blue-600'>✅</span>
-                        <span className='text-sm font-medium text-green-800'>
+                        <span className='text-sm font-small text-green-800'>
                           Withdrawal Info
                         </span>
                       </div>
@@ -1074,7 +1076,7 @@ const PSLHome = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className='space-y-3 pt-4'>
+                <div className='space-y-3 pt-2'>
                   <div>
                     <Button
                       onClick={handleConfirm}
