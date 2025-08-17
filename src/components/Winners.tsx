@@ -34,60 +34,150 @@ const Winners = () => {
     CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ??
     pumpkinSpiceLatteAddress;
 
+
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [winners, setWinners] = useState<WinnerItem[]>([]);
 
-  useEffect(() => {
-    let cancelled = false;
-    const fetchLogs = async () => {
-      if (!publicClient || !isConnected) return;
+// <<<<<<< HEAD
+//   useEffect(() => {
+//     let cancelled = false;
+//     const fetchLogs = async () => {
+//       if (!publicClient || !isConnected) return;
+// =======
+	// Very short history: only the last 10 blocks (plus incremental updates)
+	useEffect(() => {
+		let cancelled = false;
+		if (!publicClient) return;
 
-      // Check if contract address is valid (not zero address)
-      if (contractAddress === '0x0000000000000000000000000000000000000000') {
-        setError('Contract not deployed on this network yet');
-        setLoading(false);
-        return;
-      }
+		const event = parseAbiItem('event PrizeAwarded(address indexed winner, uint256 amount)');
+		const SHORT_WINDOW = 10n; // last 10 blocks
+		const CHUNK = 10n; // single request for that short window
+		const MICRO = 5n;  // fallback
 
-      setLoading(true);
-      setError(null);
-      try {
-        const event = parseAbiItem(
-          'event PrizeAwarded(address indexed winner, uint256 amount)'
-        );
-        const logs = await publicClient.getLogs({
-          address: contractAddress as `0x${string}`,
-          event,
-          fromBlock: 0n, // Start from block 0 for testnet
-          toBlock: 'latest',
-        });
-        const items: WinnerItem[] = logs.map((log) => ({
-          blockNumber: log.blockNumber ?? 0n,
-          winner: (log.args as { winner: string }).winner,
-          amount: (log.args as { amount: bigint }).amount,
-          txHash: log.transactionHash,
-        }));
-        if (!cancelled) {
-          items.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
-          setWinners(items);
-        }
-      } catch (e: unknown) {
-        if (!cancelled) {
-          console.error('Error fetching winners:', e);
-          setError('No lottery history available yet');
-        }
-      } finally {
-        if (!cancelled) setLoading(false);
-      }
-    };
+		const appendItems = (newItems: WinnerItem[]) => {
+			if (cancelled || newItems.length === 0) return;
+			setWinners(prev => {
+				const map = new Map<string, WinnerItem>();
+				for (const it of prev) map.set(`${it.txHash ?? ''}:${it.blockNumber.toString()}:${it.winner}`, it);
+				for (const it of newItems) map.set(`${it.txHash ?? ''}:${it.blockNumber.toString()}:${it.winner}`, it);
+				const merged = Array.from(map.values());
+				merged.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
+				return merged;
+			});
+		};
 
-    fetchLogs();
+		const fetchRange = async (fromB: bigint, toB: bigint) => {
+			if (fromB > toB) return;
+			let cursor = fromB;
+			while (!cancelled && cursor <= toB) {
+				const to = (cursor + CHUNK - 1n) > toB ? toB : (cursor + CHUNK - 1n);
+				try {
+					const logs = await publicClient.getLogs({ address: contractAddress as `0x${string}`, event, fromBlock: cursor, toBlock: to });
+					appendItems(logs.map(log => ({
+						blockNumber: log.blockNumber ?? 0n,
+						winner: (log.args as any).winner as string,
+						amount: (log.args as any).amount as bigint,
+						txHash: log.transactionHash,
+					})));
+				} catch (err) {
+					// Retry with micro chunks
+					let inner = cursor;
+					while (!cancelled && inner <= to) {
+						const innerTo = (inner + MICRO - 1n) > to ? to : (inner + MICRO - 1n);
+						const logs = await publicClient.getLogs({ address: contractAddress as `0x${string}`, event, fromBlock: inner, toBlock: innerTo });
+						appendItems(logs.map(log => ({
+							blockNumber: log.blockNumber ?? 0n,
+							winner: (log.args as any).winner as string,
+							amount: (log.args as any).amount as bigint,
+							txHash: log.transactionHash,
+						})));
+						inner = innerTo + 1n;
+					}
+				}
+				cursor = to + 1n;
+			}
+		};
 
-    return () => {
-      cancelled = true;
-    };
-  }, [publicClient, contractAddress, isConnected]);
+		let stop = false;
+		(async () => {
+			try {
+				setLoading(true);
+				setError(null);
+				const latest = await publicClient.getBlockNumber();
+				const start = latest > SHORT_WINDOW ? (latest - SHORT_WINDOW) : 0n;
+				await fetchRange(start, latest);
+				if (cancelled) return;
+				let lastTo = latest;
+				const id = setInterval(async () => {
+					if (stop) return;
+					try {
+						const now = await publicClient.getBlockNumber();
+						if (now > lastTo) {
+							await fetchRange(lastTo + 1n, now);
+							lastTo = now;
+						}
+					} catch (e: any) {
+						setError(e?.message || 'Failed to refresh winners');
+					}
+				}, 60_000);
+				return () => clearInterval(id);
+			} catch (e: any) {
+				setError(e?.message || 'Failed to load winners');
+			} finally {
+				setLoading(false);
+			}
+		})();
+
+		return () => { cancelled = true; stop = true };
+	}, [publicClient, contractAddress, targetChainId]);
+// >>>>>>> main
+
+  //     // Check if contract address is valid (not zero address)
+  //     if (contractAddress === '0x0000000000000000000000000000000000000000') {
+  //       setError('Contract not deployed on this network yet');
+  //       setLoading(false);
+  //       return;
+  //     }
+
+  //     setLoading(true);
+  //     setError(null);
+  //     try {
+  //       const event = parseAbiItem(
+  //         'event PrizeAwarded(address indexed winner, uint256 amount)'
+  //       );
+  //       const logs = await publicClient.getLogs({
+  //         address: contractAddress as `0x${string}`,
+  //         event,
+  //         fromBlock: 0n, // Start from block 0 for testnet
+  //         toBlock: 'latest',
+  //       });
+  //       const items: WinnerItem[] = logs.map((log) => ({
+  //         blockNumber: log.blockNumber ?? 0n,
+  //         winner: (log.args as { winner: string }).winner,
+  //         amount: (log.args as { amount: bigint }).amount,
+  //         txHash: log.transactionHash,
+  //       }));
+  //       if (!cancelled) {
+  //         items.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
+  //         setWinners(items);
+  //       }
+  //     } catch (e: unknown) {
+  //       if (!cancelled) {
+  //         console.error('Error fetching winners:', e);
+  //         setError('No lottery history available yet');
+  //       }
+  //     } finally {
+  //       if (!cancelled) setLoading(false);
+  //     }
+  //   };
+
+  //   fetchLogs();
+
+  //   return () => {
+  //     cancelled = true;
+  //   };
+  // }, [publicClient, contractAddress, isConnected]);
 
   const yourTotalWinnings = useMemo(() => {
     if (!address) return 0n;
