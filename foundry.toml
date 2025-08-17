@@ -26,6 +26,9 @@ sepolia = "wss://ethereum-sepolia-rpc.publicnode.com"
 # Flare Testnet (Coston2)
 coston2 = "https://coston2-api.flare.network/ext/C/rpc"
 
+# Katana Mainnet
+katana = "https://rpc.katana.network"
+
 [profile.chains]
 mainnet = 1
 sepolia = 11155111
@@ -36,8 +39,9 @@ coston2 = 114
 # mainnet = { key = "${ETHERSCAN_API_KEY}" }
 mainnet = { key = "${TENDERLY_ACCESS_KEY}", chain = 1, url = "${TENDERLY_VIRTUAL_TESTNET_RPC_URL}/verify/etherscan" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
-# Flare Coston2 explorer is Blockscout-style; Foundry verifies via blockscout
+# Flare Coston2 explorer is Blockscout-style; Foundry verifies via blockscout   
 coston2 = { key = "unused", url = "https://coston2-explorer.flare.network/api" }
+katana = { key = "${ETHERSCAN_API_KEY}", url = "https://api.katanascan.com/api" }
 
 # Verification settings
 [profile.default.verifier]

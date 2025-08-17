@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ILendingAdapter} from "./interfaces/ILendingAdapter.sol";
 import {IRandomnessProvider} from "./interfaces/IRandomnessProvider.sol";
@@ -14,6 +15,7 @@ import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
  *      yield is awarded as a prize to a lucky depositor periodically.
  */
 contract PumpkinSpiceLatte is Ownable {
+    using SafeERC20 for IERC20;
     //-//////////////////////////////////////////////////////////
     //                           STATE
     //-//////////////////////////////////////////////////////////
@@ -113,10 +115,10 @@ contract PumpkinSpiceLatte is Ownable {
 
         emit Deposited(msg.sender, _amount);
 
-        // Pull funds from user into this contract
-        require(IERC20(ASSET).transferFrom(msg.sender, address(this), _amount), "Transfer failed");
-        // Approve adapter to pull from this contract and deposit
-        require(IERC20(ASSET).approve(address(LENDING_ADAPTER), _amount), "Approval failed");
+        // Pull funds from user into this contract (supports non-standard ERC20s)
+        IERC20(ASSET).safeTransferFrom(msg.sender, address(this), _amount);
+        // Approve adapter to pull from this contract and deposit; forceApprove handles zero-first tokens
+        SafeERC20.forceApprove(IERC20(ASSET), address(LENDING_ADAPTER), _amount);
         uint256 sharesOut = LENDING_ADAPTER.deposit(_amount);
         vaultShares += sharesOut;
     }

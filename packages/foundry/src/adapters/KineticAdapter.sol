@@ -2,6 +2,7 @@
 pragma solidity ^0.8.20;
 
 import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
+import {SafeERC20} from "@openzeppelin/contracts/token/ERC20/utils/SafeERC20.sol";
 import {ILendingAdapter} from "../interfaces/ILendingAdapter.sol";
 
 /**
@@ -22,6 +23,7 @@ interface IKineticCToken {
  *      Treats market shares as the adapter-held cToken balance.
  */
 contract KineticAdapter is ILendingAdapter {
+    using SafeERC20 for IERC20;
     address public immutable MARKET; // cToken-like market address
     address public immutable UNDERLYING;
 
@@ -43,9 +45,9 @@ contract KineticAdapter is ILendingAdapter {
         require(assets > 0, "zero assets");
 
         // Pull tokens from caller (PSL) into the adapter
-        require(IERC20(UNDERLYING).transferFrom(msg.sender, address(this), assets), "transferFrom failed");
-        // Approve market to pull from adapter
-        require(IERC20(UNDERLYING).approve(MARKET, assets), "approve failed");
+        IERC20(UNDERLYING).safeTransferFrom(msg.sender, address(this), assets);
+        // Approve market to pull from adapter; forceApprove handles non-standard approvals
+        SafeERC20.forceApprove(IERC20(UNDERLYING), MARKET, assets);
 
         uint256 balanceBefore = IKineticCToken(MARKET).balanceOf(address(this));
         // Compound-like mint returns 0 on success
@@ -71,7 +73,7 @@ contract KineticAdapter is ILendingAdapter {
         sharesBurned = balanceBefore - balanceAfter;
 
         // Forward withdrawn underlying to receiver
-        require(IERC20(UNDERLYING).transfer(receiver, assets), "transfer failed");
+        IERC20(UNDERLYING).safeTransfer(receiver, assets);
     }
 
     /**

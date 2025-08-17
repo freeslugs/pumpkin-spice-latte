@@ -277,7 +277,7 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol:DeployPumpkin
 forge verify-contract --chain 114 --verifier blockscout \
   --verifier-url https://coston2-explorer.flare.network/api \
   --etherscan-api-key unused \
-  0xc73ECA128c225564C4151fAa723Ae0527FDB8516 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
+  0x85b84761d95cc3C4832D941363DCFee17e3d33a4 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
 ```
 
 
@@ -298,6 +298,23 @@ forge verify-contract --chain 114 --verifier blockscout \
   0x97702e350CaEda540935d92aAf213307e9069784 packages/foundry/src/adapters/FlareSecureRandomAdapter.sol:FlareSecureRandomAdapter
 ```
 
+=== Flare Contract Addresses ===
+  FlareSecureRandomAdapter: 0xb2E7683DeD50D370AFeD58B4a2492F7501fAb65E
+  Random Number Contract: 0x97702e350CaEda540935d92aAf213307e9069784
+  Note: Contract addresses are fetched from Flare's ContractRegistry
+  For mainnet, verify these addresses match the target network
+  === Deployment Complete ===
+  PumpkinSpiceLatte deployed: 0x85b84761d95cc3C4832D941363DCFee17e3d33a4
+  Kinetic or Morpho4626Adapter: 0xDc88a57cE0d120B96F06F7328BFAc2C39BC77b66
+  Random Number Provider: FlareSecureRandomAdapter (Secure VRF)
+  RNG Address: 0xb2E7683DeD50D370AFeD58B4a2492F7501fAb65E
+  
+=== Flare Network Info ===
+  Network: Flare (Coston2/Mainnet)
+  Randomness: Secure VRF from Flare network
+  Note: This adapter only works on Flare Network
+  Kinetic or Morpho4626Adapter: 0xDc88a57cE0d120B96F06F7328BFAc2C39BC77b66
+  RNG: 0xb2E7683DeD50D370AFeD58B4a2492F7501fAb65E
 
 == Logs ==
   Deploying Kinetic Adapter
@@ -319,3 +336,18 @@ forge verify-contract --chain 114 --verifier blockscout \
   Note: This adapter only works on Flare Network
   Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
   RNG: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
+
+
+  == Logs ==
+  === Deployment Complete ===
+  PumpkinSpiceLatte deployed: 0xdB9212aF6019C137AC321d36DCEB3e174D933b37
+  Kinetic or Morpho4626Adapter: 0x0D01b15dfDaDE2c33d527AEeb76Eec99CE35e847
+  Random Number Provider: PseudoRandomAdapter (devnet only)
+  RNG Address: 0xe19a2d787AdF713BA10eFd8d67AdAae16d798d00
+  
+=== Development Info ===
+  Network: Any EVM compatible
+  Randomness: Pseudo-random (predictable)
+  Warning: Not suitable for production use
+  Kinetic or Morpho4626Adapter: 0x0D01b15dfDaDE2c33d527AEeb76Eec99CE35e847
+  RNG: 0xe19a2d787AdF713BA10eFd8d67AdAae16d798d00

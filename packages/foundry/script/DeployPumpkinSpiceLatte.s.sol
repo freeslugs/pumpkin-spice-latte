@@ -12,24 +12,29 @@ import {KineticAdapter} from "../src/adapters/KineticAdapter.sol";
 contract DeployPumpkinSpiceLatte is Script {
 	function run() external {
 		// Config
-		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
-		address kineticMarket = 0xC23B7fbE7CdAb4bf524b8eA72a7462c8879A99Ac; // KUSDCe
-		uint256 baseRewardHalfLife = 300; // 1 hour
-		uint256 halfLife2 = 300; // every hour since last winner, halve the half-life
+		// address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
+		address vaultAddress = 0x61D4F9D3797BA4dA152238c53a6f93Fb665C3c1d; // Katana USDC vault
+		address kineticMarket = 0xC23B7fbE7CdAb4bf524b8eA72a7462c8879A99Ac; // KUSDCe on Flare
+		
+		uint256 baseRewardHalfLife = 300; // 5 minutes
+		uint256 halfLife2 = 300; // 5 minutes
 
 		bool deployToFlare = vm.envBool("DEPLOY_FLARE");
+		bool deployToKatana = vm.envBool("DEPLOY_KATANA");
 
 		uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 		vm.startBroadcast(deployerPrivateKey);
+
+		address underlying = 0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36; // Katana USDC
 
 		address adapterAddress;
 		if(deployToFlare) {
 			console.log("Deploying Kinetic Adapter");
 			KineticAdapter kinetic = new KineticAdapter(kineticMarket);
 			adapterAddress = address(kinetic);
-		} else {
 			console.log("Deploying Morpho Adapter");
-			Morpho4626Adapter morpho = new Morpho4626Adapter(vaultAddress);
+		} else {
+			Morpho4626Adapter morpho = new Morpho4626Adapter(vaultAddress, underlying);
 			adapterAddress = address(morpho);
 		}
 
