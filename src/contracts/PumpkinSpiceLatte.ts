@@ -9,6 +9,11 @@ export const CONTRACTS = {
     pumpkinSpiceLatte: '0x057992Ef2b383cFe6b0a2E4df54234B845ec9720',
     // Use canonical mainnet USDC on the fork
     usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+  },
+  114: { // Flare testnet (Coston2)
+    // Deployed PSL + underlying from Kinetic market
+    pumpkinSpiceLatte: '0x31dfABd671f8d60177E6717eF599C5b8CCbD07f5',
+    usdc: '0xCe987892D5AD2990b8279e8F76530CfF72977666'
   }
 } as const;
 

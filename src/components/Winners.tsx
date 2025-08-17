@@ -24,9 +24,9 @@ const Winners = () => {
 	const publicClient = usePublicClient({ chainId: targetChainId });
 
 	const contractAddress = CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ?? pumpkinSpiceLatteAddress;
-	const fromBlock = useMemo(() => {
+	const fromBlockHint = useMemo(() => {
 		if (targetChainId === 1) return DEPLOYMENT_BLOCK_MAINNET;
-		return 0n; // fallback when deployment block is unknown
+		return null as bigint | null; // unknown for non-mainnet; we will window-scan
 	}, [targetChainId]);
 
 	const [loading, setLoading] = useState(false);
@@ -41,18 +41,64 @@ const Winners = () => {
 			setError(null);
 			try {
 				const event = parseAbiItem('event PrizeAwarded(address indexed winner, uint256 amount)');
-				const logs = await publicClient.getLogs({
-					address: contractAddress as `0x${string}`,
-					event,
-					fromBlock,
-					toBlock: 'latest'
-				});
-				const items: WinnerItem[] = logs.map(log => ({
-					blockNumber: log.blockNumber ?? 0n,
-					winner: (log.args as any).winner as string,
-					amount: (log.args as any).amount as bigint,
-					txHash: log.transactionHash
-				}));
+				const latest = await publicClient.getBlockNumber();
+
+				// Flare Coston2 (114) enforces very small getLogs ranges; use small chunking.
+				const isFlareTestnet = targetChainId === 114;
+				const windowSize = isFlareTestnet ? 20_000n : 200_000n;
+				const chunkSize = isFlareTestnet ? 25n : 10_000n;
+
+				const startBlock = fromBlockHint !== null
+					? fromBlockHint
+					: (latest > windowSize ? (latest - windowSize) : 0n);
+
+				const fetched: WinnerItem[] = [];
+				let cursor = startBlock;
+				while (cursor <= latest) {
+					const to = (cursor + chunkSize - 1n) > latest ? latest : (cursor + chunkSize - 1n);
+					try {
+						const logs = await publicClient.getLogs({
+							address: contractAddress as `0x${string}`,
+							event,
+							fromBlock: cursor,
+							toBlock: to,
+						});
+						for (const log of logs) {
+							fetched.push({
+								blockNumber: log.blockNumber ?? 0n,
+								winner: (log.args as any).winner as string,
+								amount: (log.args as any).amount as bigint,
+								txHash: log.transactionHash,
+							});
+						}
+					} catch (err: any) {
+						if (!isFlareTestnet) throw err;
+						// On Flare, if even 25 blocks fails, fall back to micro 5-block chunks
+						const micro = 5n;
+						let inner = cursor;
+						while (inner <= to) {
+							const innerTo = (inner + micro - 1n) > to ? to : (inner + micro - 1n);
+							const logs = await publicClient.getLogs({
+								address: contractAddress as `0x${string}`,
+								event,
+								fromBlock: inner,
+								toBlock: innerTo,
+							});
+							for (const log of logs) {
+								fetched.push({
+									blockNumber: log.blockNumber ?? 0n,
+									winner: (log.args as any).winner as string,
+									amount: (log.args as any).amount as bigint,
+									txHash: log.transactionHash,
+								});
+							}
+							inner = innerTo + 1n;
+						}
+					}
+					cursor = to + 1n;
+				}
+
+				const items: WinnerItem[] = fetched;
 				if (!cancelled) {
 					items.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
 					setWinners(items);
@@ -67,7 +113,7 @@ const Winners = () => {
 		// Refresh winners every 60s to avoid spamming RPC
 		const id = setInterval(fetchLogs, 60_000);
 		return () => { cancelled = true };
-	}, [publicClient, contractAddress, fromBlock]);
+	}, [publicClient, contractAddress, fromBlockHint, targetChainId]);
 
 	const yourTotalWinnings = useMemo(() => {
 		if (!address) return 0n;
