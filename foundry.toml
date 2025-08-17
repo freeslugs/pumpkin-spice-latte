@@ -2,6 +2,9 @@
 src = "packages/foundry/src"
 out = "packages/foundry/out"
 libs = ["node_modules", "lib", "packages/foundry/lib"]
+remappings = [
+    "@flarenetwork/flare-periphery-contracts/=node_modules/@flarenetwork/flare-periphery-contracts/"
+]
 test = "packages/foundry/test"
 eth_rpc_url = "https://coston2-api.flare.network/ext/C/rpc" # Default to Flare Testnet (Coston2)
 fork_url = "https://coston2-api.flare.network/ext/C/rpc" # Default tests to Flare testnet
