@@ -2,9 +2,12 @@
 src = "packages/foundry/src"
 out = "packages/foundry/out"
 libs = ["node_modules", "lib", "packages/foundry/lib"]
+remappings = [
+    "@flarenetwork/flare-periphery-contracts/=node_modules/@flarenetwork/flare-periphery-contracts/"
+]
 test = "packages/foundry/test"
-eth_rpc_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb" # Default to Tenderly Virtual Mainnet (HTTP)
-fork_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb" # Default tests to forked mainnet
+eth_rpc_url = "https://coston2-api.flare.network/ext/C/rpc" # Default to Flare Testnet (Coston2)
+fork_url = "https://coston2-api.flare.network/ext/C/rpc" # Default tests to Flare testnet
 cbor_metadata = true
 evm_version = "paris" # Avoid PUSH0 (EIP-3855) on chains that don’t support Shanghai
 
