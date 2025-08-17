@@ -12,13 +12,15 @@ export const CONTRACTS = {
   },
   114: { // Flare testnet (Coston2)
     // Deployed PSL + underlying from Kinetic market
-    pumpkinSpiceLatte: '0x31dfABd671f8d60177E6717eF599C5b8CCbD07f5',
+    // pumpkinSpiceLatte: '0x31dfABd671f8d60177E6717eF599C5b8CCbD07f5', // old
+    pumpkinSpiceLatte: '0x61B002F9E3Df79Cc6A9c69529067FC8219e0C094', // new 
     usdc: '0xCe987892D5AD2990b8279e8F76530CfF72977666'
   }
 } as const;
 
-// Default to mainnet (Tenderly fork) as the primary testing env; fallback to Sepolia
-export const pumpkinSpiceLatteAddress = CONTRACTS[1].pumpkinSpiceLatte || CONTRACTS[11155111].pumpkinSpiceLatte;
+// Default to Flare testnet (Coston2) as primary; fallback to Sepolia, then Tenderly mainnet
+export const pumpkinSpiceLatteAddress =
+  CONTRACTS[114].pumpkinSpiceLatte || CONTRACTS[11155111].pumpkinSpiceLatte || CONTRACTS[1].pumpkinSpiceLatte;
 
 export const pumpkinSpiceLatteAbi = [
   // Events

@@ -16,9 +16,28 @@ jobs:
       - uses: actions/checkout@v4
         with:
           submodules: recursive
+      
+      - name: Setup Node
+        uses: actions/setup-node@v4
+        with:
+          node-version: '20'
+
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Activate pnpm 10.6.5
+        run: corepack prepare pnpm@10.6.5 --activate
+
+      - name: Install dependencies
+        run: pnpm install --frozen-lockfile
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
+        with:
+          version: stable
+          cache: true
+          cache-key: check-${{ github.sha }}
+          cache-restore-keys: check-
 
       - name: Show Forge version
         run: |
@@ -38,6 +57,7 @@ jobs:
         env:
           TENDERLY_VIRTUAL_TESTNET_RPC_URL: https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb
           TENDERLY_ACCESS_KEY: na
+          ETHERSCAN_API_KEY: na
         run: |
           forge test -vvv
         id: test
