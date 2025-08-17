@@ -57,6 +57,7 @@ jobs:
         env:
           TENDERLY_VIRTUAL_TESTNET_RPC_URL: https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb
           TENDERLY_ACCESS_KEY: na
+          ETHERSCAN_API_KEY: na
         run: |
           forge test -vvv
         id: test
