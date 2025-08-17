@@ -69,6 +69,7 @@ contract PumpkinSpiceLatte is Ownable {
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event PrizeAwarded(address indexed winner, uint256 amount);
+    event PrizeNotAwarded(address indexed caller);
     event RandomnessProviderUpdated(address indexed newProvider);
     event HalfLifeParamsUpdated(uint256 baseRewardHalfLife, uint256 halfLife2);
 
@@ -161,11 +162,7 @@ contract PumpkinSpiceLatte is Ownable {
      * @dev Can be called at any time. If the random draw does not pass the threshold, no prize is awarded.
      */
     function awardPrize() external {
-        if (depositors.length == 0) {
-            // update last drawing time even if no depositors
-            timestampLastDrawing = block.timestamp;
-            return;
-        }
+        require(depositors.length > 0, "No depositors available");
 
         // Draw a random number once and reuse it for threshold decision and winner selection
         uint256 r = randomnessProvider.randomUint256(bytes32(depositors.length));
@@ -176,6 +173,7 @@ contract PumpkinSpiceLatte is Ownable {
         if (r >= threshold) {
             // Did not pass threshold; update last drawing timestamp and exit
             timestampLastDrawing = block.timestamp;
+            emit PrizeNotAwarded(msg.sender);
             return;
         }
 
