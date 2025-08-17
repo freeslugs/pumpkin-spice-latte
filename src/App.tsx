@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState, useEffect } from 'react';
 import { Toaster } from './components/ui/toaster';
 import { Toaster as Sonner } from './components/ui/sonner';
 import { TooltipProvider } from './components/ui/tooltip';
@@ -12,6 +12,7 @@ import HistoryPage from './pages/History';
 import Profile from './pages/Profile';
 import { CONTRACTS } from './contracts/PumpkinSpiceLatte';
 import { Coffee, Wallet, BarChart3, History, User } from 'lucide-react';
+import PumpkinLoader from './components/PumpkinLoader';
 
 const NetworkIndicator = () => {
   const { chain, isConnected } = useAccount();
@@ -134,46 +135,71 @@ const BottomNavigation = () => {
   );
 };
 
-const App = () => (
-  <TooltipProvider>
-    <Toaster />
-    <Sonner />
-    <BrowserRouter>
-      <div className='flex min-h-screen w-full flex-col bg-white'>
-        <div className='flex-1 flex flex-col'>
-          <header className='border-b bg-white'>
-            <div className='px-4 py-3'>
-              <div className='flex items-center justify-between'>
-                <Link to='/' className='flex items-center gap-2'>
-                  <div className='w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center shadow-lg'>
-                    <Coffee className='w-4 h-4 text-white' />
+const App = () => {
+  const [loading, setLoading] = useState(true);
+
+  useEffect(() => {
+    const checkConnection = async () => {
+      try {
+        // This is a placeholder for actual connection check.
+        // In a real app, you'd use wagmi's useNetwork() or similar.
+        // For now, we'll just set loading to false after a short delay.
+        await new Promise((resolve) => setTimeout(resolve, 4000));
+        setLoading(false);
+      } catch (error) {
+        console.error('Failed to check connection:', error);
+        setLoading(false);
+      }
+    };
+
+    checkConnection();
+  }, []);
+
+  if (loading) {
+    return <PumpkinLoader isLoading={loading} />;
+  }
+
+  return (
+    <TooltipProvider>
+      <Toaster />
+      <Sonner />
+      <BrowserRouter>
+        <div className='flex min-h-screen w-full flex-col bg-white'>
+          <div className='flex-1 flex flex-col'>
+            <header className='border-b bg-white'>
+              <div className='px-4 py-3'>
+                <div className='flex items-center justify-between'>
+                  <Link to='/' className='flex items-center gap-2'>
+                    <div className='w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center shadow-lg'>
+                      <Coffee className='w-4 h-4 text-white' />
+                    </div>
+                    <div>
+                      <h1 className='text-lg font-bold text-orange-500 leading-tight'>
+                        Pumpkin Spice Latte
+                      </h1>
+                    </div>
+                  </Link>
+                  <div className='flex items-center gap-3'>
+                    <ConnectButton />
                   </div>
-                  <div>
-                    <h1 className='text-lg font-bold text-orange-500 leading-tight'>
-                      Pumpkin Spice Latte
-                    </h1>
-                  </div>
-                </Link>
-                <div className='flex items-center gap-3'>
-                  <ConnectButton />
                 </div>
               </div>
-            </div>
-          </header>
-          <main className='flex-1 bg-background pb-24'>
-            <Routes>
-              <Route path='/' element={<PSLHome />} />
-              <Route path='/pool' element={<Pool />} />
-              <Route path='/history' element={<HistoryPage />} />
-              <Route path='/profile' element={<Profile />} />
-              <Route path='*' element={<NotFound />} />
-            </Routes>
-          </main>
-          <BottomNavigation />
+            </header>
+            <main className='flex-1 bg-background pb-24'>
+              <Routes>
+                <Route path='/' element={<PSLHome />} />
+                <Route path='/pool' element={<Pool />} />
+                <Route path='/history' element={<HistoryPage />} />
+                <Route path='/profile' element={<Profile />} />
+                <Route path='*' element={<NotFound />} />
+              </Routes>
+            </main>
+            <BottomNavigation />
+          </div>
         </div>
-      </div>
-    </BrowserRouter>
-  </TooltipProvider>
-);
+      </BrowserRouter>
+    </TooltipProvider>
+  );
+};
 
 export default App;
