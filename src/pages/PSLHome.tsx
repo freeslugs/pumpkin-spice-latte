@@ -182,128 +182,151 @@ const PSLHome = () => {
       </div>
 
       {/* Right Side Stack Navigation - Mobile Only */}
-      {isMobile && isRightStackOpen && (
-        <div className='fixed inset-0 z-50 flex justify-end'>
-          {/* Backdrop */}
-          <div
-            className='absolute inset-0 bg-black bg-opacity-50'
-            onClick={closeRightStack}
-          />
+      <AnimatePresence>
+        {isMobile && isRightStackOpen && (
+          <motion.div
+            className='fixed inset-0 z-50 flex items-end'
+            initial={{ opacity: 0 }}
+            animate={{ opacity: 1 }}
+            exit={{ opacity: 0 }}
+          >
+            {/* Backdrop */}
+            <motion.div
+              className='absolute inset-0 bg-black bg-opacity-50'
+              onClick={closeRightStack}
+              initial={{ opacity: 0 }}
+              animate={{ opacity: 1 }}
+              exit={{ opacity: 0 }}
+            />
 
-          {/* Right Stack */}
-          <div className='relative w-full max-w-md bg-white h-full shadow-2xl'>
-            {/* Header */}
-            <div className='flex items-center justify-between p-6 border-b border-gray-200'>
-              <h2 className='text-xl font-bold text-gray-900'>
-                {activeAction === 'deposit'
-                  ? '💸 Deposit USDC'
-                  : '💰 Withdraw USDC'}
-              </h2>
-              <button
-                onClick={closeRightStack}
-                className='p-2 hover:bg-gray-100 rounded-lg transition-colors'
-              >
-                <X className='w-5 h-5 text-gray-500' />
-              </button>
-            </div>
-
-            {/* Content */}
-            <div className='p-6 space-y-6'>
-              {/* Amount Input */}
-              <div className='space-y-2'>
-                <label className='text-sm font-medium text-gray-700'>
-                  Amount (USDC)
-                </label>
-                <div>
-                  <Input
-                    type='number'
-                    placeholder='0.00'
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
-                  />
-                </div>
+            {/* Right Stack - 80% height with slide up animation */}
+            <motion.div
+              className='relative w-full bg-white h-[80vh] shadow-2xl rounded-t-3xl'
+              initial={{ y: '100%' }}
+              animate={{ y: 0 }}
+              exit={{ y: '100%' }}
+              transition={{
+                type: 'spring',
+                damping: 25,
+                stiffness: 200,
+                duration: 0.3,
+              }}
+            >
+              {/* Header */}
+              <div className='flex items-center justify-between p-6 border-b border-gray-200'>
+                <h2 className='text-xl font-bold text-gray-900'>
+                  {activeAction === 'deposit'
+                    ? '💸 Deposit USDC'
+                    : '💰 Withdraw USDC'}
+                </h2>
+                <button
+                  onClick={closeRightStack}
+                  className='p-2 hover:bg-gray-100 rounded-lg transition-colors'
+                >
+                  <X className='w-5 h-5 text-gray-500' />
+                </button>
               </div>
 
-              {/* Info Cards */}
-              <div className='space-y-3'>
-                {activeAction === 'deposit' && (
-                  <div className='p-4 rounded-lg bg-blue-50 border border-blue-200'>
-                    <div className='flex items-center gap-2 mb-2'>
-                      <span className='text-blue-600'>💡</span>
-                      <span className='text-sm font-medium text-blue-800'>
-                        Deposit Info
+              {/* Content */}
+              <div className='p-6 space-y-6 overflow-y-auto h-[calc(80vh-80px)]'>
+                {/* Amount Input */}
+                <div className='space-y-2'>
+                  <label className='text-sm font-medium text-gray-700'>
+                    Amount (USDC)
+                  </label>
+                  <div>
+                    <Input
+                      type='number'
+                      placeholder='0.00'
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                    />
+                  </div>
+                </div>
+
+                {/* Info Cards */}
+                <div className='space-y-3'>
+                  {activeAction === 'deposit' && (
+                    <div className='p-4 rounded-lg bg-blue-50 border border-blue-200'>
+                      <div className='flex items-center gap-2 mb-2'>
+                        <span className='text-blue-600'>💡</span>
+                        <span className='text-sm font-medium text-blue-800'>
+                          Deposit Info
+                        </span>
+                      </div>
+                      <p className='text-sm text-blue-700'>
+                        Each USDC gives you 1 lottery ticket. Your principal is
+                        safe and can be withdrawn anytime.
+                      </p>
+                    </div>
+                  )}
+
+                  {activeAction === 'withdraw' && (
+                    <div className='p-4 rounded-lg bg-green-50 border border-green-200'>
+                      <div className='flex items-center gap-2 mb-2'>
+                        <span className='text-blue-600'>✅</span>
+                        <span className='text-sm font-medium text-green-800'>
+                          Withdrawal Info
+                        </span>
+                      </div>
+                      <p className='text-sm text-green-700'>
+                        You can withdraw your principal at any time. Only
+                        generated yield goes to the prize pool.
+                      </p>
+                    </div>
+                  )}
+
+                  {/* Current Balance */}
+                  <div className='p-4 rounded-lg bg-gray-50 border border-gray-200'>
+                    <div className='flex justify-between items-center'>
+                      <span className='text-sm text-gray-600'>
+                        Current Balance
+                      </span>
+                      <span className='font-bold text-gray-900'>
+                        {userPSLBalance.toLocaleString()} USDC
                       </span>
                     </div>
-                    <p className='text-sm text-blue-700'>
-                      Each USDC gives you 1 lottery ticket. Your principal is
-                      safe and can be withdrawn anytime.
-                    </p>
                   </div>
-                )}
+                </div>
 
-                {activeAction === 'withdraw' && (
-                  <div className='p-4 rounded-lg bg-green-50 border border-green-200'>
-                    <div className='flex items-center gap-2 mb-2'>
-                      <span className='text-blue-600'>✅</span>
-                      <span className='text-sm font-medium text-green-800'>
-                        Withdrawal Info
-                      </span>
-                    </div>
-                    <p className='text-sm text-green-700'>
-                      You can withdraw your principal at any time. Only
-                      generated yield goes to the prize pool.
-                    </p>
+                {/* Action Buttons */}
+                <div className='space-y-3 pt-4'>
+                  <div>
+                    <Button
+                      onClick={handleConfirm}
+                      disabled={
+                        !isAmountValid ||
+                        (activeAction === 'withdraw' && !canWithdraw) ||
+                        isProcessing
+                      }
+                      className='w-full h-14 text-lg font-bold bg-orange-500 text-white hover:bg-orange-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
+                    >
+                      {isProcessing
+                        ? 'Processing...'
+                        : `Confirm ${
+                            activeAction === 'deposit'
+                              ? 'Deposit'
+                              : 'Withdrawal'
+                          }`}
+                    </Button>
                   </div>
-                )}
 
-                {/* Current Balance */}
-                <div className='p-4 rounded-lg bg-gray-50 border border-gray-200'>
-                  <div className='flex justify-between items-center'>
-                    <span className='text-sm text-gray-600'>
-                      Current Balance
-                    </span>
-                    <span className='font-bold text-gray-900'>
-                      {userPSLBalance.toLocaleString()} USDC
-                    </span>
+                  <div>
+                    <Button
+                      onClick={closeRightStack}
+                      variant='outline'
+                      className='w-full h-12 text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl'
+                    >
+                      Cancel
+                    </Button>
                   </div>
                 </div>
               </div>
-
-              {/* Action Buttons */}
-              <div className='space-y-3 pt-4'>
-                <div>
-                  <Button
-                    onClick={handleConfirm}
-                    disabled={
-                      !isAmountValid ||
-                      (activeAction === 'withdraw' && !canWithdraw) ||
-                      isProcessing
-                    }
-                    className='w-full h-14 text-lg font-bold bg-orange-500 text-white hover:bg-orange-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
-                  >
-                    {isProcessing
-                      ? 'Processing...'
-                      : `Confirm ${
-                          activeAction === 'deposit' ? 'Deposit' : 'Withdrawal'
-                        }`}
-                  </Button>
-                </div>
-
-                <div>
-                  <Button
-                    onClick={closeRightStack}
-                    variant='outline'
-                    className='w-full h-12 text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl'
-                  >
-                    Cancel
-                  </Button>
-                </div>
-              </div>
-            </div>
-          </div>
-        </div>
-      )}
+            </motion.div>
+          </motion.div>
+        )}
+      </AnimatePresence>
 
       {/* Desktop Modal - Center Modal for Desktop */}
       {!isMobile && isRightStackOpen && (
