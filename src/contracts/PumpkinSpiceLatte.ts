@@ -18,8 +18,9 @@ export const CONTRACTS = {
   }
 } as const;
 
-// Default to mainnet (Tenderly fork) as the primary testing env; fallback to Sepolia
-export const pumpkinSpiceLatteAddress = CONTRACTS[1].pumpkinSpiceLatte || CONTRACTS[11155111].pumpkinSpiceLatte;
+// Default to Flare testnet (Coston2) as primary; fallback to Sepolia, then Tenderly mainnet
+export const pumpkinSpiceLatteAddress =
+  CONTRACTS[114].pumpkinSpiceLatte || CONTRACTS[11155111].pumpkinSpiceLatte || CONTRACTS[1].pumpkinSpiceLatte;
 
 export const pumpkinSpiceLatteAbi = [
   // Events
