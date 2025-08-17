@@ -16,7 +16,7 @@ contract FlareSecureRandomAdapter is IRandomnessProvider {
     /**
      * @notice Initializes the adapter with Flare's RandomNumberV2Interface
      * @dev Uses ContractRegistry to fetch the contract address
-     * 
+     *
      * TODO: This adapter automatically fetches Flare contract addresses from ContractRegistry.getRandomNumberV2()
      * Contract addresses are hardcoded in the @flarenetwork/flare-periphery-contracts npm package for Coston2
      * Separate this out properly or change the address for mainnet deployment.
