@@ -64,6 +64,11 @@ const PSLHome = () => {
     'idle' | 'approving' | 'approved' | 'depositing' | 'completed'
   >('idle');
 
+  // Step tracking for withdraw flow
+  const [withdrawStep, setWithdrawStep] = useState<
+    'idle' | 'withdrawing' | 'completed'
+  >('idle');
+
   // Check if we're on a supported network
   const isSupportedNetwork =
     chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
@@ -257,23 +262,29 @@ const PSLHome = () => {
     query: { enabled: Boolean(depositHash), refetchInterval: 1000 },
   } as any);
 
-  const { writeContract: withdraw, isPending: isWithdrawing } =
-    useWriteContract({
-      onSuccess: (hash: `0x${string}`) => {
-        setWithdrawHash(hash);
-        toast({
-          title: 'Withdrawal submitted',
-          description: 'Waiting for confirmation...',
-        });
-      },
-      onError: (error) => {
-        toast({
-          title: 'Withdrawal Failed',
-          description: error.message,
-          variant: 'destructive',
-        });
-      },
-    } as any);
+  const {
+    writeContract: withdraw,
+    writeContractAsync: withdrawAsync,
+    isPending: isWithdrawing,
+  } = useWriteContract({
+    onSuccess: (hash: `0x${string}`) => {
+      console.log('Withdraw onSuccess called with hash:', hash);
+      setWithdrawHash(hash);
+      toast({
+        title: 'Withdrawal submitted',
+        description: 'Waiting for confirmation...',
+      });
+    },
+    onError: (error) => {
+      console.log('Withdraw onError called:', error);
+      toast({
+        title: 'Withdrawal Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setWithdrawStep('idle');
+    },
+  } as any);
 
   const {
     isLoading: isConfirmingWithdraw,
@@ -500,15 +511,45 @@ const PSLHome = () => {
   ]);
 
   useEffect(() => {
+    console.log('Withdraw confirmation check:', {
+      isWithdrawConfirmed,
+      withdrawHash,
+    });
     if (isWithdrawConfirmed) {
+      console.log('Withdraw confirmed! Setting step to completed');
+      // Mark withdraw as completed
+      setWithdrawStep('completed');
+
       toast({
         title: 'Withdrawal Successful',
         description: 'Your USDC has been withdrawn.',
       });
-      setAmount('');
-      setWithdrawHash(undefined);
+
+      // Wait a moment to show the completed state, then dismiss modal
+      setTimeout(() => {
+        console.log('Dismissing withdraw modal after completion');
+        setIsRightStackOpen(false);
+        setWithdrawStep('idle');
+        setAmount('');
+        setWithdrawHash(undefined);
+
+        // Refresh user balance and other contract data
+        if (address) {
+          // Refetch user's PSL balance
+          refetchUserBalance();
+          // Refetch win probability
+          refetchWinProb();
+        }
+      }, 1500);
     }
-  }, [isWithdrawConfirmed, toast]);
+  }, [
+    isWithdrawConfirmed,
+    withdrawHash,
+    refetchUserBalance,
+    refetchWinProb,
+    toast,
+    address,
+  ]);
 
   useEffect(() => {
     if (isAwardConfirmed) {
@@ -547,6 +588,7 @@ const PSLHome = () => {
     }
     setActiveAction(action);
     setDepositStep('idle');
+    setWithdrawStep('idle');
     setIsRightStackOpen(true);
   };
 
@@ -591,6 +633,24 @@ const PSLHome = () => {
     console.log('Step changed to:', depositStep);
   }, [depositStep]);
 
+  // Track withdraw step
+  useEffect(() => {
+    console.log('Withdraw step tracking:', {
+      isWithdrawing,
+      isConfirmingWithdraw,
+      withdrawStep,
+    });
+
+    if ((isWithdrawing || isConfirmingWithdraw) && withdrawStep === 'idle') {
+      setWithdrawStep('withdrawing');
+    }
+  }, [isWithdrawing, isConfirmingWithdraw, withdrawStep]);
+
+  // Debug: Log all withdraw step changes
+  useEffect(() => {
+    console.log('Withdraw step changed to:', withdrawStep);
+  }, [withdrawStep]);
+
   // Auto focus/select amount input when opening the modal
   useEffect(() => {
     if (isRightStackOpen) {
@@ -608,6 +668,7 @@ const PSLHome = () => {
     setIsRightStackOpen(false);
     setAmount('');
     setDepositStep('idle');
+    setWithdrawStep('idle');
   };
 
   const handleConfirm = async () => {
@@ -641,12 +702,21 @@ const PSLHome = () => {
         }
       } else {
         // withdraw
-        withdraw({
+        setWithdrawStep('withdrawing');
+        withdrawAsync({
           address: contractAddress,
           abi: pumpkinSpiceLatteAbi,
           functionName: 'withdraw',
           args: [parsedAmount],
-        });
+        })
+          .then((hash) => {
+            console.log('Withdraw hash received:', hash);
+            setWithdrawHash(hash);
+          })
+          .catch((error) => {
+            console.error('Withdraw failed:', error);
+            setWithdrawStep('idle');
+          });
       }
     } finally {
       setIsProcessing(false);
@@ -952,6 +1022,30 @@ const PSLHome = () => {
                       </div>
                     </div>
                   )}
+
+                  {/* Withdraw Step Indicators */}
+                  {activeAction === 'withdraw' && withdrawStep !== 'idle' && (
+                    <div className='space-y-2 pt-2'>
+                      <div className='flex items-center gap-2 text-sm'>
+                        {withdrawStep === 'withdrawing' ? (
+                          <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                        ) : withdrawStep === 'completed' ? (
+                          <span className='text-green-600'>✅</span>
+                        ) : (
+                          <span className='text-gray-400'>☕</span>
+                        )}
+                        <span
+                          className={
+                            withdrawStep === 'completed'
+                              ? 'text-green-600'
+                              : 'text-gray-600'
+                          }
+                        >
+                          Execute withdrawal
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -1076,6 +1170,30 @@ const PSLHome = () => {
                         <span className='text-gray-400'>☕</span>
                       )}
                       <span className='text-gray-600'>Execute deposit</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Withdraw Step Indicators */}
+                {activeAction === 'withdraw' && withdrawStep !== 'idle' && (
+                  <div className='space-y-2 pt-2'>
+                    <div className='flex items-center gap-2 text-sm'>
+                      {withdrawStep === 'withdrawing' ? (
+                        <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                      ) : withdrawStep === 'completed' ? (
+                        <span className='text-green-600'>✅</span>
+                      ) : (
+                        <span className='text-gray-400'>☕</span>
+                      )}
+                      <span
+                        className={
+                          withdrawStep === 'completed'
+                            ? 'text-green-600'
+                            : 'text-gray-600'
+                        }
+                      >
+                        Execute withdrawal
+                      </span>
                     </div>
                   </div>
                 )}
