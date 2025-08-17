@@ -1,17 +1,19 @@
-import React, { useState } from 'react';
-import { useReadContract, useAccount } from 'wagmi';
+import React, { useMemo, useRef, useState, useEffect } from 'react';
+import { useReadContract, useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   pumpkinSpiceLatteAddress,
   pumpkinSpiceLatteAbi,
   CONTRACTS,
 } from '../contracts/PumpkinSpiceLatte';
-import { formatUnits } from 'viem';
+import { usdcAbi, usdcAddress } from '../contracts/USDC';
+import { formatUnits, isAddress, parseUnits } from 'viem';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { AlertCircle, X } from 'lucide-react';
 import { useIsMobile } from '../hooks/use-mobile';
+import { useToast } from '../components/ui/use-toast';
 import {
   cardVariants,
   staggerContainer,
@@ -24,6 +26,7 @@ import {
 
 const PSLHome = () => {
   const { isConnected, chain, address } = useAccount();
+  const { toast } = useToast();
   const isMobile = useIsMobile();
   const [isRightStackOpen, setIsRightStackOpen] = useState(false);
   const [activeAction, setActiveAction] = useState<'deposit' | 'withdraw'>(
@@ -31,6 +34,12 @@ const PSLHome = () => {
   );
   const [amount, setAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
+  const [approvalHash, setApprovalHash] = useState<`0x${string}` | undefined>(undefined);
+  const [depositHash, setDepositHash] = useState<`0x${string}` | undefined>(undefined);
+  const [withdrawHash, setWithdrawHash] = useState<`0x${string}` | undefined>(undefined);
+  const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | undefined>(undefined);
+  const autoDepositTriggeredRef = useRef(false);
+  const amountInputRef = useRef<HTMLInputElement | null>(null);
 
   // Check if we're on a supported network
   const isSupportedNetwork =
@@ -40,9 +49,30 @@ const PSLHome = () => {
     CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ??
     pumpkinSpiceLatteAddress;
 
+  // Prefer on-chain ASSET to avoid mismatches
+  const { data: assetOnChain } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'ASSET',
+    chainId: targetChainId,
+    query: {
+      enabled: Boolean(contractAddress),
+      staleTime: 60_000,
+      refetchInterval: 60_000,
+    },
+  } as any);
+
+  const mappedTokenAddress =
+    (CONTRACTS as any)[targetChainId]?.usdc ?? usdcAddress;
+  const currentTokenAddress =
+    typeof assetOnChain === 'string' && isAddress(assetOnChain)
+      ? (assetOnChain as `0x${string}`)
+      : (mappedTokenAddress as `0x${string}`);
+
   const { data: userBalanceData } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
+    functionName: 'balanceOf',
     chainId: targetChainId,
     args: [address as `0x${string}`],
     query: {
@@ -59,10 +89,182 @@ const PSLHome = () => {
   const yieldPercentage = '2.5';
   const countdown = '3d 12h 45m';
 
+  // Wallet allowance and balance for USDC
+  const contractAddressHex = contractAddress as `0x${string}`;
+  const accountAddress = address as `0x${string}` | undefined;
+
+  const { data: allowance = 0n, refetch: refetchAllowance } = useReadContract({
+    address: currentTokenAddress,
+    abi: usdcAbi,
+    functionName: 'allowance',
+    args: [accountAddress as `0x${string}`, contractAddressHex],
+    query: {
+      enabled: isConnected && !!address && !!isSupportedNetwork,
+      refetchInterval: 30000,
+    },
+  });
+
+  const { data: walletBalance = 0n } = useReadContract({
+    address: currentTokenAddress,
+    abi: usdcAbi,
+    functionName: 'balanceOf',
+    args: [accountAddress as `0x${string}`],
+    query: {
+      enabled: isConnected && !!address && !!isSupportedNetwork,
+      refetchInterval: 30000,
+    },
+  } as any);
+
+  const parsedAmount: bigint = useMemo(() => {
+    if (!amount || Number(amount) <= 0) return 0n;
+    try { return parseUnits(amount, 6); } catch { return 0n; }
+  }, [amount]);
+
+  const walletUSDCDisplay = useMemo(() => {
+    try { return parseFloat(formatUnits(walletBalance as bigint, 6)); } catch { return 0; }
+  }, [walletBalance]);
+
+  const { writeContract: approve, isPending: isApproving } = useWriteContract({
+    onSuccess: (hash: `0x${string}`) => {
+      setApprovalHash(hash);
+      toast({ title: 'Approval submitted', description: 'Waiting for confirmation...' });
+    },
+    onError: (error) => {
+      toast({ title: 'Approval Failed', description: error.message, variant: 'destructive' });
+    },
+  } as any);
+
+  const { isLoading: isConfirmingApproval, isSuccess: isApprovalConfirmed, error: approvalError } = useWaitForTransactionReceipt({
+    chainId: targetChainId,
+    hash: approvalHash,
+    confirmations: 1,
+    query: { enabled: Boolean(approvalHash), refetchInterval: 1000 },
+  } as any);
+
+  const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
+    onSuccess: (hash: `0x${string}`) => {
+      setDepositHash(hash);
+      toast({ title: 'Deposit submitted', description: 'Waiting for confirmation...' });
+    },
+    onError: (error) => {
+      toast({ title: 'Deposit Failed', description: error.message, variant: 'destructive' });
+      autoDepositTriggeredRef.current = false;
+    },
+  } as any);
+
+  const { isLoading: isConfirmingDeposit, isSuccess: isDepositConfirmed, error: depositError } = useWaitForTransactionReceipt({
+    chainId: targetChainId,
+    hash: depositHash,
+    confirmations: 1,
+    query: { enabled: Boolean(depositHash), refetchInterval: 1000 },
+  } as any);
+
+  const { writeContract: withdraw, isPending: isWithdrawing } = useWriteContract({
+    onSuccess: (hash: `0x${string}`) => {
+      setWithdrawHash(hash);
+      toast({ title: 'Withdrawal submitted', description: 'Waiting for confirmation...' });
+    },
+    onError: (error) => {
+      toast({ title: 'Withdrawal Failed', description: error.message, variant: 'destructive' });
+    },
+  } as any);
+
+  const { isLoading: isConfirmingWithdraw, isSuccess: isWithdrawConfirmed, error: withdrawError } = useWaitForTransactionReceipt({
+    chainId: targetChainId,
+    hash: withdrawHash,
+    confirmations: 1,
+    query: { enabled: Boolean(withdrawHash), refetchInterval: 1000 },
+  } as any);
+
+  useEffect(() => {
+    if (approvalError) {
+      toast({ title: 'Approval Error', description: approvalError.message, variant: 'destructive' });
+    }
+  }, [approvalError, toast]);
+
+  useEffect(() => {
+    if (depositError) {
+      toast({ title: 'Deposit Error', description: depositError.message, variant: 'destructive' });
+    }
+  }, [depositError, toast]);
+
+  useEffect(() => {
+    if (withdrawError) {
+      toast({ title: 'Withdrawal Error', description: withdrawError.message, variant: 'destructive' });
+    }
+  }, [withdrawError, toast]);
+
+  useEffect(() => {
+    if (isApprovalConfirmed) {
+      refetchAllowance();
+      if (!autoDepositTriggeredRef.current && pendingDepositAmount && isAddress(contractAddress)) {
+        autoDepositTriggeredRef.current = true;
+        deposit({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'deposit', args: [pendingDepositAmount] });
+      }
+      setApprovalHash(undefined);
+    }
+  }, [isApprovalConfirmed, pendingDepositAmount, contractAddress, deposit, refetchAllowance]);
+
+  // Poll allowance while waiting for approval indexers – auto deposit when ready
+  useEffect(() => {
+    if (!isConnected || !address || !isSupportedNetwork) return;
+    if (!pendingDepositAmount || pendingDepositAmount === 0n) return;
+
+    const intervalId = setInterval(async () => {
+      try {
+        const result = await (refetchAllowance() as unknown as Promise<{ data?: bigint } | undefined>);
+        const latestAllowance = (result && result.data !== undefined) ? result.data! : allowance;
+        if (latestAllowance >= pendingDepositAmount) {
+          if (!autoDepositTriggeredRef.current && isAddress(contractAddress)) {
+            autoDepositTriggeredRef.current = true;
+            deposit({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'deposit', args: [pendingDepositAmount] });
+          }
+          clearInterval(intervalId);
+        }
+      } catch {
+        // ignore
+      }
+    }, 1000);
+
+    return () => clearInterval(intervalId);
+  }, [isConnected, address, isSupportedNetwork, pendingDepositAmount, refetchAllowance, allowance, contractAddress, deposit]);
+
+  useEffect(() => {
+    if (isDepositConfirmed) {
+      toast({ title: 'Deposit Successful', description: 'Your USDC has been deposited.' });
+      setAmount('');
+      setDepositHash(undefined);
+      setPendingDepositAmount(undefined);
+      autoDepositTriggeredRef.current = false;
+      refetchAllowance();
+    }
+  }, [isDepositConfirmed, refetchAllowance, toast]);
+
+  useEffect(() => {
+    if (isWithdrawConfirmed) {
+      toast({ title: 'Withdrawal Successful', description: 'Your USDC has been withdrawn.' });
+      setAmount('');
+      setWithdrawHash(undefined);
+    }
+  }, [isWithdrawConfirmed, toast]);
+
   const handleActionClick = (action: 'deposit' | 'withdraw') => {
     setActiveAction(action);
     setIsRightStackOpen(true);
   };
+
+  // Auto focus/select amount input when opening the modal
+  useEffect(() => {
+    if (isRightStackOpen) {
+      const t = setTimeout(() => {
+        if (amountInputRef.current) {
+          amountInputRef.current.focus();
+          amountInputRef.current.select();
+        }
+      }, 50);
+      return () => clearTimeout(t);
+    }
+  }, [isRightStackOpen, activeAction]);
 
   const closeRightStack = () => {
     setIsRightStackOpen(false);
@@ -70,16 +272,33 @@ const PSLHome = () => {
   };
 
   const handleConfirm = async () => {
+    if (!isConnected || !isSupportedNetwork || !isAddress(contractAddress)) return;
+    if (parsedAmount === 0n) return;
+
     setIsProcessing(true);
-    // Simulate processing
-    setTimeout(() => {
+
+    try {
+      if (activeAction === 'deposit') {
+        if (allowance < parsedAmount) {
+          setPendingDepositAmount(parsedAmount);
+          autoDepositTriggeredRef.current = false;
+          approve({ address: currentTokenAddress, abi: usdcAbi, functionName: 'approve', args: [contractAddress, parsedAmount] });
+        } else {
+          setPendingDepositAmount(undefined);
+          deposit({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'deposit', args: [parsedAmount] });
+        }
+      } else {
+        // withdraw
+        withdraw({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'withdraw', args: [parsedAmount] });
+      }
+    } finally {
       setIsProcessing(false);
-      closeRightStack();
-    }, 2000);
+    }
   };
 
   const isAmountValid = amount && parseFloat(amount) > 0;
   const canWithdraw = parseFloat(amount) <= userPSLBalance;
+  const isBusy = isApproving || isDepositing || isConfirmingApproval || isConfirmingDeposit || isWithdrawing || isConfirmingWithdraw;
 
   return (
     <div className='h-full flex flex-col'>
@@ -240,6 +459,7 @@ const PSLHome = () => {
                       placeholder='0.00'
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
+                      ref={amountInputRef}
                       className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
                     />
                   </div>
@@ -284,7 +504,7 @@ const PSLHome = () => {
                         Current Balance
                       </span>
                       <span className='font-bold text-gray-900'>
-                        {userPSLBalance.toLocaleString()} USDC
+                        {walletUSDCDisplay.toLocaleString()} USDC
                       </span>
                     </div>
                   </div>
@@ -360,6 +580,7 @@ const PSLHome = () => {
                     placeholder='0.00'
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
+                    ref={amountInputRef}
                     className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
                   />
                 </div>
@@ -404,7 +625,7 @@ const PSLHome = () => {
                       Current Balance
                     </span>
                     <span className='font-bold text-gray-900'>
-                      {userPSLBalance.toLocaleString()} USDC
+                      {walletUSDCDisplay.toLocaleString()} USDC
                     </span>
                   </div>
                 </div>
