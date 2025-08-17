@@ -205,11 +205,6 @@ const DesktopSidebar = () => {
           );
         })}
       </nav>
-
-      {/* Network Status */}
-      <div className='mt-8'>
-        <NetworkIndicator />
-      </div>
     </div>
   );
 };
@@ -218,7 +213,7 @@ const DesktopHeader = () => {
   return (
     <header className='border-b bg-background px-6 py-4'>
       <div className='flex items-center justify-end'>
-        <ConnectButton />
+        <ConnectButton label='Connect' />
       </div>
     </header>
   );
@@ -272,7 +267,7 @@ const App = () => {
                       </div>
                     </Link>
                     <div className='flex items-center gap-3'>
-                      <ConnectButton />
+                      <ConnectButton label='Connect' />
                     </div>
                   </div>
                 </div>

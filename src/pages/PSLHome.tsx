@@ -110,7 +110,9 @@ const PSLHome = () => {
             <Card className='border-0 shadow-none bg-transparent'>
               <CardContent className='p-0'>
                 <div className='mb-2'>
-                  <p className='text-sm text-muted-foreground'>Total Deposit</p>
+                  <p className='text-sm text-muted-foreground'>
+                    Total PSL Deposit
+                  </p>
                 </div>
                 <div
                   className={`font-black text-foreground ${
