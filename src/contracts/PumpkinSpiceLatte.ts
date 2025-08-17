@@ -44,6 +44,14 @@ export const pumpkinSpiceLatteAbi = [
   {
     anonymous: false,
     inputs: [
+      { indexed: true, internalType: 'address', name: 'caller', type: 'address' }
+    ],
+    name: 'PrizeNotAwarded',
+    type: 'event'
+  },
+  {
+    anonymous: false,
+    inputs: [
       { indexed: true, internalType: 'address', name: 'user', type: 'address' },
       { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' }
     ],
