@@ -8,6 +8,7 @@ export function cn(...inputs: ClassValue[]) {
 export const getExplorerBase = (chainId?: number) => {
   if (chainId === 1) return 'https://etherscan.io'
   if (chainId === 11155111) return 'https://sepolia.etherscan.io'
+  if (chainId === 114) return 'https://coston2-explorer.flare.network'
   return 'https://etherscan.io'
 }
 
