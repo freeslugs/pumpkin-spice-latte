@@ -31,14 +31,26 @@ const katanaMainnet: Chain = {
   },
 };
 
+// Define Flow EVM Testnet chain
+
+const flowEvmTestnet: Chain = {
+  id: 545,
+  name: 'Flow EVM Testnet',
+  nativeCurrency: { name: 'FLOW', symbol: 'FLOW', decimals: 18 },
+  rpcUrls: { default: { http: ['https://testnet.evm.nodes.onflow.org'] } },
+  blockExplorers: { default: { name: 'FlowScan', url: 'https://evm-testnet.flowscan.io' } },
+};
+
+
 // Use getDefaultConfig as recommended by RainbowKit v2
 export const config = getDefaultConfig({
   appName: 'Pumpkin Spice Latte',
   projectId: 'c4f79cc821944d9680842e34466bfbd9', // Public demo project ID
-  chains: [flareTestnet, katanaMainnet],
+  chains: [flareTestnet, katanaMainnet, flowEvmTestnet],
   transports: {
     [flareTestnet.id]: http('https://coston2-api.flare.network/ext/C/rpc'),
     [katanaMainnet.id]: http('https://rpc.katana.network/'),
+    [flowEvmTestnet.id]: http('https://testnet.evm.nodes.onflow.org'),
   },
   ssr: false,
 });

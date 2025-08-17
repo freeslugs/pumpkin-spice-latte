@@ -19,6 +19,11 @@ export const CONTRACTS = {
     pumpkinSpiceLatte: '0xdB9212aF6019C137AC321d36DCEB3e174D933b37', 
     usdc: '0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36'
   },
+  545: { // Flow EVM Testnet
+    // TODO: update after deployment
+    pumpkinSpiceLatte: '0x0000000000000000000000000000000000000000',
+    usdc: '0x0000000000000000000000000000000000000000'
+  },
 } as const;
 
 // Default to Flare testnet (Coston2) as primary; fallback to Sepolia, then Tenderly mainnet
