@@ -3,6 +3,12 @@ import { CONTRACTS } from './PumpkinSpiceLatte';
 // Use the USDC address from the main contract configuration; default to Flare testnet
 export const usdcAddress = CONTRACTS[114].usdc ?? CONTRACTS[11155111].usdc ?? CONTRACTS[1].usdc;
 
+export const getUsdcAddress = (chainId?: number): `0x${string}` => {
+  const isSupported = chainId && CONTRACTS[chainId as keyof typeof CONTRACTS];
+  const resolvedId = isSupported ? (chainId as keyof typeof CONTRACTS) : 114;
+  return CONTRACTS[resolvedId].usdc as `0x${string}`;
+};
+
 // Minimal ERC-20 ABI needed for approve/allowance/transferFrom/balanceOf/decimals
 export const usdcAbi = [
     {

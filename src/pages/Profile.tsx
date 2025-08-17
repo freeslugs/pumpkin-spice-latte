@@ -5,7 +5,7 @@ import {
   pumpkinSpiceLatteAbi,
   CONTRACTS,
 } from '../contracts/PumpkinSpiceLatte';
-import { usdcAddress, usdcAbi } from '../contracts/USDC';
+import { usdcAddress, usdcAbi, getUsdcAddress } from '../contracts/USDC';
 import { formatUnits } from 'viem';
 import {
   Card,
@@ -31,7 +31,7 @@ const Profile = () => {
   // Fetch USDC balance
   const { data: usdcBalanceData } = useBalance({
     address: address as `0x${string}`,
-    token: usdcAddress as `0x${string}`,
+    token: getUsdcAddress(targetChainId),
     chainId: targetChainId,
     query: {
       refetchInterval: 30000,

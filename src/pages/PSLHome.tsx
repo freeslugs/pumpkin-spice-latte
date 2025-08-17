@@ -7,6 +7,7 @@ import {
   CONTRACTS,
 } from '../contracts/PumpkinSpiceLatte';
 import { formatUnits } from 'viem';
+import { usdcAbi } from '../contracts/USDC';
 import { Button } from '../components/ui/button';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
@@ -43,6 +44,7 @@ const PSLHome = () => {
   const { data: userBalanceData } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
+    functionName: 'balanceOf',
     chainId: targetChainId,
     args: [address as `0x${string}`],
     query: {
@@ -51,8 +53,44 @@ const PSLHome = () => {
     },
   });
 
+  // Resolve underlying asset decimals dynamically from contract to avoid hardcoding 6
+  const { data: assetAddress } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'ASSET',
+    chainId: targetChainId,
+    query: {
+      refetchInterval: 120000,
+      enabled: Boolean(contractAddress),
+    },
+  });
+
+  const { data: assetDecimals } = useReadContract({
+    address: (assetAddress as `0x${string}`) || undefined,
+    abi: usdcAbi,
+    functionName: 'decimals',
+    chainId: targetChainId,
+    query: {
+      refetchInterval: 120000,
+      enabled: Boolean(assetAddress),
+    },
+  });
+
+  console.log('userBalanceData', userBalanceData);
+  console.log('address', address);
+  console.log('contractAddress', contractAddress);
+  console.log('targetChainId', targetChainId);
+  console.log('isConnected', isConnected);
+  console.log('isSupportedNetwork', isSupportedNetwork);
+  console.log('chain', chain);
+
   const userPSLBalance = userBalanceData
-    ? parseFloat(formatUnits(userBalanceData as bigint, 6))
+    ? parseFloat(
+        formatUnits(
+          userBalanceData as bigint,
+          typeof assetDecimals === 'number' ? assetDecimals : 6
+        )
+      )
     : 0;
 
   // Mock data for yield and countdown
