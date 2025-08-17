@@ -86,9 +86,31 @@ const PSLHome = () => {
     ? parseFloat(formatUnits(userBalanceData as bigint, 6))
     : 0;
 
-  // Mock data for yield and countdown
+  // Yield (static for now) and probability (live from contract)
   const yieldPercentage = '2.5';
-  const nextDrawProbability = '23';
+
+  const { data: winProbWad, refetch: refetchWinProb } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'currentWinProbability',
+    chainId: targetChainId,
+    query: {
+      refetchInterval: 5000,
+      enabled: Boolean(contractAddress),
+    },
+  } as any);
+
+  const nextDrawProbability = useMemo(() => {
+    try {
+      // winProbWad is 1e18-based probability. Convert to percentage with two decimals.
+      const wad = (winProbWad as bigint) ?? 0n;
+      // Multiply by 100 to get percent, then divide by 1e16 to keep two decimals as integer
+      const pctHundredths = Number((wad * 10000n) / 1000000000000000000n) / 100; // two decimals
+      return pctHundredths.toFixed(2);
+    } catch {
+      return '0.00';
+    }
+  }, [winProbWad]);
 
   // Wallet allowance and balance for USDC
   const contractAddressHex = contractAddress as `0x${string}`;
