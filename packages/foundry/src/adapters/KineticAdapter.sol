@@ -84,5 +84,3 @@ contract KineticAdapter is ILendingAdapter {
         assets = (shares * exchangeRate) / 1e18;
     }
 }
-
-
