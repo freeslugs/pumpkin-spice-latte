@@ -90,6 +90,10 @@ export const pumpkinSpiceLatteAbi = [
   { inputs: [], name: 'totalPrincipal', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'vaultShares', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'owner', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+  // New probability/threshold views
+  { inputs: [], name: 'currentWinProbability', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'currentWinThreshold', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'currentEffectiveHalfLife', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   // Write Functions
   { inputs: [], name: 'awardPrize', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], stateMutability: 'nonpayable', type: 'function' },
