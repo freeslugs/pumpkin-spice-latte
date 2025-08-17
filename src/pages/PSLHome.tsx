@@ -650,9 +650,18 @@ const PSLHome = () => {
             <Button
               onClick={() => handleActionClick('withdraw')}
               variant='outline'
-              className='w-full h-20 text-lg border border-orange-400 text-orange-500 hover:bg-orange-100 rounded-xl'
+              disabled={userPSLBalance === 0}
+              className='w-full h-20 text-lg border border-orange-400 text-orange-500 hover:bg-orange-100 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
             >
-              💰 Withdraw
+              {userPSLBalance === 0 ? (
+                <>
+                  Nothing to
+                  <br />
+                  withdraw
+                </>
+              ) : (
+                '💰 Withdraw'
+              )}
             </Button>
           </div>
         </div>
@@ -721,7 +730,9 @@ const PSLHome = () => {
                     <div className='absolute right-4 top-1/2 transform -translate-y-1/2 text-right'>
                       <div className='text-xs text-gray-500'>Balance</div>
                       <div className='text-sm font-medium text-gray-700'>
-                        {walletUSDCDisplay.toLocaleString()}
+                        {activeAction === 'deposit'
+                          ? walletUSDCDisplay.toLocaleString()
+                          : userPSLBalance.toLocaleString()}
                       </div>
                     </div>
                   </div>
@@ -809,7 +820,9 @@ const PSLHome = () => {
                   <div className='absolute right-4 top-1/2 transform -translate-y-1/2 text-right'>
                     <div className='text-xs text-gray-500'>Balance</div>
                     <div className='text-sm font-medium text-gray-700'>
-                      {walletUSDCDisplay.toLocaleString()}
+                      {activeAction === 'deposit'
+                        ? walletUSDCDisplay.toLocaleString()
+                        : userPSLBalance.toLocaleString()}
                     </div>
                   </div>
                 </div>
