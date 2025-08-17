@@ -103,9 +103,12 @@ const PSLHome = () => {
 
   const mappedTokenAddress =
     (CONTRACTS as any)[targetChainId]?.usdc ?? usdcAddress;
+  const zeroAddress = '0x0000000000000000000000000000000000000000';
+  const onChainAsset =
+    typeof assetOnChain === 'string' ? (assetOnChain as string) : undefined;
   const currentTokenAddress =
-    typeof assetOnChain === 'string' && isAddress(assetOnChain)
-      ? (assetOnChain as `0x${string}`)
+    onChainAsset && isAddress(onChainAsset) && onChainAsset.toLowerCase() !== zeroAddress
+      ? (onChainAsset as `0x${string}`)
       : (mappedTokenAddress as `0x${string}`);
 
   const { data: userBalanceData, refetch: refetchUserBalance } =
@@ -159,6 +162,7 @@ const PSLHome = () => {
     address: currentTokenAddress,
     abi: usdcAbi,
     functionName: 'allowance',
+    chainId: targetChainId,
     args: [accountAddress as `0x${string}`, contractAddressHex],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
@@ -170,6 +174,7 @@ const PSLHome = () => {
     address: currentTokenAddress,
     abi: usdcAbi,
     functionName: 'balanceOf',
+    chainId: targetChainId,
     args: [accountAddress as `0x${string}`],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,

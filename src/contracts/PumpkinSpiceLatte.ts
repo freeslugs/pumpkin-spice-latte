@@ -16,7 +16,7 @@ export const CONTRACTS = {
     usdc: '0xCe987892D5AD2990b8279e8F76530CfF72977666'
   },
   747474: { // Katana mainnet
-    pumpkinSpiceLatte: '0x2EbDa1531485462F236B4189C2b213008Ec6B5C0', // TODO: update after deploy
+    pumpkinSpiceLatte: '0x2EbDa1531485462F236B4189C2b213008Ec6B5C0', 
     usdc: '0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36'
   },
 } as const;

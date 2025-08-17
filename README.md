@@ -252,12 +252,32 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol:DeployPumpkin
   --broadcast -vvvv
 ```
 
+=== Flare Contract Addresses ===
+  FlareSecureRandomAdapter: 0x6e811bC14b656B2A958adEb0f3463df32A21b951
+  Random Number Contract: 0x97702e350CaEda540935d92aAf213307e9069784
+  Note: Contract addresses are fetched from Flare's ContractRegistry
+  For mainnet, verify these addresses match the target network
+  === Deployment Complete ===
+  PumpkinSpiceLatte deployed: 0xc73ECA128c225564C4151fAa723Ae0527FDB8516
+  Kinetic or Morpho4626Adapter: 0x10941C34E3fd1709Dcb73d73442Ca80dF029ce83
+  Random Number Provider: FlareSecureRandomAdapter (Secure VRF)
+  RNG Address: 0x6e811bC14b656B2A958adEb0f3463df32A21b951
+  
+=== Flare Network Info ===
+  Network: Flare (Coston2/Mainnet)
+  Randomness: Secure VRF from Flare network
+  Note: This adapter only works on Flare Network
+  Kinetic or Morpho4626Adapter: 0x10941C34E3fd1709Dcb73d73442Ca80dF029ce83
+  RNG: 0x6e811bC14b656B2A958adEb0f3463df32A21b951
+
+
+
 ```
 # PumpkinSpiceLatte 
 forge verify-contract --chain 114 --verifier blockscout \
   --verifier-url https://coston2-explorer.flare.network/api \
   --etherscan-api-key unused \
-  0xf94d594A61358761FAcDCe77E5Ff4303dad12a49 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
+  0xc73ECA128c225564C4151fAa723Ae0527FDB8516 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
 ```
 
 
@@ -266,7 +286,7 @@ forge verify-contract --chain 114 --verifier blockscout \
 forge verify-contract --chain 114 --verifier blockscout \
   --verifier-url https://coston2-explorer.flare.network/api \
   --etherscan-api-key unused \
-  0x351957C2D6043B258CCC5f4da5a60a2E132Cf158 packages/foundry/src/adapters/KineticAdapter.sol:KineticAdapter
+  0x10941C34E3fd1709Dcb73d73442Ca80dF029ce83 packages/foundry/src/adapters/KineticAdapter.sol:KineticAdapter
 ```
 
 
@@ -275,7 +295,7 @@ forge verify-contract --chain 114 --verifier blockscout \
 forge verify-contract --chain 114 --verifier blockscout \
   --verifier-url https://coston2-explorer.flare.network/api \
   --etherscan-api-key unused \
-  0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A packages/foundry/src/adapters/FlareSecureRandomAdapter.sol:FlareSecureRandomAdapter
+  0x97702e350CaEda540935d92aAf213307e9069784 packages/foundry/src/adapters/FlareSecureRandomAdapter.sol:FlareSecureRandomAdapter
 ```
 
 
