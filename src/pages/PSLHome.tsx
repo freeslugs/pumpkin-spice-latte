@@ -28,9 +28,11 @@ import {
   fadeUp,
   scaleIn,
 } from '../lib/animations';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 
 const PSLHome = () => {
   const { isConnected, chain, address } = useAccount();
+  const { openConnectModal } = useConnectModal();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [isRightStackOpen, setIsRightStackOpen] = useState(false);
@@ -466,6 +468,10 @@ const PSLHome = () => {
   }, [isAwardConfirmed, refetchLastWinner, refetchLastPrize, toast, address]);
 
   const handleActionClick = (action: 'deposit' | 'withdraw') => {
+    if (!isConnected) {
+      openConnectModal?.();
+      return;
+    }
     setActiveAction(action);
     setIsRightStackOpen(true);
   };
@@ -640,14 +646,18 @@ const PSLHome = () => {
 
           <div className='flex-1'>
             <Button
-              onClick={() =>
+              onClick={() => {
+                if (!isConnected) {
+                  openConnectModal?.();
+                  return;
+                }
                 tryAwardPrize({
                   address: contractAddress,
                   abi: pumpkinSpiceLatteAbi,
                   functionName: 'awardPrize',
-                })
-              }
-              disabled={!isConnected || !isSupportedNetwork || isTryLuckBusy}
+                });
+              }}
+              disabled={isTryLuckBusy || (isConnected && !isSupportedNetwork)}
               className='w-full h-20 text-lg font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-xl'
             >
               {isTryLuckBusy ? 'Rolling…' : '🍀 Try your luck'}
