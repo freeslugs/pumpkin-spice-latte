@@ -33,86 +33,91 @@ const Winners = () => {
 	const [error, setError] = useState<string | null>(null);
 	const [winners, setWinners] = useState<WinnerItem[]>([]);
 
+	// Very short history: only the last 10 blocks (plus incremental updates)
 	useEffect(() => {
 		let cancelled = false;
-		const fetchLogs = async () => {
-			if (!publicClient) return;
-			setLoading(true);
-			setError(null);
-			try {
-				const event = parseAbiItem('event PrizeAwarded(address indexed winner, uint256 amount)');
-				const latest = await publicClient.getBlockNumber();
+		if (!publicClient) return;
 
-				// Flare Coston2 (114) enforces very small getLogs ranges; use small chunking.
-				const isFlareTestnet = targetChainId === 114;
-				const windowSize = isFlareTestnet ? 20_000n : 200_000n;
-				const chunkSize = isFlareTestnet ? 25n : 10_000n;
+		const event = parseAbiItem('event PrizeAwarded(address indexed winner, uint256 amount)');
+		const SHORT_WINDOW = 10n; // last 10 blocks
+		const CHUNK = 10n; // single request for that short window
+		const MICRO = 5n;  // fallback
 
-				const startBlock = fromBlockHint !== null
-					? fromBlockHint
-					: (latest > windowSize ? (latest - windowSize) : 0n);
+		const appendItems = (newItems: WinnerItem[]) => {
+			if (cancelled || newItems.length === 0) return;
+			setWinners(prev => {
+				const map = new Map<string, WinnerItem>();
+				for (const it of prev) map.set(`${it.txHash ?? ''}:${it.blockNumber.toString()}:${it.winner}`, it);
+				for (const it of newItems) map.set(`${it.txHash ?? ''}:${it.blockNumber.toString()}:${it.winner}`, it);
+				const merged = Array.from(map.values());
+				merged.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
+				return merged;
+			});
+		};
 
-				const fetched: WinnerItem[] = [];
-				let cursor = startBlock;
-				while (cursor <= latest) {
-					const to = (cursor + chunkSize - 1n) > latest ? latest : (cursor + chunkSize - 1n);
-					try {
-						const logs = await publicClient.getLogs({
-							address: contractAddress as `0x${string}`,
-							event,
-							fromBlock: cursor,
-							toBlock: to,
-						});
-						for (const log of logs) {
-							fetched.push({
-								blockNumber: log.blockNumber ?? 0n,
-								winner: (log.args as any).winner as string,
-								amount: (log.args as any).amount as bigint,
-								txHash: log.transactionHash,
-							});
-						}
-					} catch (err: any) {
-						if (!isFlareTestnet) throw err;
-						// On Flare, if even 25 blocks fails, fall back to micro 5-block chunks
-						const micro = 5n;
-						let inner = cursor;
-						while (inner <= to) {
-							const innerTo = (inner + micro - 1n) > to ? to : (inner + micro - 1n);
-							const logs = await publicClient.getLogs({
-								address: contractAddress as `0x${string}`,
-								event,
-								fromBlock: inner,
-								toBlock: innerTo,
-							});
-							for (const log of logs) {
-								fetched.push({
-									blockNumber: log.blockNumber ?? 0n,
-									winner: (log.args as any).winner as string,
-									amount: (log.args as any).amount as bigint,
-									txHash: log.transactionHash,
-								});
-							}
-							inner = innerTo + 1n;
-						}
+		const fetchRange = async (fromB: bigint, toB: bigint) => {
+			if (fromB > toB) return;
+			let cursor = fromB;
+			while (!cancelled && cursor <= toB) {
+				const to = (cursor + CHUNK - 1n) > toB ? toB : (cursor + CHUNK - 1n);
+				try {
+					const logs = await publicClient.getLogs({ address: contractAddress as `0x${string}`, event, fromBlock: cursor, toBlock: to });
+					appendItems(logs.map(log => ({
+						blockNumber: log.blockNumber ?? 0n,
+						winner: (log.args as any).winner as string,
+						amount: (log.args as any).amount as bigint,
+						txHash: log.transactionHash,
+					})));
+				} catch (err) {
+					// Retry with micro chunks
+					let inner = cursor;
+					while (!cancelled && inner <= to) {
+						const innerTo = (inner + MICRO - 1n) > to ? to : (inner + MICRO - 1n);
+						const logs = await publicClient.getLogs({ address: contractAddress as `0x${string}`, event, fromBlock: inner, toBlock: innerTo });
+						appendItems(logs.map(log => ({
+							blockNumber: log.blockNumber ?? 0n,
+							winner: (log.args as any).winner as string,
+							amount: (log.args as any).amount as bigint,
+							txHash: log.transactionHash,
+						})));
+						inner = innerTo + 1n;
 					}
-					cursor = to + 1n;
 				}
-
-				const items: WinnerItem[] = fetched;
-				if (!cancelled) {
-					items.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
-					setWinners(items);
-				}
-			} catch (e: any) {
-				if (!cancelled) setError(e?.message || 'Failed to load winners');
-			} finally {
-				if (!cancelled) setLoading(false);
+				cursor = to + 1n;
 			}
 		};
-		fetchLogs();
-		// Refresh winners every 60s to avoid spamming RPC
-		const id = setInterval(fetchLogs, 60_000);
-		return () => { cancelled = true };
+
+		let stop = false;
+		(async () => {
+			try {
+				setLoading(true);
+				setError(null);
+				const latest = await publicClient.getBlockNumber();
+				const start = fromBlockHint !== null ? fromBlockHint : (latest > SHORT_WINDOW ? (latest - SHORT_WINDOW) : 0n);
+				await fetchRange(start, latest);
+				if (cancelled) return;
+				let lastTo = latest;
+				const id = setInterval(async () => {
+					if (stop) return;
+					try {
+						const now = await publicClient.getBlockNumber();
+						if (now > lastTo) {
+							await fetchRange(lastTo + 1n, now);
+							lastTo = now;
+						}
+					} catch (e: any) {
+						setError(e?.message || 'Failed to refresh winners');
+					}
+				}, 60_000);
+				return () => clearInterval(id);
+			} catch (e: any) {
+				setError(e?.message || 'Failed to load winners');
+			} finally {
+				setLoading(false);
+			}
+		})();
+
+		return () => { cancelled = true; stop = true };
 	}, [publicClient, contractAddress, fromBlockHint, targetChainId]);
 
 	const yourTotalWinnings = useMemo(() => {
