@@ -23,13 +23,14 @@ jobs:
           node-version: '20'
           cache: 'pnpm'
 
-      - name: Setup pnpm
-        uses: pnpm/action-setup@v4
-        with:
-          version: 10.6.5
+      - name: Enable Corepack
+        run: corepack enable
+
+      - name: Activate pnpm 10.6.5
+        run: corepack prepare pnpm@10.6.5 --activate
 
       - name: Install dependencies
-        run: pnpm install
+        run: pnpm install --frozen-lockfile
 
       - name: Install Foundry
         uses: foundry-rs/foundry-toolchain@v1
