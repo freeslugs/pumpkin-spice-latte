@@ -270,7 +270,7 @@ const App = () => {
                   </div>
                 </div>
               </header>
-              <main className='flex-1 bg-background relative overflow-hidden min-h-0'>
+              <main className='flex-1 bg-background relative overflow-y-auto min-h-0'>
                 <FaucetNotice />
                 <PageTransition>
                   <Routes>
