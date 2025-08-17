@@ -604,7 +604,7 @@ const PSLHome = () => {
             <div className='flex items-center gap-2'>
               <span className='text-xl'>⏰</span>
               <span className='text-sm text-muted-foreground'>
-                Probability of next drawing ...
+                Probability of winner drawing
               </span>
               <span className='text-lg font-bold text-orange-600 ml-auto'>
                 {nextDrawProbability}%
@@ -774,16 +774,6 @@ const PSLHome = () => {
                           }`}
                     </Button>
                   </div>
-
-                  <div>
-                    <Button
-                      onClick={closeRightStack}
-                      variant='outline'
-                      className='w-full h-12 text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl'
-                    >
-                      Cancel
-                    </Button>
-                  </div>
                 </div>
               </div>
             </motion.div>
@@ -876,16 +866,6 @@ const PSLHome = () => {
                       : `Confirm ${
                           activeAction === 'deposit' ? 'Deposit' : 'Withdrawal'
                         }`}
-                  </Button>
-                </div>
-
-                <div>
-                  <Button
-                    onClick={closeRightStack}
-                    variant='outline'
-                    className='w-full h-12 text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl'
-                  >
-                    Cancel
                   </Button>
                 </div>
               </div>
