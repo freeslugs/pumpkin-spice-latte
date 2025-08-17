@@ -256,9 +256,9 @@ const App = () => {
       <BrowserRouter>
         {isMobile ? (
           // Mobile Layout
-          <div className='flex min-h-screen w-full flex-col bg-background'>
-            <div className='flex-1 flex flex-col'>
-              <header className='border-b bg-background'>
+          <div className='flex h-screen w-full flex-col bg-background overflow-hidden'>
+            <div className='flex-1 flex flex-col min-h-0'>
+              <header className='border-b bg-background flex-shrink-0'>
                 <div className='px-4 py-3'>
                   <div className='flex items-center justify-between'>
                     <Link to='/' className='flex items-center gap-2'>
@@ -277,7 +277,7 @@ const App = () => {
                   </div>
                 </div>
               </header>
-              <main className='flex-1 bg-background pb-24 relative overflow-hidden'>
+              <main className='flex-1 bg-background pb-24 relative overflow-hidden min-h-0'>
                 <PageTransition>
                   <Routes>
                     <Route path='/' element={<PSLHome />} />

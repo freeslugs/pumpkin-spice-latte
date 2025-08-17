@@ -82,11 +82,11 @@ const PSLHome = () => {
   const canWithdraw = parseFloat(amount) <= userPSLBalance;
 
   return (
-    <div className='relative min-h-screen flex flex-col'>
-      {/* Main Content */}
+    <div className='h-full flex flex-col'>
+      {/* Main Content - Constrained height */}
       <div
-        className={`flex-1 p-4 space-y-6 ${
-          isMobile ? '' : 'max-w-4xl mx-auto'
+        className={`flex-1 p-4 space-y-6 overflow-y-auto ${
+          isMobile ? 'max-h-[calc(100vh-200px)]' : 'max-w-4xl mx-auto'
         }`}
       >
         {/* Network Status */}
@@ -171,29 +171,29 @@ const PSLHome = () => {
             </div>
           </div>
         </div>
+      </div>
 
-        {/* Action Buttons - Desktop: Below content, Mobile: Above navbar */}
-        <div className={`${isMobile ? 'pt-8 pb-6' : 'pt-12'}`}>
-          <div className={`flex gap-4 ${isMobile ? '' : 'max-w-md'}`}>
-            <div className='flex-1'>
-              <Button
-                onClick={() => handleActionClick('deposit')}
-                variant='outline'
-                className='w-full h-16 text-lg font-bold border-2 border-orange-500 text-orange-500 hover:bg-orange-50 rounded-xl'
-              >
-                💸 Deposit
-              </Button>
-            </div>
+      {/* Action Buttons - Fixed at bottom */}
+      <div className={`${isMobile ? 'p-4 mt-auto' : 'pt-12'}`}>
+        <div className={`flex gap-4 ${isMobile ? '' : 'max-w-md'}`}>
+          <div className='flex-1'>
+            <Button
+              onClick={() => handleActionClick('deposit')}
+              variant='outline'
+              className='w-full h-16 text-lg font-bold border-2 border-orange-500 text-orange-500 hover:bg-orange-50 rounded-xl'
+            >
+              💸 Deposit
+            </Button>
+          </div>
 
-            <div className='flex-1'>
-              <Button
-                onClick={() => handleActionClick('withdraw')}
-                variant='outline'
-                className='w-full h-16 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
-              >
-                💰 Withdraw
-              </Button>
-            </div>
+          <div className='flex-1'>
+            <Button
+              onClick={() => handleActionClick('withdraw')}
+              variant='outline'
+              className='w-full h-16 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
+            >
+              💰 Withdraw
+            </Button>
           </div>
         </div>
       </div>
