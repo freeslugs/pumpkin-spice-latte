@@ -16,13 +16,29 @@ const flareTestnet: Chain = {
   },
 };
 
+// Define Katana mainnet chain
+const katanaMainnet: Chain = {
+  id: 747474,
+  name: 'Katana',
+  nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+  rpcUrls: {
+    default: { http: ['https://rpc.katana.network/'] },
+    public: { http: ['https://rpc.katana.network/'] },
+  },
+  blockExplorers: {
+    default: { name: 'Katana Explorer', url: 'https://explorer.katanarpc.com' },
+    etherscan: { name: 'Katana Explorer', url: 'https://explorer.katanarpc.com' },
+  },
+};
+
 // Use getDefaultConfig as recommended by RainbowKit v2
 export const config = getDefaultConfig({
   appName: 'Pumpkin Spice Latte',
   projectId: 'c4f79cc821944d9680842e34466bfbd9', // Public demo project ID
-  chains: [flareTestnet],
+  chains: [flareTestnet, katanaMainnet],
   transports: {
     [flareTestnet.id]: http('https://coston2-api.flare.network/ext/C/rpc'),
+    [katanaMainnet.id]: http('https://rpc.katana.network/'),
   },
   ssr: false,
 });

@@ -38,6 +38,30 @@ if (typeof window !== 'undefined' && window.ethereum?.isMetaMask) {
     }
   };
 
+  const addKatanaMainnet = async () => {
+    try {
+      await window.ethereum.request({
+        method: 'wallet_addEthereumChain',
+        params: [
+          {
+            chainId: '0xb67d2', // 747474 in hex
+            chainName: 'Katana',
+            nativeCurrency: {
+              name: 'ETH',
+              symbol: 'ETH',
+              decimals: 18,
+            },
+            rpcUrls: ['https://rpc.katana.network/'],
+            blockExplorerUrls: ['https://explorer.katanarpc.com'],
+          },
+        ],
+      });
+      console.log('Katana mainnet added to MetaMask');
+    } catch (error) {
+      console.log('Error adding Katana mainnet to MetaMask:', error);
+    }
+  };
+
   // Make it available in console for manual use
   console.log(
     'MetaMask detected - you can call addFlareTestnet() in console to add the network'
@@ -45,6 +69,7 @@ if (typeof window !== 'undefined' && window.ethereum?.isMetaMask) {
 
   // Try to automatically add the network
   addFlareTestnet().catch(console.error);
+  addKatanaMainnet().catch(console.error);
 }
 
 const queryClient = new QueryClient({
