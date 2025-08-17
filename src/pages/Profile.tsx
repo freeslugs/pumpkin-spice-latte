@@ -14,6 +14,7 @@ import {
   CardTitle,
 } from '../components/ui/card';
 import { AlertCircle, Copy, ExternalLink } from 'lucide-react';
+import { getAddressExplorerUrl } from '../lib/utils';
 import { useIsMobile } from '../hooks/use-mobile';
 
 const Profile = () => {
@@ -21,9 +22,8 @@ const Profile = () => {
   const isMobile = useIsMobile();
 
   // Check if we're on a supported network
-  const isSupportedNetwork =
-    chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
-  const targetChainId = isSupportedNetwork ? chain!.id : 114; // Default to Coston2
+  const isSupportedNetwork = chain && (CONTRACTS as any)[String(chain.id)];
+  const targetChainId = isSupportedNetwork ? chain!.id : 747474;
   const contractAddress =
     CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ??
     pumpkinSpiceLatteAddress;
@@ -48,7 +48,8 @@ const Profile = () => {
     args: [address as `0x${string}`],
     query: {
       refetchInterval: 30000,
-      enabled: isConnected && !!address,
+      enabled:
+        isConnected && !!address && contractAddress !== '0x0000000000000000000000000000000000000000',
     },
   });
 
@@ -67,12 +68,7 @@ const Profile = () => {
     navigator.clipboard.writeText(text);
   };
 
-  const getAddressExplorerUrl = (chainId: number, address: string) => {
-    if (chainId === 114) {
-      return `https://coston2-explorer.flare.network/address/${address}`;
-    }
-    return `https://etherscan.io/address/${address}`;
-  };
+  // Using shared explorer mapping
 
   if (!isConnected) {
     return (

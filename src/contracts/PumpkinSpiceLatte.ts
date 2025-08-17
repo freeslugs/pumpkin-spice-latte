@@ -1,5 +1,9 @@
 // Network-based contract configuration
 export const CONTRACTS = {
+  747474: { // Katana mainnet
+    pumpkinSpiceLatte: '0x2EbDa1531485462F236B4189C2b213008Ec6B5C0', 
+    usdc: '0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36'
+  },
   11155111: { // Sepolia testnet
     pumpkinSpiceLatte: '0x3cb0f6582683204d013c1bab52067ce351aa3bef',
     usdc: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8'
@@ -19,7 +23,7 @@ export const CONTRACTS = {
 
 // Default to Flare testnet (Coston2) as primary; fallback to Sepolia, then Tenderly mainnet
 export const pumpkinSpiceLatteAddress =
-  CONTRACTS[114].pumpkinSpiceLatte || CONTRACTS[11155111].pumpkinSpiceLatte || CONTRACTS[1].pumpkinSpiceLatte;
+  CONTRACTS[114].pumpkinSpiceLatte || CONTRACTS[747474].pumpkinSpiceLatte || CONTRACTS[11155111].pumpkinSpiceLatte || CONTRACTS[1].pumpkinSpiceLatte;
 
 export const pumpkinSpiceLatteAbi = [
   // Events

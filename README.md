@@ -299,3 +299,87 @@ forge verify-contract --chain 114 --verifier blockscout \
   Note: This adapter only works on Flare Network
   Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
   RNG: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
+
+
+
+now for katana
+
+
+== Logs ==
+  Deploying Morpho Adapter
+  Vault Address: 0x61D4F9D3797BA4dA152238c53a6f93Fb665C3c1d
+  === Deployment Complete ===
+  PumpkinSpiceLatte deployed: 0x2EbDa1531485462F236B4189C2b213008Ec6B5C0
+  Kinetic or Morpho4626Adapter: 0xD2A1a753C056aDd5165881DA7eA243D4eDf78A96
+  Random Number Provider: PseudoRandomAdapter (devnet only)
+  RNG Address: 0x22bF3c1bF4D4b5508Eb2AF99bBE565F7e2375DCb
+  
+=== Development Info ===
+  Network: Any EVM compatible
+  Randomness: Pseudo-random (predictable)
+  Warning: Not suitable for production use
+  Kinetic or Morpho4626Adapter: 0xD2A1a753C056aDd5165881DA7eA243D4eDf78A96
+  RNG: 0x22bF3c1bF4D4b5508Eb2AF99bBE565F7e2375DCb
+
+## Setting up 1 EVM.
+
+==========================
+
+Chain 747474
+
+Estimated gas price: 0.001200262 gwei
+
+Estimated total gas used for script: 3883064
+
+Estimated amount required: 0.000004660694162768 ETH
+
+==========================
+
+##### katana
+✅  [Success] Hash: 0x3523a42519b606c5d278b04cffa85f2de40f3d269299b812c7786b02057dc5aa
+Contract Address: 0x2EbDa1531485462F236B4189C2b213008Ec6B5C0
+Block: 8664992
+Paid: 0.0000026655012 ETH (2221251 gas * 0.0012 gwei)
+
+
+##### katana
+✅  [Success] Hash: 0x62b23818a77bc8ec35ebd1f3d383e42bb14730d86266ab602c627be0374600b7
+Contract Address: 0x22bF3c1bF4D4b5508Eb2AF99bBE565F7e2375DCb
+Block: 8664992
+Paid: 0.000000226782 ETH (188985 gas * 0.0012 gwei)
+
+
+##### katana
+✅  [Success] Hash: 0xa83bb9fbce107b75790450fe387f895425ffeca9f1cfde609610de551b7f591c
+Contract Address: 0xD2A1a753C056aDd5165881DA7eA243D4eDf78A96
+Block: 8664992
+Paid: 0.0000006931776 ETH (577648 gas * 0.0012 gwei)
+
+✅ Sequence #1 on katana | Total Paid: 0.0000035854608 ETH (2987884 gas * avg 0.0012 gwei)
+                  
+
+```
+# PumpkinSpiceLatte 
+forge verify-contract  \
+  --chain 747474
+  --etherscan-api-key $ETHERSCAN_API_KEY \
+  0x2EbDa1531485462F236B4189C2b213008Ec6B5C0 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
+```
+
+
+```
+# Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
+forge verify-contract --chain 114 --verifier blockscout \
+  --verifier-url https://coston2-explorer.flare.network/api \
+  --etherscan-api-key unused \
+  0x351957C2D6043B258CCC5f4da5a60a2E132Cf158 packages/foundry/src/adapters/KineticAdapter.sol:KineticAdapter
+```
+
+
+```
+# RNG Address: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
+forge verify-contract --chain 114 --verifier blockscout \
+  --verifier-url https://coston2-explorer.flare.network/api \
+  --etherscan-api-key unused \
+  0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A packages/foundry/src/adapters/FlareSecureRandomAdapter.sol:FlareSecureRandomAdapter
+```

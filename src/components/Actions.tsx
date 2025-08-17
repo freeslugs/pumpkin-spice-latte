@@ -31,8 +31,7 @@ const Actions = () => {
   const [withdrawAmount, setWithdrawAmount] = useState('');
 
   // Check if we're on a supported network
-  const isSupportedNetwork =
-    chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
+  const isSupportedNetwork = chain && (CONTRACTS as any)[String(chain.id)];
   const contractAddress = isSupportedNetwork
     ? CONTRACTS[chain.id as keyof typeof CONTRACTS].pumpkinSpiceLatte
     : pumpkinSpiceLatteAddress;

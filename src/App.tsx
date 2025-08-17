@@ -10,7 +10,7 @@ import {
   useLocation,
 } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
-import { useAccount } from 'wagmi';
+import { useAccount, useSwitchChain } from 'wagmi';
 import NotFound from './pages/NotFound';
 import PSLHome from './pages/PSLHome';
 import Pool from './pages/Pool';
@@ -29,8 +29,7 @@ const NetworkIndicator = () => {
 
   if (!isConnected) return null;
 
-  const isSupportedNetwork =
-    chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
+  const isSupportedNetwork = chain && (CONTRACTS as any)[String(chain.id)];
 
   return (
     <div
@@ -222,6 +221,10 @@ const DesktopHeader = () => {
 const App = () => {
   const [loading, setLoading] = useState(true);
   const isMobile = useIsMobile();
+  const { isConnected, chain } = useAccount();
+  const { switchChainAsync } = useSwitchChain();
+  const [attemptedAutoSwitch, setAttemptedAutoSwitch] = useState(false);
+  const toHex = (id: number) => `0x${id.toString(16)}`;
 
   useEffect(() => {
     const checkConnection = async () => {
@@ -239,6 +242,50 @@ const App = () => {
 
     checkConnection();
   }, []);
+
+  // Auto-switch to a supported network (prefer Katana, then Coston2) if connected but unsupported
+  useEffect(() => {
+    if (!isConnected) return;
+    if (attemptedAutoSwitch) return;
+    const supported = chain && (CONTRACTS as any)[chain.id];
+    if (supported) return;
+    setAttemptedAutoSwitch(true);
+    (async () => {
+      try {
+        await switchChainAsync({ chainId: 747474 });
+      } catch {
+        try {
+          await switchChainAsync({ chainId: 114 });
+        } catch {
+          // Final fallback: direct provider request
+          try {
+            const eth = (window as any).ethereum;
+            if (eth?.request) {
+              try {
+                await eth.request({ method: 'wallet_switchEthereumChain', params: [{ chainId: toHex(747474) }] });
+              } catch (e: any) {
+                // If the chain has not been added to MetaMask, add it
+                if (e?.code === 4902 || (e?.message || '').includes('Unrecognized chain ID')) {
+                  await eth.request({
+                    method: 'wallet_addEthereumChain',
+                    params: [{
+                      chainId: toHex(747474),
+                      chainName: 'Katana',
+                      nativeCurrency: { name: 'ETH', symbol: 'ETH', decimals: 18 },
+                      rpcUrls: ['https://rpc.katana.network'],
+                      blockExplorerUrls: ['https://explorer.katanarpc.com'],
+                    }],
+                  });
+                }
+              }
+            }
+          } catch {
+            // ignore
+          }
+        }
+      }
+    })();
+  }, [isConnected, chain, attemptedAutoSwitch, switchChainAsync]);
 
   if (loading) {
     return <PumpkinLoader isLoading={loading} />;

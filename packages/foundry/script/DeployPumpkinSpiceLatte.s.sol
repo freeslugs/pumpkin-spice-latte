@@ -8,28 +8,44 @@ import {KineticAdapter} from "../src/adapters/KineticAdapter.sol";
 import {PseudoRandomAdapter} from "../src/adapters/PseudoRandomAdapter.sol";
 import {FlareSecureRandomAdapter} from "../src/adapters/FlareSecureRandomAdapter.sol";
 import {KineticAdapter} from "../src/adapters/KineticAdapter.sol";
+import {IERC4626Vault} from "../src/adapters/Morpho4626Adapter.sol";
 
 contract DeployPumpkinSpiceLatte is Script {
 	function run() external {
 		// Config
-		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
+		// Default mainnet vault; can be overridden via env var VAULT_ADDRESS for other networks (e.g. Katana)
+		// address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // default mainnet vault
+		address vaultAddress = 0x61D4F9D3797BA4dA152238c53a6f93Fb665C3c1d; // Katana USDC vault
 		address kineticMarket = 0xC23B7fbE7CdAb4bf524b8eA72a7462c8879A99Ac; // KUSDCe
-		uint256 baseRewardHalfLife = 3600; // 1 hour
-		uint256 halfLife2 = 3600; // every hour since last winner, halve the half-life
+		uint256 baseRewardHalfLife = 300; // 5 minutes
+		uint256 halfLife2 = 300; // 5 minutes
 
 		bool deployToFlare = vm.envBool("DEPLOY_FLARE");
+		bool deployToKatana = vm.envBool("DEPLOY_KATANA");
+
+		// // If running on Katana mainnet, select the provided Morpho USDC vault by default
+		// if (deployToKatana) {
+		// 	vaultAddress = 0x61D4F9D3797BA4dA152238c53a6f93Fb665C3c1d;
+		// }
+		address underlying = 0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36; // Katana USDC
 
 		uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 		vm.startBroadcast(deployerPrivateKey);
 
 		address adapterAddress;
+
 		if(deployToFlare) {
-			console.log("Deploying Kinetic Adapter");
+			console.log("Deploying Flare Adapter");
 			KineticAdapter kinetic = new KineticAdapter(kineticMarket);
 			adapterAddress = address(kinetic);
 		} else {
 			console.log("Deploying Morpho Adapter");
-			Morpho4626Adapter morpho = new Morpho4626Adapter(vaultAddress);
+			console.log("Vault Address:", vaultAddress);
+			// Determine underlying asset address (explicit on Katana)
+			address underlying;
+			// underlying = IERC4626Vault(vaultAddress).asset();
+			// console.log("Vault ASSET:", underlying);
+			Morpho4626Adapter morpho = new Morpho4626Adapter(vaultAddress, underlying);
 			adapterAddress = address(morpho);
 		}
 
