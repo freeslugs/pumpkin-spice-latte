@@ -114,7 +114,7 @@ const Pool = () => {
                   isMobile ? 'text-2xl' : 'text-3xl'
                 }`}
               >
-                ${prizePool.toLocaleString()}
+                ${prizePool}
               </p>
               <p className='text-sm text-muted-foreground'>USDC</p>
             </CardContent>

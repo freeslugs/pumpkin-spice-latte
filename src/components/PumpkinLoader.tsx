@@ -1,6 +1,6 @@
 import React from 'react';
 import { motion } from 'framer-motion';
-import { Coffee } from 'lucide-react';
+import Logo from './Logo';
 import {
   floatingVariants,
   pulseVariants,
@@ -39,9 +39,9 @@ const PumpkinLoader: React.FC<PumpkinLoaderProps> = ({ isLoading }) => {
               repeat: Infinity,
               ease: 'easeInOut',
             }}
-            className='w-24 h-24 bg-orange-500 rounded-full flex items-center justify-center shadow-lg mx-auto'
+            className='mx-auto'
           >
-            <Coffee className='w-12 h-12 text-white' />
+            <Logo size={96} iconSize={48} />
           </motion.div>
         </motion.div>
 
