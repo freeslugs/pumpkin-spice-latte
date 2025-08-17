@@ -179,8 +179,7 @@ const PSLHome = () => {
           <div className='flex-1'>
             <Button
               onClick={() => handleActionClick('deposit')}
-              variant='outline'
-              className='w-full h-16 text-lg font-bold border-2 border-orange-500 text-orange-500 hover:bg-orange-50 rounded-xl'
+              className='w-full h-16 text-lg font-bold bg-orange-500 hover:bg-gray-900 text-white rounded-xl'
             >
               💸 Deposit
             </Button>
