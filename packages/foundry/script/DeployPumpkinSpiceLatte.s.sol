@@ -56,8 +56,8 @@ contract DeployPumpkinSpiceLatte is Script {
 
 		console.log("=== Deployment Complete ===");
 		console.log("PumpkinSpiceLatte deployed:", address(psl));
-		console.log("Morpho4626Adapter:", adapterAddress);
-		console.log("Random Number Provider:", rngType);
+		console.log("Kinetic or Morpho4626Adapter:", adapterAddress);
+		console.log("Random Number Provider:", rngType); // FlareSecureRandomAdapter (Secure VRF) or PseudoRandomAdapter (devnet only)
 		console.log("RNG Address:", rngAddress);
 		
 		if (deployToFlare) {
@@ -71,7 +71,7 @@ contract DeployPumpkinSpiceLatte is Script {
 			console.log("Randomness: Pseudo-random (predictable)");
 			console.log("Warning: Not suitable for production use");
 		}
-		console.log("Adapter:", adapterAddress);
+		console.log("Kinetic or Morpho4626Adapter:", adapterAddress);
 		console.log("RNG:", rngAddress);
 	}
 }

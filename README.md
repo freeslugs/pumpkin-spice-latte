@@ -236,7 +236,11 @@ forge verify-contract \
   packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
 ```
 
-ONLY FLARE 
+```
+forge verify-contract 0x3ecc78c6fea14565affd607bd35b5b8e6dc39778 PumpkinSpiceLatte --etherscan-api-key $TENDERLY_ACCESS_KEY --verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb/verify/etherscan --watch
+```
+
+## ONLY FLARE 
 
 ```
 forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol:DeployPumpkinSpiceLatte \
@@ -245,6 +249,39 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol:DeployPumpkin
 ```
 
 ```
-forge verify-contract 0x3ecc78c6fea14565affd607bd35b5b8e6dc39778 PumpkinSpiceLatte --etherscan-api-key $TENDERLY_ACCESS_KEY --verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb/verify/etherscan --watch
+forge verify-contract --chain 114 --verifier blockscout \
+  --verifier-url https://coston2-explorer.flare.network/api \
+  --etherscan-api-key unused \
+  0x61B002F9E3Df79Cc6A9c69529067FC8219e0C094 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
 ```
 
+
+```
+forge verify-contract --chain 114 --verifier blockscout \
+  --verifier-url https://coston2-explorer.flare.network/api \
+  --etherscan-api-key unused \
+  0x0F56c25A075935F3792255334cA0Eb393E62ABA7 packages/foundry/src/adapters/KineticAdapter.sol:KineticAdapter
+```
+
+
+```
+forge verify-contract --chain 114 --verifier blockscout \
+  --verifier-url https://coston2-explorer.flare.network/api \
+  --etherscan-api-key unused \
+  0x891ECb9Ab6AcAaCa1F5ad1EFba38e149d73857BD packages/foundry/src/adapters/FlareSecureRandomAdapter.sol:FlareSecureRandomAdapter
+```
+
+== Logs ==
+  Deploying Kinetic Adapter
+  === Deployment Complete ===
+  PumpkinSpiceLatte deployed: 0x61B002F9E3Df79Cc6A9c69529067FC8219e0C094
+  Morpho4626Adapter: 0x0F56c25A075935F3792255334cA0Eb393E62ABA7
+  Random Number Provider: FlareSecureRandomAdapter (Secure VRF)
+  RNG Address: 0x891ECb9Ab6AcAaCa1F5ad1EFba38e149d73857BD
+  
+=== Flare Network Info ===
+  Network: Flare (Coston2/Mainnet)
+  Randomness: Secure VRF from Flare network
+  Note: This adapter only works on Flare Network
+  Adapter: 0x0F56c25A075935F3792255334cA0Eb393E62ABA7
+  RNG: 0x891ECb9Ab6AcAaCa1F5ad1EFba38e149d73857BD
