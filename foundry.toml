@@ -30,6 +30,8 @@ coston2 = "https://coston2-api.flare.network/ext/C/rpc"
 flowevm_testnet = "https://testnet.evm.nodes.onflow.org"
 # Flow EVM Mainnet
 flowevm_mainnet = "https://mainnet.evm.nodes.onflow.org"
+# Katana Mainnet
+katana = "https://rpc.katana.network"
 
 [profile.chains]
 mainnet = 1
@@ -43,8 +45,9 @@ flowevm_mainnet = 747
 # mainnet = { key = "${ETHERSCAN_API_KEY}" }
 mainnet = { key = "${TENDERLY_ACCESS_KEY}", chain = 1, url = "${TENDERLY_VIRTUAL_TESTNET_RPC_URL}/verify/etherscan" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
-# Flare Coston2 explorer is Blockscout-style; Foundry verifies via blockscout
+# Flare Coston2 explorer is Blockscout-style; Foundry verifies via blockscout   
 coston2 = { key = "unused", url = "https://coston2-explorer.flare.network/api" }
+katana = { key = "${ETHERSCAN_API_KEY}", url = "https://api.katanascan.com/api" }
 
 # Flow EVM Testnet explorer is Blockscout-style
 flowevm_testnet = { key = "unused", url = "https://evm-testnet.flowscan.io/api", chain = 545 }

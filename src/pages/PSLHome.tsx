@@ -4,6 +4,7 @@ import {
   useAccount,
   useWriteContract,
   useWaitForTransactionReceipt,
+  useWatchContractEvent,
 } from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
@@ -59,6 +60,16 @@ const PSLHome = () => {
     undefined
   );
 
+  // Add state for tracking the award outcome
+  const [awardOutcome, setAwardOutcome] = useState<
+    'pending' | 'success' | 'no-prize' | null
+  >(null);
+  const [awardResult, setAwardResult] = useState<{
+    winner?: string;
+    amount?: bigint;
+    caller?: string;
+  } | null>(null);
+
   // Step tracking for deposit flow
   const [depositStep, setDepositStep] = useState<
     'idle' | 'approving' | 'approved' | 'depositing' | 'completed'
@@ -92,9 +103,14 @@ const PSLHome = () => {
 
   const mappedTokenAddress =
     (CONTRACTS as any)[targetChainId]?.usdc ?? usdcAddress;
+  const zeroAddress = '0x0000000000000000000000000000000000000000';
+  const onChainAsset =
+    typeof assetOnChain === 'string' ? (assetOnChain as string) : undefined;
   const currentTokenAddress =
-    typeof assetOnChain === 'string' && isAddress(assetOnChain)
-      ? (assetOnChain as `0x${string}`)
+    onChainAsset &&
+    isAddress(onChainAsset) &&
+    onChainAsset.toLowerCase() !== zeroAddress
+      ? (onChainAsset as `0x${string}`)
       : (mappedTokenAddress as `0x${string}`);
 
   const { data: userBalanceData, refetch: refetchUserBalance } =
@@ -114,8 +130,17 @@ const PSLHome = () => {
     ? parseFloat(formatUnits(userBalanceData as bigint, 6))
     : 0;
 
-  // Yield (static for now) and probability (live from contract)
-  const yieldPercentage = '2.5';
+  // Total assets (from contract) and probability (live from contract)
+  const { data: totalAssetsBn, refetch: refetchTotalAssets } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'totalAssets',
+    chainId: targetChainId,
+    query: {
+      refetchInterval: 10000,
+      enabled: Boolean(contractAddress),
+    },
+  } as any);
 
   const { data: winProbWad, refetch: refetchWinProb } = useReadContract({
     address: contractAddress,
@@ -140,6 +165,20 @@ const PSLHome = () => {
     }
   }, [winProbWad]);
 
+  // Formatted display for total assets (USDC, 6 decimals)
+  const totalAssetsDisplay = useMemo(() => {
+    try {
+      const v = (totalAssetsBn as bigint) ?? 0n;
+      const num = parseFloat(formatUnits(v, 6));
+      return num.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch {
+      return '0.00';
+    }
+  }, [totalAssetsBn]);
+
   // Wallet allowance and balance for USDC
   const contractAddressHex = contractAddress as `0x${string}`;
   const accountAddress = address as `0x${string}` | undefined;
@@ -148,6 +187,7 @@ const PSLHome = () => {
     address: currentTokenAddress,
     abi: usdcAbi,
     functionName: 'allowance',
+    chainId: targetChainId,
     args: [accountAddress as `0x${string}`, contractAddressHex],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
@@ -159,6 +199,7 @@ const PSLHome = () => {
     address: currentTokenAddress,
     abi: usdcAbi,
     functionName: 'balanceOf',
+    chainId: targetChainId,
     args: [accountAddress as `0x${string}`],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
@@ -302,6 +343,9 @@ const PSLHome = () => {
     useWriteContract({
       onSuccess: (hash: `0x${string}`) => {
         setAwardHash(hash);
+        // Reset the award outcome when starting a new transaction
+        setAwardOutcome('pending');
+        setAwardResult(null);
         toast({
           title: '🎲 Roll submitted!',
           description: 'Summoning the randomness oracle...',
@@ -327,6 +371,60 @@ const PSLHome = () => {
     confirmations: 1,
     query: { enabled: Boolean(awardHash), refetchInterval: 1000 },
   } as any);
+
+  // Watch for PrizeAwarded events
+  useWatchContractEvent({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    eventName: 'PrizeAwarded',
+    onLogs: (logs) => {
+      console.log('🎉 PrizeAwarded event received:', logs);
+      if (logs.length > 0) {
+        const log = logs[logs.length - 1];
+        if (log.args.winner && log.args.amount) {
+          setAwardOutcome('success');
+          setAwardResult({
+            winner: log.args.winner,
+            amount: log.args.amount,
+          });
+          toast({
+            title: '🎉 Congratulations!',
+            description: `Prize of ${formatUnits(
+              log.args.amount,
+              6
+            )} USDC awarded to ${log.args.winner.slice(
+              0,
+              6
+            )}...${log.args.winner.slice(-4)}!`,
+          });
+        }
+      }
+    },
+    enabled: Boolean(contractAddress) && Boolean(awardHash),
+  });
+
+  // Watch for PrizeNotAwarded events
+  useWatchContractEvent({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    eventName: 'PrizeNotAwarded',
+    onLogs: (logs) => {
+      console.log('😅 PrizeNotAwarded event received:', logs);
+      if (logs.length > 0) {
+        const log = logs[logs.length - 1];
+        setAwardOutcome('no-prize');
+        setAwardResult({
+          caller: log.args.caller,
+        });
+        toast({
+          title: '😅 Not this time',
+          description:
+            'The randomness oracle decided no prize this round. Try again soon!',
+        });
+      }
+    },
+    enabled: Boolean(contractAddress) && Boolean(awardHash),
+  });
 
   useEffect(() => {
     if (approvalError) {
@@ -497,6 +595,8 @@ const PSLHome = () => {
           refetchUserBalance();
           // Refetch win probability
           refetchWinProb();
+          // Refetch total assets
+          refetchTotalAssets();
         }
       }, 1500);
     }
@@ -506,6 +606,7 @@ const PSLHome = () => {
     refetchAllowance,
     refetchUserBalance,
     refetchWinProb,
+    refetchTotalAssets,
     toast,
     address,
   ]);
@@ -539,6 +640,8 @@ const PSLHome = () => {
           refetchUserBalance();
           // Refetch win probability
           refetchWinProb();
+          // Refetch total assets
+          refetchTotalAssets();
         }
       }, 1500);
     }
@@ -547,6 +650,7 @@ const PSLHome = () => {
     withdrawHash,
     refetchUserBalance,
     refetchWinProb,
+    refetchTotalAssets,
     toast,
     address,
   ]);
@@ -735,7 +839,7 @@ const PSLHome = () => {
   const isTryLuckBusy = isAwarding || isConfirmingAward;
 
   return (
-    <div className={`${isMobile ? 'min-h-screen' : 'h-full'} flex flex-col`}>
+    <div className={`${isMobile ? 'h-full' : 'h-full'} flex flex-col`}>
       {/* Main Content */}
       <div
         className={`flex-1 p-4 space-y-6 ${isMobile ? '' : 'overflow-y-auto'}`}
@@ -792,10 +896,10 @@ const PSLHome = () => {
             } text-left`}
           >
             <div className='flex items-center gap-2'>
-              <span className='text-xl'>📈</span>
-              <span className='text-sm text-muted-foreground'>Yield</span>
+              <span className='text-xl'>🏦</span>
+              <span className='text-sm text-muted-foreground'>Total pool assets</span>
               <span className='text-lg font-bold text-green-600 ml-auto'>
-                {yieldPercentage}%
+                ${totalAssetsDisplay} USDC
               </span>
             </div>
 
@@ -826,12 +930,58 @@ const PSLHome = () => {
                 {isTryLuckBusy ? 'Rolling…' : '🍀 Try your luck'}
               </Button>
             </div>
+
+            {/* Award Result Display */}
+            {awardOutcome && (
+              <div className='mt-3 p-3 rounded-lg border'>
+                {awardOutcome === 'pending' && (
+                  <div className='text-center'>
+                    <div className='text-2xl mb-2'>🎲</div>
+                    <div className='text-sm font-medium text-blue-700'>
+                      Rolling the dice...
+                    </div>
+                    <div className='text-xs text-muted-foreground mt-1'>
+                      Waiting for the randomness oracle
+                    </div>
+                  </div>
+                )}
+                {awardOutcome === 'success' &&
+                  awardResult &&
+                  awardResult.winner &&
+                  awardResult.amount && (
+                    <div className='text-center'>
+                      <div className='text-2xl mb-2'>🎉</div>
+                      <div className='text-sm font-medium text-green-700'>
+                        Prize Awarded!
+                      </div>
+                      <div className='text-xs text-muted-foreground mt-1'>
+                        {formatUnits(awardResult.amount, 6)} USDC won by{' '}
+                        <span className='font-mono'>
+                          {awardResult.winner.slice(0, 6)}...
+                          {awardResult.winner.slice(-4)}
+                        </span>
+                      </div>
+                    </div>
+                  )}
+                {awardOutcome === 'no-prize' && (
+                  <div className='text-center'>
+                    <div className='text-2xl mb-2'>😅</div>
+                    <div className='text-sm font-medium text-orange-700'>
+                      No Prize This Round
+                    </div>
+                    <div className='text-xs text-muted-foreground mt-1'>
+                      The randomness oracle decided it wasn't time yet
+                    </div>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         </div>
       </div>
 
       {/* Action Buttons - Desktop: Below content, Mobile: At bottom */}
-      <div className={`${isMobile ? 'p-2 pb-40' : 'px-4 pt-12'}`}>
+      <div className={`${isMobile ? 'p-2 mb-20' : 'px-4 pt-12'}`}>
         <div
           className={`flex ${isMobile ? 'gap-1' : 'gap-2 max-w-4xl mx-auto'}`}
         >
@@ -910,7 +1060,7 @@ const PSLHome = () => {
               </div>
 
               {/* Content */}
-              <div className='p-6 space-y-6 overflow-y-auto h-[calc(80vh-80px)]'>
+              <div className='p-4 space-y-6 overflow-y-auto h-[calc(80vh-80px)]'>
                 {/* Amount Input */}
                 <div className='space-y-2'>
                   <label className='text-sm font-medium text-gray-700'>
@@ -942,7 +1092,7 @@ const PSLHome = () => {
                     <div className='p-4 rounded-lg bg-green-50 border border-green-200'>
                       <div className='flex items-center gap-2 mb-2'>
                         <span className='text-blue-600'>✅</span>
-                        <span className='text-sm font-medium text-green-800'>
+                        <span className='text-sm font-small text-green-800'>
                           Withdrawal Info
                         </span>
                       </div>
@@ -955,7 +1105,7 @@ const PSLHome = () => {
                 </div>
 
                 {/* Action Buttons */}
-                <div className='space-y-3 pt-4'>
+                <div className='space-y-3 pt-2'>
                   <div>
                     <Button
                       onClick={handleConfirm}

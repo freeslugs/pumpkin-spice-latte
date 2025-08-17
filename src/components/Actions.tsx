@@ -53,15 +53,19 @@ const Actions = () => {
   const mappedTokenAddress = isSupportedNetwork
     ? (CONTRACTS as any)[chain!.id].usdc
     : usdcAddress;
+  const zeroAddress = '0x0000000000000000000000000000000000000000';
+  const onChainAsset =
+    typeof assetOnChain === 'string' ? (assetOnChain as string) : undefined;
   const currentTokenAddress =
-    typeof assetOnChain === 'string' && isAddress(assetOnChain)
-      ? (assetOnChain as `0x${string}`)
-      : mappedTokenAddress;
+    onChainAsset && isAddress(onChainAsset) && onChainAsset.toLowerCase() !== zeroAddress
+      ? (onChainAsset as `0x${string}`)
+      : (mappedTokenAddress as `0x${string}`);
 
   const { data: allowance = 0n, refetch: refetchAllowance } = useReadContract({
     address: currentTokenAddress,
     abi: usdcAbi,
     functionName: 'allowance',
+    chainId: chain?.id,
     args: [address, contractAddress],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
@@ -73,6 +77,7 @@ const Actions = () => {
     address: currentTokenAddress,
     abi: usdcAbi,
     functionName: 'balanceOf',
+    chainId: chain?.id,
     args: [address],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,

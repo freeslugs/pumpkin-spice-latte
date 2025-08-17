@@ -14,13 +14,17 @@ export const CONTRACTS = {
     // Deployed PSL + underlying from Kinetic market
     pumpkinSpiceLatte: '0xf94d594A61358761FAcDCe77E5Ff4303dad12a49',
     usdc: '0xCe987892D5AD2990b8279e8F76530CfF72977666'
-  }
-  ,
+  }  ,
   545: { // Flow EVM Testnet
     // TODO: update after deployment
     pumpkinSpiceLatte: '0x0000000000000000000000000000000000000000',
     usdc: '0x0000000000000000000000000000000000000000'
-  }
+  
+  },
+  747474: { // Katana mainnet
+    pumpkinSpiceLatte: '0xdB9212aF6019C137AC321d36DCEB3e174D933b37', 
+    usdc: '0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36'
+  },
 } as const;
 
 // Default to Flare testnet (Coston2) as primary; fallback to Sepolia, then Tenderly mainnet

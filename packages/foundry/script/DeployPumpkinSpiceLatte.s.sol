@@ -14,17 +14,22 @@ import {FlowRandomAdapter64} from "../src/adapters/FlowRandomAdapter64.sol";
 contract DeployPumpkinSpiceLatte is Script {
 	function run() external {
 		// Config
-		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
-		address kineticMarket = 0xC23B7fbE7CdAb4bf524b8eA72a7462c8879A99Ac; // KUSDCe
-		uint256 baseRewardHalfLife = 3600; // 1 hour
-		uint256 halfLife2 = 3600; // every hour since last winner, halve the half-life
+		// address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
+		address vaultAddress = 0x61D4F9D3797BA4dA152238c53a6f93Fb665C3c1d; // Katana USDC vault
+		address kineticMarket = 0xC23B7fbE7CdAb4bf524b8eA72a7462c8879A99Ac; // KUSDCe on Flare
+		
+		uint256 baseRewardHalfLife = 300; // 5 minutes
+		uint256 halfLife2 = 300; // 5 minutes
 
 		bool deployToFlare = vm.envBool("DEPLOY_FLARE");
 		bool deployToFlow = vm.envBool("DEPLOY_FLOW");
 		bool useFlow64 = vm.envBool("FLOW_64");
+		bool deployToKatana = vm.envBool("DEPLOY_KATANA");
 
 		// Use the private key from the broadcast context instead of environment variable
 		vm.startBroadcast();
+
+		address underlying = 0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36; // Katana USDC
 
 		address adapterAddress;
 		if(deployToFlare) {
@@ -32,33 +37,39 @@ contract DeployPumpkinSpiceLatte is Script {
 			address kineticMarketAddress = vm.envAddress("KINETIC_MARKET");
 			KineticAdapter kinetic = new KineticAdapter(kineticMarketAddress);
 			adapterAddress = address(kinetic);
-		} else if (deployToFlow) {
-			console.log("Deploying Flow with Lending Adapter");
-			// For Flow, we can use any lending adapter (MoreMarkets, Morpho, etc.)
-			// The randomness is handled by the FlowRandomAdapter
-			if (vm.envUint("DEPLOY_MORE") == 1) {
-				address moreMarket = vm.envAddress("MORE_MARKET");
-				require(moreMarket != address(0), "MORE_MARKET required");
-				console.log("Deploying More Markets Adapter for Flow");
-				MoreMarketsAdapter more = new MoreMarketsAdapter(moreMarket);
-				adapterAddress = address(more);
-			} else {
-				// Default to Morpho for Flow if no specific adapter specified
-				address vault = vm.envOr("VAULT_ADDRESS", vaultAddress);
-				console.log("Deploying Morpho Adapter for Flow");
-				Morpho4626Adapter morpho = new Morpho4626Adapter(vault);
-				adapterAddress = address(morpho);
-			}
-		} else if (vm.envUint("DEPLOY_MORE") == 1) {
-			address moreMarket = vm.envAddress("MORE_MARKET");
-			require(moreMarket != address(0), "MORE_MARKET required");
-			console.log("Deploying More Markets Adapter");
-			MoreMarketsAdapter more = new MoreMarketsAdapter(moreMarket);
-			adapterAddress = address(more);
-		} else {
+// <<<<<<< HEAD
+		// } else if (deployToFlow) {
+		// 	console.log("Deploying Flow with Lending Adapter");
+		// 	// For Flow, we can use any lending adapter (MoreMarkets, Morpho, etc.)
+		// 	// The randomness is handled by the FlowRandomAdapter
+		// 	if (vm.envUint("DEPLOY_MORE") == 1) {
+		// 		address moreMarket = vm.envAddress("MORE_MARKET");
+		// 		require(moreMarket != address(0), "MORE_MARKET required");
+		// 		console.log("Deploying More Markets Adapter for Flow");
+		// 		MoreMarketsAdapter more = new MoreMarketsAdapter(moreMarket);
+		// 		adapterAddress = address(more);
+		// 	} else {
+		// 		// Default to Morpho for Flow if no specific adapter specified
+		// 		address vault = vm.envOr("VAULT_ADDRESS", vaultAddress);
+		// 		console.log("Deploying Morpho Adapter for Flow");
+		// 		Morpho4626Adapter morpho = new Morpho4626Adapter(vault);
+		// 		adapterAddress = address(morpho);
+		// 	}
+		// } else if (vm.envUint("DEPLOY_MORE") == 1) {
+		// 	address moreMarket = vm.envAddress("MORE_MARKET");
+		// 	require(moreMarket != address(0), "MORE_MARKET required");
+		// 	console.log("Deploying More Markets Adapter");
+		// 	MoreMarketsAdapter more = new MoreMarketsAdapter(moreMarket);
+		// 	adapterAddress = address(more);
+		// } else {
+		// 	console.log("Deploying Morpho Adapter");
+		// 	address vault = vm.envOr("VAULT_ADDRESS", vaultAddress);
+		// 	Morpho4626Adapter morpho = new Morpho4626Adapter(vault);
+// =======
 			console.log("Deploying Morpho Adapter");
-			address vault = vm.envOr("VAULT_ADDRESS", vaultAddress);
-			Morpho4626Adapter morpho = new Morpho4626Adapter(vault);
+		} else {
+			Morpho4626Adapter morpho = new Morpho4626Adapter(vaultAddress, underlying);
+// >>>>>>> main
 			adapterAddress = address(morpho);
 		}
 
@@ -81,15 +92,15 @@ contract DeployPumpkinSpiceLatte is Script {
 			address flowRngAddress;
 			string memory flowRngType;
 			
-			if (useFlow64) {
+			// if (useFlow64) {
 				FlowRandomAdapter64 flowRng = new FlowRandomAdapter64();
 				flowRngAddress = address(flowRng);
 				flowRngType = "FlowRandomAdapter64 (64 bits)";
-			} else {
-				FlowRandomAdapter256 flowRng = new FlowRandomAdapter256();
-				flowRngAddress = address(flowRng);
-				flowRngType = "FlowRandomAdapter256 (256 bits)";
-			}
+			// } else {
+			// 	FlowRandomAdapter256 flowRng = new FlowRandomAdapter256();
+			// 	flowRngAddress = address(flowRng);
+			// 	flowRngType = "FlowRandomAdapter256 (256 bits)";
+			// }
 			
 			rngAddress = flowRngAddress;
 			rngType = flowRngType;

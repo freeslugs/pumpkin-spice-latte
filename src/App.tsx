@@ -211,7 +211,7 @@ const DesktopSidebar = () => {
 
 const DesktopHeader = () => {
   return (
-    <header className='border-b bg-background px-6 py-4'>
+    <header className='border-b bg-background px-6 py-3 flex-shrink-0'>
       <div className='flex items-center justify-end'>
         <ConnectButton label='Connect' />
       </div>
@@ -251,7 +251,7 @@ const App = () => {
       <BrowserRouter>
         {isMobile ? (
           // Mobile Layout
-          <div className='flex h-screen w-full flex-col bg-background overflow-hidden'>
+          <div className='flex h-screen w-full flex-col bg-background'>
             <div className='flex-1 flex flex-col min-h-0'>
               <header className='border-b bg-background flex-shrink-0'>
                 <div className='px-4 py-3'>
@@ -259,18 +259,18 @@ const App = () => {
                     <Link to='/' className='flex items-center gap-2'>
                       <Logo size={32} iconSize={16} />
                       <div>
-                        <h1 className='text-lg font-bold text-orange-500 leading-tight'>
+                        <h1 className='text-lg font-bold text-orange-500 leading-tight scale-75'>
                           Pumpkin Spice Latte
                         </h1>
                       </div>
                     </Link>
-                    <div className='flex items-center gap-3'>
+                    <div className='flex items-end scale-75'>
                       <ConnectButton label='Connect' />
                     </div>
                   </div>
                 </div>
               </header>
-              <main className='flex-1 bg-background relative overflow-y-auto min-h-0'>
+              <main className='flex-1 bg-background relative overflow-y-auto min-h-0 pb-20'>
                 <FaucetNotice />
                 <PageTransition>
                   <Routes>
@@ -282,8 +282,8 @@ const App = () => {
                   </Routes>
                 </PageTransition>
               </main>
-              <BottomNavigation />
             </div>
+            <BottomNavigation />
           </div>
         ) : (
           // Desktop Layout
