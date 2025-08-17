@@ -73,93 +73,65 @@ const Profile = () => {
 
   return (
     <div className='p-4 space-y-6'>
-      {/* Header */}
-      <div className='flex items-center bg-white pb-2 justify-between'>
-        <button
-          onClick={() => navigate(-1)}
-          className='text-[#181411] flex size-12 shrink-0 items-center'
-        >
-          <ArrowLeft className='w-6 h-6' />
-        </button>
-        <h2 className='text-[#181411] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12'>
-          Profile
-        </h2>
-      </div>
-
-      {/* User Info */}
-      <div className='flex flex-col gap-2 rounded-lg p-6 bg-[#f5f2f0]'>
-        <div className='flex items-center gap-3'>
-          <User className='w-8 h-8 text-orange-600' />
-          <div>
-            <p className='text-[#181411] text-base font-medium leading-normal'>
-              Wallet Address
-            </p>
-            <p className='text-[#181411] tracking-light text-sm font-mono'>
-              {address
-                ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                : 'Not connected'}
-            </p>
-          </div>
-        </div>
-      </div>
-
-      {/* User Stats */}
-      <div className='space-y-3'>
-        <h3 className='text-lg font-semibold text-[#181411]'>Your Stats</h3>
-        <div className='grid grid-cols-1 gap-3'>
-          <div className='p-4 rounded-lg border border-[#f5f2f0]'>
-            <div className='flex items-center gap-3'>
-              <Wallet className='w-6 h-6 text-green-600' />
-              <div>
-                <p className='text-sm text-[#8a7360]'>Total Balance</p>
-                <p className='text-lg font-semibold text-[#181411]'>
-                  {userBalance.toLocaleString()} USDC
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className='p-4 rounded-lg border border-[#f5f2f0]'>
-            <div className='flex items-center gap-3'>
-              <Award className='w-6 h-6 text-amber-600' />
-              <div>
-                <p className='text-sm text-[#8a7360]'>Generated Yield</p>
-                <p className='text-lg font-semibold text-[#181411]'>
-                  {userYield.toFixed(2)} USDC
-                </p>
-              </div>
-            </div>
-          </div>
-
-          <div className='p-4 rounded-lg border border-[#f5f2f0]'>
-            <div className='flex items-center gap-3'>
-              <Clock className='w-6 h-6 text-blue-600' />
-              <div>
-                <p className='text-sm text-[#8a7360]'>Principal Deposited</p>
-                <p className='text-lg font-semibold text-[#181411]'>
-                  {userBalance.toLocaleString()} USDC
-                </p>
-              </div>
-            </div>
-          </div>
-        </div>
-      </div>
-
-      {/* Network Info */}
-      {isConnected && (
-        <div className='space-y-3'>
-          <h3 className='text-lg font-semibold text-[#181411]'>Network</h3>
-          <div className='p-4 rounded-lg border border-[#f5f2f0]'>
-            <p className='text-sm text-[#8a7360]'>Current Network</p>
-            <p className='text-lg font-semibold text-[#181411]'>
-              {chain?.name || 'Unknown'}
-            </p>
-            {!isSupportedNetwork && (
-              <p className='text-sm text-amber-600 mt-2'>
-                ⚠️ This network is not supported
+      {/* User Profile Information */}
+      <div className='space-y-4'>
+        <div className='bg-white p-6 rounded-xl border border-[#f5f2f0]'>
+          <div className='flex items-center gap-3 mb-4'>
+            <span className='text-3xl'>👤</span>
+            <div>
+              <h3 className='text-lg font-bold text-[#181411]'>
+                Profile Information
+              </h3>
+              <p className='text-sm text-muted-foreground'>
+                Your account details
               </p>
-            )}
+            </div>
           </div>
+
+          <div className='space-y-3'>
+            <div className='flex justify-between items-center p-3 bg-gray-50 rounded-lg'>
+              <span className='text-sm text-gray-600'>Wallet Address</span>
+              <span className='font-mono text-sm font-medium text-gray-900'>
+                {address
+                  ? `${address.slice(0, 6)}...${address.slice(-4)}`
+                  : 'Not connected'}
+              </span>
+            </div>
+
+            <div className='flex justify-between items-center p-3 bg-gray-50 rounded-lg'>
+              <span className='text-sm text-gray-600'>Total Balance</span>
+              <span className='font-bold text-gray-900'>
+                {userBalance} USDC
+              </span>
+            </div>
+
+            <div className='flex justify-between items-center p-3 bg-gray-50 rounded-lg'>
+              <span className='text-sm text-gray-600'>Generated Yield</span>
+              <span className='font-bold text-green-600'>
+                {userYield.toFixed(2)} USDC
+              </span>
+            </div>
+
+            <div className='flex justify-between items-center p-3 bg-gray-50 rounded-lg'>
+              <span className='text-sm text-gray-600'>Principal Deposited</span>
+              <span className='font-bold text-gray-900'>
+                {userBalance} USDC
+              </span>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      {/* Network Status */}
+      {!isSupportedNetwork && (
+        <div className='bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-lg'>
+          <div className='flex items-center gap-2'>
+            <span className='text-lg'>⚠️</span>
+            <span className='font-medium'>Network not supported</span>
+          </div>
+          <p className='text-sm mt-1'>
+            Please switch to a supported network to view your profile.
+          </p>
         </div>
       )}
     </div>

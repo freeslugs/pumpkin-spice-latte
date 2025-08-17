@@ -40,19 +40,6 @@ const History = () => {
 
   return (
     <div className='p-4 space-y-6'>
-      {/* Header */}
-      <div className='flex items-center bg-white pb-2 justify-between'>
-        <button
-          onClick={() => navigate(-1)}
-          className='text-[#181411] flex size-12 shrink-0 items-center'
-        >
-          <ArrowLeft className='w-6 h-6' />
-        </button>
-        <h2 className='text-[#181411] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12'>
-          History & Tickets
-        </h2>
-      </div>
-
       {/* Ticket Balance */}
       <div className='flex flex-col gap-2 rounded-lg p-6 bg-[#f5f2f0]'>
         <div className='flex items-center gap-3'>

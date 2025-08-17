@@ -6,11 +6,9 @@ import {
   CONTRACTS,
 } from '../contracts/PumpkinSpiceLatte';
 import { formatUnits } from 'viem';
-import { ArrowLeft } from 'lucide-react';
-import { useNavigate } from 'react-router-dom';
+import { Card, CardContent } from '../components/ui/card';
 
 const Pool = () => {
-  const navigate = useNavigate();
   const { isConnected, chain } = useAccount();
 
   // Check if we're on a supported network
@@ -57,57 +55,55 @@ const Pool = () => {
   // Mock data for number of players (you can replace this with actual contract data)
   const numberOfPlayers = 500;
 
-  const totalDeposits = totalPrincipalData
-    ? parseFloat(formatUnits(totalPrincipalData as bigint, 6))
-    : 12500;
-  const totalPrizeAmount = prizePoolData
+  const totalAssets = totalAssetsData
+    ? parseFloat(formatUnits(totalAssetsData as bigint, 6))
+    : 0;
+  const prizePool = prizePoolData
     ? parseFloat(formatUnits(prizePoolData as bigint, 6))
-    : 2500;
+    : 0;
+  const totalPrincipal = totalPrincipalData
+    ? parseFloat(formatUnits(totalPrincipalData as bigint, 6))
+    : 0;
 
   return (
     <div className='p-4 space-y-6'>
-      {/* Header */}
-      <div className='flex items-center bg-white pb-2 justify-between'>
-        <button
-          onClick={() => navigate(-1)}
-          className='text-[#181411] flex size-12 shrink-0 items-center'
-        >
-          <ArrowLeft className='w-6 h-6' />
-        </button>
-        <h2 className='text-[#181411] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12'>
-          Pool Stats
-        </h2>
-      </div>
+      {/* Pool Statistics */}
+      <div className='space-y-4'>
+        <div className='grid grid-cols-1 sm:grid-cols-3 gap-4'>
+          <div className='bg-white p-6 rounded-xl border border-[#f5f2f0] text-center'>
+            <div className='text-3xl mb-3'>💰</div>
+            <p className='text-sm text-muted-foreground mb-1'>Total Assets</p>
+            <p className='text-2xl font-bold'>{totalAssets} USDC</p>
+          </div>
 
-      {/* Pool Stats */}
-      <div className='flex flex-wrap gap-4'>
-        <div className='flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 bg-[#f5f2f0]'>
-          <p className='text-[#181411] text-base font-medium leading-normal'>
-            Total Deposits
-          </p>
-          <p className='text-[#181411] tracking-light text-2xl font-bold leading-tight'>
-            ${totalDeposits.toLocaleString()}
-          </p>
-        </div>
+          <div className='bg-white p-6 rounded-xl border border-[#f5f2f0] text-center'>
+            <div className='text-3xl mb-3'>🏆</div>
+            <p className='text-sm text-muted-foreground mb-1'>Prize Pool</p>
+            <p className='text-2xl font-bold'>{prizePool} USDC</p>
+          </div>
 
-        <div className='flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 bg-[#f5f2f0]'>
-          <p className='text-[#181411] text-base font-medium leading-normal'>
-            Total Prize Amount
-          </p>
-          <p className='text-[#181411] tracking-light text-2xl font-bold leading-tight'>
-            ${totalPrizeAmount.toLocaleString()}
-          </p>
-        </div>
-
-        <div className='flex min-w-[158px] flex-1 flex-col gap-2 rounded-lg p-6 bg-[#f5f2f0]'>
-          <p className='text-[#181411] text-base font-medium leading-normal'>
-            Number of Players
-          </p>
-          <p className='text-[#181411] tracking-light text-2xl font-bold leading-tight'>
-            {numberOfPlayers.toLocaleString()}
-          </p>
+          <div className='bg-white p-6 rounded-xl border border-[#f5f2f0] text-center'>
+            <div className='text-3xl mb-3'>👑</div>
+            <p className='text-sm text-muted-foreground mb-1'>
+              Total Principal
+            </p>
+            <p className='text-2xl font-bold'>{totalPrincipal} USDC</p>
+          </div>
         </div>
       </div>
+
+      {/* Network Status */}
+      {!isSupportedNetwork && (
+        <div className='bg-amber-50 border border-amber-200 text-amber-800 p-4 rounded-lg'>
+          <div className='flex items-center gap-2'>
+            <span className='text-lg'>⚠️</span>
+            <span className='font-medium'>Network not supported</span>
+          </div>
+          <p className='text-sm mt-1'>
+            Please switch to a supported network to view pool information.
+          </p>
+        </div>
+      )}
     </div>
   );
 };

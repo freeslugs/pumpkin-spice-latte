@@ -1,16 +1,17 @@
-import { Toaster } from '@/components/ui/toaster';
-import { Toaster as Sonner } from '@/components/ui/sonner';
-import { TooltipProvider } from '@/components/ui/tooltip';
+import React from 'react';
+import { Toaster } from './components/ui/toaster';
+import { Toaster as Sonner } from './components/ui/sonner';
+import { TooltipProvider } from './components/ui/tooltip';
 import { BrowserRouter, Routes, Route, Link } from 'react-router-dom';
 import { ConnectButton } from '@rainbow-me/rainbowkit';
 import { useAccount } from 'wagmi';
 import NotFound from './pages/NotFound';
 import PSLHome from './pages/PSLHome';
 import Pool from './pages/Pool';
-import History from './pages/History';
+import HistoryPage from './pages/History';
 import Profile from './pages/Profile';
-import { CONTRACTS } from '@/contracts/PumpkinSpiceLatte';
-import { Coffee } from 'lucide-react';
+import { CONTRACTS } from './contracts/PumpkinSpiceLatte';
+import { Coffee, Wallet, BarChart3, History, User } from 'lucide-react';
 
 const NetworkIndicator = () => {
   const { chain, isConnected } = useAccount();
@@ -51,7 +52,7 @@ const BottomNavigation = () => {
               location === '/' ? 'text-[#181411]' : 'text-[#8a7360]'
             }`}
           >
-            <span className='text-2xl'>💰</span>
+            <Wallet className='w-5 h-5' />
           </div>
           <p
             className={`text-xs font-medium leading-normal tracking-[0.015em] ${
@@ -73,7 +74,7 @@ const BottomNavigation = () => {
               location === '/pool' ? 'text-[#181411]' : 'text-[#8a7360]'
             }`}
           >
-            <span className='text-2xl'>🎃</span>
+            <BarChart3 className='w-5 h-5' />
           </div>
           <p
             className={`text-xs font-medium leading-normal tracking-[0.015em] ${
@@ -95,7 +96,7 @@ const BottomNavigation = () => {
               location === '/history' ? 'text-[#181411]' : 'text-[#8a7360]'
             }`}
           >
-            <span className='text-2xl'>📜</span>
+            <History className='w-5 h-5' />
           </div>
           <p
             className={`text-xs font-medium leading-normal tracking-[0.015em] ${
@@ -117,7 +118,7 @@ const BottomNavigation = () => {
               location === '/profile' ? 'text-[#181411]' : 'text-[#8a7360]'
             }`}
           >
-            <span className='text-2xl'>👤</span>
+            <User className='w-5 h-5' />
           </div>
           <p
             className={`text-xs font-medium leading-normal tracking-[0.015em] ${
@@ -143,10 +144,12 @@ const App = () => (
           <header className='border-b bg-white'>
             <div className='px-4 py-3'>
               <div className='flex items-center justify-between'>
-                <Link to='/' className='flex items-center gap-3'>
-                  <span className='text-2xl'>🎃</span>
+                <Link to='/' className='flex items-center gap-2'>
+                  <div className='w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center shadow-lg'>
+                    <Coffee className='w-4 h-4 text-white' />
+                  </div>
                   <div>
-                    <h1 className='text-lg font-bold bg-gradient-to-r from-orange-600 via-amber-500 to-yellow-400 bg-clip-text text-transparent'>
+                    <h1 className='text-lg font-bold text-orange-500 leading-tight'>
                       Pumpkin Spice Latte
                     </h1>
                   </div>
@@ -161,7 +164,7 @@ const App = () => (
             <Routes>
               <Route path='/' element={<PSLHome />} />
               <Route path='/pool' element={<Pool />} />
-              <Route path='/history' element={<History />} />
+              <Route path='/history' element={<HistoryPage />} />
               <Route path='/profile' element={<Profile />} />
               <Route path='*' element={<NotFound />} />
             </Routes>
