@@ -561,7 +561,7 @@ const PSLHome = () => {
         {/* Main Content - Big Number Layout */}
         <div
           className={`space-y-6 ${
-            isMobile ? '' : 'grid grid-cols-2 gap-8 max-w-4xl mx-auto'
+            isMobile ? '' : 'grid grid-cols-2 gap-2 max-w-4xl mx-auto'
           }`}
         >
           {/* Total Deposit Number */}
@@ -591,7 +591,7 @@ const PSLHome = () => {
               isMobile
                 ? 'mt-6 space-y-3'
                 : 'flex flex-col justify-center space-y-4'
-            }`}
+            } text-left`}
           >
             <div className='flex items-center gap-2'>
               <span className='text-xl'>📈</span>
@@ -633,8 +633,10 @@ const PSLHome = () => {
       </div>
 
       {/* Action Buttons - Desktop: Below content, Mobile: At bottom */}
-      <div className={`${isMobile ? 'p-2 pb-40' : 'pt-12'}`}>
-        <div className={`flex gap-1 ${isMobile ? '' : 'max-w-4xl mx-auto'}`}>
+      <div className={`${isMobile ? 'p-2 pb-40' : 'px-4 pt-12'}`}>
+        <div
+          className={`flex ${isMobile ? 'gap-1' : 'gap-2 max-w-4xl mx-auto'}`}
+        >
           <div className='flex-1'>
             <Button
               onClick={() => handleActionClick('deposit')}
