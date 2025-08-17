@@ -709,15 +709,21 @@ const PSLHome = () => {
                   <label className='text-sm font-medium text-gray-700'>
                     USDC amount
                   </label>
-                  <div>
+                  <div className='relative'>
                     <Input
                       type='number'
                       placeholder='0'
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       ref={amountInputRef}
-                      className='text-4xl font-bold text-left h-16 border-0 rounded-xl focus:border focus:border-orange-500 focus:border-opacity-50 focus:ring-0'
+                      className='text-4xl font-bold text-left h-16 border-0 rounded-xl focus:border focus:border-orange-500 focus:border-opacity-50 focus:ring-0 pr-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                     />
+                    <div className='absolute right-4 top-1/2 transform -translate-y-1/2 text-right'>
+                      <div className='text-xs text-gray-500'>Balance</div>
+                      <div className='text-sm font-medium text-gray-700'>
+                        {walletUSDCDisplay.toLocaleString()}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -737,18 +743,6 @@ const PSLHome = () => {
                       </p>
                     </div>
                   )}
-
-                  {/* Current Balance */}
-                  <div className='p-4 rounded-lg bg-gray-50 border border-gray-200'>
-                    <div className='flex justify-between items-center'>
-                      <span className='text-sm text-gray-600'>
-                        Current Balance
-                      </span>
-                      <span className='font-bold text-gray-900'>
-                        {walletUSDCDisplay.toLocaleString()} USDC
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -803,15 +797,21 @@ const PSLHome = () => {
                 <label className='text-sm font-medium text-gray-700'>
                   USDC amount
                 </label>
-                <div>
+                <div className='relative'>
                   <Input
                     type='number'
                     placeholder='0'
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     ref={amountInputRef}
-                    className='text-4xl font-bold text-left h-16 border-0 rounded-xl focus:border focus:border-orange-500 focus:border-opacity-50 focus:ring-0'
+                    className='text-4xl font-bold text-left h-16 border-0 rounded-xl focus:border focus:border-orange-500 focus:border-opacity-50 focus:ring-0 pr-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                   />
+                  <div className='absolute right-4 top-1/2 transform -translate-y-1/2 text-right'>
+                    <div className='text-xs text-gray-500'>Balance</div>
+                    <div className='text-sm font-medium text-gray-700'>
+                      {walletUSDCDisplay.toLocaleString()}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -831,18 +831,6 @@ const PSLHome = () => {
                     </p>
                   </div>
                 )}
-
-                {/* Current Balance */}
-                <div className='p-4 rounded-lg bg-gray-50 border border-gray-200'>
-                  <div className='flex justify-between items-center'>
-                    <span className='text-sm text-gray-600'>
-                      Current Balance
-                    </span>
-                    <span className='font-bold text-gray-900'>
-                      {walletUSDCDisplay.toLocaleString()} USDC
-                    </span>
-                  </div>
-                </div>
               </div>
 
               {/* Action Buttons */}
