@@ -57,6 +57,11 @@ const PSLHome = () => {
     undefined
   );
 
+  // Step tracking for deposit flow
+  const [depositStep, setDepositStep] = useState<
+    'idle' | 'approving' | 'approved' | 'depositing' | 'completed'
+  >('idle');
+
   // Check if we're on a supported network
   const isSupportedNetwork =
     chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
@@ -85,17 +90,18 @@ const PSLHome = () => {
       ? (assetOnChain as `0x${string}`)
       : (mappedTokenAddress as `0x${string}`);
 
-  const { data: userBalanceData } = useReadContract({
-    address: contractAddress,
-    abi: pumpkinSpiceLatteAbi,
-    functionName: 'balanceOf',
-    chainId: targetChainId,
-    args: [address as `0x${string}`],
-    query: {
-      refetchInterval: 30000,
-      enabled: isConnected && !!address,
-    },
-  });
+  const { data: userBalanceData, refetch: refetchUserBalance } =
+    useReadContract({
+      address: contractAddress,
+      abi: pumpkinSpiceLatteAbi,
+      functionName: 'balanceOf',
+      chainId: targetChainId,
+      args: [address as `0x${string}`],
+      query: {
+        refetchInterval: 30000,
+        enabled: isConnected && !!address,
+      },
+    });
 
   const userPSLBalance = userBalanceData
     ? parseFloat(formatUnits(userBalanceData as bigint, 6))
@@ -214,8 +220,13 @@ const PSLHome = () => {
     query: { enabled: Boolean(approvalHash), refetchInterval: 1000 },
   } as any);
 
-  const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
+  const {
+    writeContract: deposit,
+    writeContractAsync: depositAsync,
+    isPending: isDepositing,
+  } = useWriteContract({
     onSuccess: (hash: `0x${string}`) => {
+      console.log('Deposit onSuccess called with hash:', hash);
       setDepositHash(hash);
       toast({
         title: 'Deposit submitted',
@@ -223,6 +234,7 @@ const PSLHome = () => {
       });
     },
     onError: (error) => {
+      console.log('Deposit onError called:', error);
       toast({
         title: 'Deposit Failed',
         description: error.message,
@@ -310,6 +322,7 @@ const PSLHome = () => {
         description: approvalError.message,
         variant: 'destructive',
       });
+      setDepositStep('idle');
     }
   }, [approvalError, toast]);
 
@@ -320,6 +333,7 @@ const PSLHome = () => {
         description: depositError.message,
         variant: 'destructive',
       });
+      setDepositStep('idle');
     }
   }, [depositError, toast]);
 
@@ -351,13 +365,28 @@ const PSLHome = () => {
         pendingDepositAmount &&
         isAddress(contractAddress)
       ) {
+        console.log(
+          'Approval confirmed: Triggering auto-deposit with amount:',
+          pendingDepositAmount
+        );
         autoDepositTriggeredRef.current = true;
-        deposit({
+        setDepositStep('depositing');
+
+        // Use async version to get the hash directly
+        depositAsync({
           address: contractAddress,
           abi: pumpkinSpiceLatteAbi,
           functionName: 'deposit',
           args: [pendingDepositAmount],
-        });
+        })
+          .then((hash) => {
+            console.log('Auto-deposit hash received:', hash);
+            setDepositHash(hash);
+          })
+          .catch((error) => {
+            console.error('Auto-deposit failed:', error);
+            setDepositStep('idle');
+          });
       }
       setApprovalHash(undefined);
     }
@@ -383,13 +412,26 @@ const PSLHome = () => {
           result && result.data !== undefined ? result.data! : allowance;
         if (latestAllowance >= pendingDepositAmount) {
           if (!autoDepositTriggeredRef.current && isAddress(contractAddress)) {
+            console.log(
+              'Polling: Triggering auto-deposit with amount:',
+              pendingDepositAmount
+            );
             autoDepositTriggeredRef.current = true;
-            deposit({
+            setDepositStep('depositing');
+            depositAsync({
               address: contractAddress,
               abi: pumpkinSpiceLatteAbi,
               functionName: 'deposit',
               args: [pendingDepositAmount],
-            });
+            })
+              .then((hash) => {
+                console.log('Polling auto-deposit hash received:', hash);
+                setDepositHash(hash);
+              })
+              .catch((error) => {
+                console.error('Polling auto-deposit failed:', error);
+                setDepositStep('idle');
+              });
           }
           clearInterval(intervalId);
         }
@@ -411,18 +453,49 @@ const PSLHome = () => {
   ]);
 
   useEffect(() => {
+    console.log('Deposit confirmation check:', {
+      isDepositConfirmed,
+      depositHash,
+    });
     if (isDepositConfirmed) {
+      console.log('Deposit confirmed! Setting step to completed');
+      // Mark deposit as completed
+      setDepositStep('completed');
+
       toast({
         title: 'Deposit Successful',
         description: 'Your USDC has been deposited.',
       });
-      setAmount('');
-      setDepositHash(undefined);
-      setPendingDepositAmount(undefined);
-      autoDepositTriggeredRef.current = false;
-      refetchAllowance();
+
+      // Wait a moment to show the completed state, then dismiss modal
+      setTimeout(() => {
+        console.log('Dismissing modal after completion');
+        setIsRightStackOpen(false);
+        setDepositStep('idle');
+        setAmount('');
+        setDepositHash(undefined);
+        setPendingDepositAmount(undefined);
+        autoDepositTriggeredRef.current = false;
+        refetchAllowance();
+
+        // Refresh user balance and other contract data
+        if (address) {
+          // Refetch user's PSL balance
+          refetchUserBalance();
+          // Refetch win probability
+          refetchWinProb();
+        }
+      }, 1500);
     }
-  }, [isDepositConfirmed, refetchAllowance, toast]);
+  }, [
+    isDepositConfirmed,
+    depositHash,
+    refetchAllowance,
+    refetchUserBalance,
+    refetchWinProb,
+    toast,
+    address,
+  ]);
 
   useEffect(() => {
     if (isWithdrawConfirmed) {
@@ -467,8 +540,50 @@ const PSLHome = () => {
 
   const handleActionClick = (action: 'deposit' | 'withdraw') => {
     setActiveAction(action);
+    setDepositStep('idle');
     setIsRightStackOpen(true);
   };
+
+  // Track approval step
+  useEffect(() => {
+    console.log('Approval step tracking:', {
+      isApproving,
+      isApprovalConfirmed,
+      depositStep,
+    });
+
+    if (isApproving) {
+      setDepositStep('approving');
+    }
+
+    if (
+      isApprovalConfirmed &&
+      (depositStep === 'approving' || depositStep === 'idle')
+    ) {
+      setDepositStep('approved');
+    }
+  }, [isApproving, isApprovalConfirmed, depositStep]);
+
+  // Track deposit step
+  useEffect(() => {
+    console.log('Deposit step tracking:', {
+      isDepositing,
+      isConfirmingDeposit,
+      depositStep,
+    });
+
+    if (
+      (isDepositing || isConfirmingDeposit) &&
+      (depositStep === 'approved' || depositStep === 'idle')
+    ) {
+      setDepositStep('depositing');
+    }
+  }, [isDepositing, isConfirmingDeposit, depositStep]);
+
+  // Debug: Log all step changes
+  useEffect(() => {
+    console.log('Step changed to:', depositStep);
+  }, [depositStep]);
 
   // Auto focus/select amount input when opening the modal
   useEffect(() => {
@@ -486,6 +601,7 @@ const PSLHome = () => {
   const closeRightStack = () => {
     setIsRightStackOpen(false);
     setAmount('');
+    setDepositStep('idle');
   };
 
   const handleConfirm = async () => {
@@ -500,6 +616,7 @@ const PSLHome = () => {
         if (allowance < parsedAmount) {
           setPendingDepositAmount(parsedAmount);
           autoDepositTriggeredRef.current = false;
+          setDepositStep('approving');
           approve({
             address: currentTokenAddress,
             abi: usdcAbi,
@@ -508,6 +625,7 @@ const PSLHome = () => {
           });
         } else {
           setPendingDepositAmount(undefined);
+          setDepositStep('depositing');
           deposit({
             address: contractAddress,
             abi: pumpkinSpiceLatteAbi,
@@ -578,7 +696,11 @@ const PSLHome = () => {
                     isMobile ? 'text-6xl' : 'text-7xl'
                   }`}
                 >
-                  ${userPSLBalance.toLocaleString()}
+                  $
+                  {userPSLBalance.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
                 <p className='text-lg text-muted-foreground'>USDC</p>
               </CardContent>
@@ -777,6 +899,53 @@ const PSLHome = () => {
                           }`}
                     </Button>
                   </div>
+
+                  {/* Deposit Step Indicators */}
+                  {activeAction === 'deposit' && depositStep !== 'idle' && (
+                    <div className='space-y-2 pt-2'>
+                      <div className='flex items-center gap-2 text-sm'>
+                        {depositStep === 'approving' ? (
+                          <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                        ) : depositStep === 'approved' ||
+                          depositStep === 'depositing' ||
+                          depositStep === 'completed' ? (
+                          <span className='text-green-600'>✅</span>
+                        ) : (
+                          <span className='text-gray-400'>☕</span>
+                        )}
+                        <span
+                          className={
+                            depositStep === 'approved' ||
+                            depositStep === 'depositing' ||
+                            depositStep === 'completed'
+                              ? 'text-green-600'
+                              : 'text-gray-600'
+                          }
+                        >
+                          Approve spending
+                        </span>
+                      </div>
+
+                      <div className='flex items-center gap-2 text-sm'>
+                        {depositStep === 'depositing' ? (
+                          <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                        ) : depositStep === 'completed' ? (
+                          <span className='text-green-600'>✅</span>
+                        ) : (
+                          <span className='text-gray-400'>☕</span>
+                        )}
+                        <span
+                          className={
+                            depositStep === 'completed'
+                              ? 'text-green-600'
+                              : 'text-gray-600'
+                          }
+                        >
+                          Execute deposit
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -865,6 +1034,45 @@ const PSLHome = () => {
                         }`}
                   </Button>
                 </div>
+
+                {/* Deposit Step Indicators */}
+                {activeAction === 'deposit' && depositStep !== 'idle' && (
+                  <div className='space-y-2 pt-2'>
+                    <div className='flex items-center gap-2 text-sm'>
+                      {depositStep === 'approving' ? (
+                        <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                      ) : depositStep === 'approved' ||
+                        depositStep === 'depositing' ||
+                        depositStep === 'completed' ? (
+                        <span className='text-green-600'>✅</span>
+                      ) : (
+                        <span className='text-gray-400'>☕</span>
+                      )}
+                      <span
+                        className={
+                          depositStep === 'approved' ||
+                          depositStep === 'depositing' ||
+                          depositStep === 'completed'
+                            ? 'text-green-600'
+                            : 'text-gray-600'
+                        }
+                      >
+                        Approve spending
+                      </span>
+                    </div>
+
+                    <div className='flex items-center gap-2 text-sm'>
+                      {depositStep === 'depositing' ? (
+                        <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                      ) : depositStep === 'completed' ? (
+                        <span className='text-green-600'>✅</span>
+                      ) : (
+                        <span className='text-gray-400'>☕</span>
+                      )}
+                      <span className='text-gray-600'>Execute deposit</span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
