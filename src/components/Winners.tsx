@@ -42,7 +42,7 @@ const Winners = () => {
     let cancelled = false;
     const fetchLogs = async () => {
       if (!publicClient || !isConnected) return;
-      
+
       // Check if contract address is valid (not zero address)
       if (contractAddress === '0x0000000000000000000000000000000000000000') {
         setError('Contract not deployed on this network yet');
@@ -81,9 +81,9 @@ const Winners = () => {
         if (!cancelled) setLoading(false);
       }
     };
-    
+
     fetchLogs();
-    
+
     return () => {
       cancelled = true;
     };

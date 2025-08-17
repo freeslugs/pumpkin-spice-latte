@@ -20,6 +20,7 @@ import { CONTRACTS } from './contracts/PumpkinSpiceLatte';
 import { Coffee, Wallet, BarChart3, History, User } from 'lucide-react';
 import PumpkinLoader from './components/PumpkinLoader';
 import { useIsMobile } from './hooks/use-mobile';
+import PageTransition from './components/PageTransition';
 
 const NetworkIndicator = () => {
   const { chain, isConnected } = useAccount();
@@ -276,14 +277,16 @@ const App = () => {
                   </div>
                 </div>
               </header>
-              <main className='flex-1 bg-background pb-24'>
-                <Routes>
-                  <Route path='/' element={<PSLHome />} />
-                  <Route path='/pool' element={<Pool />} />
-                  <Route path='/history' element={<HistoryPage />} />
-                  <Route path='/profile' element={<Profile />} />
-                  <Route path='*' element={<NotFound />} />
-                </Routes>
+              <main className='flex-1 bg-background pb-24 relative overflow-hidden'>
+                <PageTransition>
+                  <Routes>
+                    <Route path='/' element={<PSLHome />} />
+                    <Route path='/pool' element={<Pool />} />
+                    <Route path='/history' element={<HistoryPage />} />
+                    <Route path='/profile' element={<Profile />} />
+                    <Route path='*' element={<NotFound />} />
+                  </Routes>
+                </PageTransition>
               </main>
               <BottomNavigation />
             </div>
@@ -294,14 +297,16 @@ const App = () => {
             <DesktopSidebar />
             <div className='flex-1 flex flex-col'>
               <DesktopHeader />
-              <main className='flex-1 p-6 overflow-auto'>
-                <Routes>
-                  <Route path='/' element={<PSLHome />} />
-                  <Route path='/pool' element={<Pool />} />
-                  <Route path='/history' element={<HistoryPage />} />
-                  <Route path='/profile' element={<Profile />} />
-                  <Route path='*' element={<NotFound />} />
-                </Routes>
+              <main className='flex-1 p-6 overflow-hidden relative'>
+                <PageTransition>
+                  <Routes>
+                    <Route path='/' element={<PSLHome />} />
+                    <Route path='/pool' element={<Pool />} />
+                    <Route path='/history' element={<HistoryPage />} />
+                    <Route path='/profile' element={<Profile />} />
+                    <Route path='*' element={<NotFound />} />
+                  </Routes>
+                </PageTransition>
               </main>
             </div>
           </div>

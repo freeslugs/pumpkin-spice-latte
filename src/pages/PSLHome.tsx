@@ -1,5 +1,6 @@
 import React, { useState } from 'react';
 import { useReadContract, useAccount } from 'wagmi';
+import { motion, AnimatePresence } from 'framer-motion';
 import {
   pumpkinSpiceLatteAddress,
   pumpkinSpiceLatteAbi,
@@ -11,6 +12,15 @@ import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { AlertCircle, X } from 'lucide-react';
 import { useIsMobile } from '../hooks/use-mobile';
+import {
+  cardVariants,
+  staggerContainer,
+  buttonVariants,
+  modalVariants,
+  backdropVariants,
+  fadeUp,
+  scaleIn,
+} from '../lib/animations';
 
 const PSLHome = () => {
   const { isConnected, chain, address } = useAccount();
@@ -33,7 +43,6 @@ const PSLHome = () => {
   const { data: userBalanceData } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
-    functionName: 'balanceOf',
     chainId: targetChainId,
     args: [address as `0x${string}`],
     query: {
@@ -97,23 +106,27 @@ const PSLHome = () => {
           className={`space-y-8 ${isMobile ? '' : 'grid grid-cols-2 gap-8'}`}
         >
           {/* Total Deposit Number */}
-          <Card className='border-0 shadow-none bg-transparent'>
-            <CardContent className='p-0'>
-              <div className='text-left'>
-                <div className='mb-2'>
-                  <p className='text-sm text-muted-foreground'>Total Deposit</p>
+          <div>
+            <Card className='border-0 shadow-none bg-transparent'>
+              <CardContent className='p-0'>
+                <div className='text-left'>
+                  <div className='mb-2'>
+                    <p className='text-sm text-muted-foreground'>
+                      Total Deposit
+                    </p>
+                  </div>
+                  <div
+                    className={`font-black text-foreground ${
+                      isMobile ? 'text-6xl' : 'text-7xl'
+                    }`}
+                  >
+                    ${userPSLBalance.toLocaleString()}
+                  </div>
+                  <p className='text-lg text-muted-foreground'>USDC</p>
                 </div>
-                <div
-                  className={`font-black text-foreground ${
-                    isMobile ? 'text-6xl' : 'text-7xl'
-                  }`}
-                >
-                  ${userPSLBalance.toLocaleString()}
-                </div>
-                <p className='text-lg text-muted-foreground'>USDC</p>
-              </div>
-            </CardContent>
-          </Card>
+              </CardContent>
+            </Card>
+          </div>
 
           {/* Yield and Countdown - Desktop: Right side, Mobile: Below */}
           <div
@@ -121,58 +134,66 @@ const PSLHome = () => {
               isMobile ? '' : 'flex flex-col justify-center'
             }`}
           >
-            <Card>
-              <CardContent className='p-4'>
-                <div className='flex justify-between items-center'>
-                  <div className='flex items-center gap-2'>
-                    <span className='text-xl'>📈</span>
-                    <span className='text-sm text-muted-foreground'>
-                      Yield Generated
+            <div>
+              <Card>
+                <CardContent className='p-4'>
+                  <div className='flex justify-between items-center'>
+                    <div className='flex items-center gap-2'>
+                      <span className='text-xl'>📈</span>
+                      <span className='text-sm text-muted-foreground'>
+                        Yield Generated
+                      </span>
+                    </div>
+                    <span className='text-lg font-bold text-green-600'>
+                      {yieldPercentage}%
                     </span>
                   </div>
-                  <span className='text-lg font-bold text-green-600'>
-                    {yieldPercentage}%
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
 
-            <Card>
-              <CardContent className='p-4'>
-                <div className='flex justify-between items-center'>
-                  <div className='flex items-center gap-2'>
-                    <span className='text-xl'>⏰</span>
-                    <span className='text-sm text-muted-foreground'>
-                      Next Lottery Draw
+            <div>
+              <Card>
+                <CardContent className='p-4'>
+                  <div className='flex justify-between items-center'>
+                    <div className='flex items-center gap-2'>
+                      <span className='text-xl'>⏰</span>
+                      <span className='text-sm text-muted-foreground'>
+                        Next Lottery Draw
+                      </span>
+                    </div>
+                    <span className='text-lg font-bold text-orange-600'>
+                      {countdown}
                     </span>
                   </div>
-                  <span className='text-lg font-bold text-orange-600'>
-                    {countdown}
-                  </span>
-                </div>
-              </CardContent>
-            </Card>
+                </CardContent>
+              </Card>
+            </div>
           </div>
         </div>
 
         {/* Action Buttons - Desktop: Below content, Mobile: Above navbar */}
         <div className={`${isMobile ? 'pt-8 pb-6' : 'pt-12'}`}>
           <div className={`flex gap-4 ${isMobile ? '' : 'max-w-md'}`}>
-            <Button
-              onClick={() => handleActionClick('deposit')}
-              variant='outline'
-              className='flex-1 h-16 text-lg font-bold border-2 border-orange-500 text-orange-500 hover:bg-orange-50 rounded-xl'
-            >
-              💸 Deposit
-            </Button>
+            <div className='flex-1'>
+              <Button
+                onClick={() => handleActionClick('deposit')}
+                variant='outline'
+                className='w-full h-16 text-lg font-bold border-2 border-orange-500 text-orange-500 hover:bg-orange-50 rounded-xl'
+              >
+                💸 Deposit
+              </Button>
+            </div>
 
-            <Button
-              onClick={() => handleActionClick('withdraw')}
-              variant='outline'
-              className='flex-1 h-16 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
-            >
-              💰 Withdraw
-            </Button>
+            <div className='flex-1'>
+              <Button
+                onClick={() => handleActionClick('withdraw')}
+                variant='outline'
+                className='w-full h-16 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
+              >
+                💰 Withdraw
+              </Button>
+            </div>
           </div>
         </div>
       </div>
@@ -187,7 +208,7 @@ const PSLHome = () => {
           />
 
           {/* Right Stack */}
-          <div className='relative w-full max-w-md bg-white h-full shadow-2xl transform transition-transform duration-300 ease-out'>
+          <div className='relative w-full max-w-md bg-white h-full shadow-2xl'>
             {/* Header */}
             <div className='flex items-center justify-between p-6 border-b border-gray-200'>
               <h2 className='text-xl font-bold text-gray-900'>
@@ -210,13 +231,15 @@ const PSLHome = () => {
                 <label className='text-sm font-medium text-gray-700'>
                   Amount (USDC)
                 </label>
-                <Input
-                  type='number'
-                  placeholder='0.00'
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
-                />
+                <div>
+                  <Input
+                    type='number'
+                    placeholder='0.00'
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                  />
+                </div>
               </div>
 
               {/* Info Cards */}
@@ -266,29 +289,33 @@ const PSLHome = () => {
 
               {/* Action Buttons */}
               <div className='space-y-3 pt-4'>
-                <Button
-                  onClick={handleConfirm}
-                  disabled={
-                    !isAmountValid ||
-                    (activeAction === 'withdraw' && !canWithdraw) ||
-                    isProcessing
-                  }
-                  className='w-full h-14 text-lg font-bold bg-orange-500 text-white hover:bg-orange-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
-                >
-                  {isProcessing
-                    ? 'Processing...'
-                    : `Confirm ${
-                        activeAction === 'deposit' ? 'Deposit' : 'Withdrawal'
-                      }`}
-                </Button>
+                <div>
+                  <Button
+                    onClick={handleConfirm}
+                    disabled={
+                      !isAmountValid ||
+                      (activeAction === 'withdraw' && !canWithdraw) ||
+                      isProcessing
+                    }
+                    className='w-full h-14 text-lg font-bold bg-orange-500 text-white hover:bg-orange-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isProcessing
+                      ? 'Processing...'
+                      : `Confirm ${
+                          activeAction === 'deposit' ? 'Deposit' : 'Withdrawal'
+                        }`}
+                  </Button>
+                </div>
 
-                <Button
-                  onClick={closeRightStack}
-                  variant='outline'
-                  className='w-full h-12 text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl'
-                >
-                  Cancel
-                </Button>
+                <div>
+                  <Button
+                    onClick={closeRightStack}
+                    variant='outline'
+                    className='w-full h-12 text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl'
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
@@ -321,13 +348,15 @@ const PSLHome = () => {
                 <label className='text-sm font-medium text-gray-700'>
                   Amount (USDC)
                 </label>
-                <Input
-                  type='number'
-                  placeholder='0.00'
-                  value={amount}
-                  onChange={(e) => setAmount(e.target.value)}
-                  className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
-                />
+                <div>
+                  <Input
+                    type='number'
+                    placeholder='0.00'
+                    value={amount}
+                    onChange={(e) => setAmount(e.target.value)}
+                    className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                  />
+                </div>
               </div>
 
               {/* Info Cards */}
@@ -377,29 +406,33 @@ const PSLHome = () => {
 
               {/* Action Buttons */}
               <div className='space-y-3 pt-4'>
-                <Button
-                  onClick={handleConfirm}
-                  disabled={
-                    !isAmountValid ||
-                    (activeAction === 'withdraw' && !canWithdraw) ||
-                    isProcessing
-                  }
-                  className='w-full h-14 text-lg font-bold bg-orange-500 text-white hover:bg-orange-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
-                >
-                  {isProcessing
-                    ? 'Processing...'
-                    : `Confirm ${
-                        activeAction === 'deposit' ? 'Deposit' : 'Withdrawal'
-                      }`}
-                </Button>
+                <div>
+                  <Button
+                    onClick={handleConfirm}
+                    disabled={
+                      !isAmountValid ||
+                      (activeAction === 'withdraw' && !canWithdraw) ||
+                      isProcessing
+                    }
+                    className='w-full h-14 text-lg font-bold bg-orange-500 text-white hover:bg-orange-600 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
+                  >
+                    {isProcessing
+                      ? 'Processing...'
+                      : `Confirm ${
+                          activeAction === 'deposit' ? 'Deposit' : 'Withdrawal'
+                        }`}
+                  </Button>
+                </div>
 
-                <Button
-                  onClick={closeRightStack}
-                  variant='outline'
-                  className='w-full h-12 text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl'
-                >
-                  Cancel
-                </Button>
+                <div>
+                  <Button
+                    onClick={closeRightStack}
+                    variant='outline'
+                    className='w-full h-12 text-base font-medium border-2 border-gray-300 text-gray-600 hover:bg-gray-50 rounded-xl'
+                  >
+                    Cancel
+                  </Button>
+                </div>
               </div>
             </div>
           </div>
