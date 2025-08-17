@@ -40,6 +40,13 @@ contract DeployPumpkinSpiceLatte is Script {
 			FlareSecureRandomAdapter flareRng = new FlareSecureRandomAdapter();
 			rngAddress = address(flareRng);
 			rngType = "FlareSecureRandomAdapter (Secure VRF)";
+			
+			// Log Flare contract addresses for verification
+			console.log("\n=== Flare Contract Addresses ===");
+			console.log("FlareSecureRandomAdapter:", address(flareRng));
+			console.log("Random Number Contract:", flareRng.getRandomNumberContract());
+			console.log("Note: Contract addresses are fetched from Flare's ContractRegistry");
+			console.log("For mainnet, verify these addresses match the target network");
 		} else {
 			PseudoRandomAdapter pseudoRng = new PseudoRandomAdapter();
 			rngAddress = address(pseudoRng);
