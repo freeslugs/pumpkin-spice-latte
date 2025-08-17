@@ -192,12 +192,12 @@ const Profile = () => {
               </span>
             </div>
             <div className='flex justify-between items-center'>
-              <span className='text-sm text-muted-foreground'>
+              {/* <span className='text-sm text-muted-foreground'>
                 Generated Yield
               </span>
               <span className='font-bold text-lg text-green-600'>
                 {userYield.toLocaleString()} USDC
-              </span>
+              </span> */}
             </div>
           </CardContent>
         </Card>

@@ -97,7 +97,7 @@ const Pool = () => {
                   isMobile ? 'text-2xl' : 'text-3xl'
                 }`}
               >
-                ${totalAssets.toLocaleString()}
+                ${totalAssets}
               </p>
               <p className='text-sm text-muted-foreground'>USDC</p>
             </CardContent>
@@ -114,7 +114,7 @@ const Pool = () => {
                   isMobile ? 'text-2xl' : 'text-3xl'
                 }`}
               >
-                ${prizePool.toLocaleString()}
+                ${prizePool}
               </p>
               <p className='text-sm text-muted-foreground'>USDC</p>
             </CardContent>
@@ -131,7 +131,7 @@ const Pool = () => {
                   isMobile ? 'text-2xl' : 'text-3xl'
                 }`}
               >
-                ${totalPrincipal.toLocaleString()}
+                ${totalPrincipal}
               </p>
               <p className='text-sm text-muted-foreground'>USDC</p>
             </CardContent>

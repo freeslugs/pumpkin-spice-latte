@@ -34,6 +34,16 @@ const Winners = () => {
     CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ??
     pumpkinSpiceLatteAddress;
 
+  // Deployment block hints for faster historical scans where known
+  const fromBlockHint = useMemo(() => {
+    if (targetChainId === 1) {
+      // Mainnet deployment block (from broadcast)
+      return 0x161534en;
+    }
+    // Unknown on non-mainnet chains; fall back to scanning a recent window
+    return null as bigint | null;
+  }, [targetChainId]);
+
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -45,15 +55,15 @@ const Winners = () => {
 //     const fetchLogs = async () => {
 //       if (!publicClient || !isConnected) return;
 // =======
-	// Very short history: only the last 10 blocks (plus incremental updates)
+	// Very short history by default; if we have a deployment hint, scan from there once
 	useEffect(() => {
 		let cancelled = false;
 		if (!publicClient) return;
 
 		const event = parseAbiItem('event PrizeAwarded(address indexed winner, uint256 amount)');
-		const SHORT_WINDOW = 10n; // last 10 blocks
-		const CHUNK = 10n; // single request for that short window
-		const MICRO = 5n;  // fallback
+		const SHORT_WINDOW = 10n; // default: last 10 blocks
+		const CHUNK = 10n; // request chunk
+		const MICRO = 5n;  // fallback chunk
 
 		const appendItems = (newItems: WinnerItem[]) => {
 			if (cancelled || newItems.length === 0) return;
@@ -105,7 +115,7 @@ const Winners = () => {
 				setLoading(true);
 				setError(null);
 				const latest = await publicClient.getBlockNumber();
-				const start = latest > SHORT_WINDOW ? (latest - SHORT_WINDOW) : 0n;
+				const start = fromBlockHint !== null ? fromBlockHint : (latest > SHORT_WINDOW ? (latest - SHORT_WINDOW) : 0n);
 				await fetchRange(start, latest);
 				if (cancelled) return;
 				let lastTo = latest;
@@ -130,7 +140,7 @@ const Winners = () => {
 		})();
 
 		return () => { cancelled = true; stop = true };
-	}, [publicClient, contractAddress, targetChainId]);
+	}, [publicClient, contractAddress, fromBlockHint, targetChainId]);
 // >>>>>>> main
 
   //     // Check if contract address is valid (not zero address)

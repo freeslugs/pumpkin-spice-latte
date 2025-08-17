@@ -19,6 +19,7 @@ import Profile from './pages/Profile';
 import { CONTRACTS } from './contracts/PumpkinSpiceLatte';
 import { Coffee, Wallet, BarChart3, History, User } from 'lucide-react';
 import PumpkinLoader from './components/PumpkinLoader';
+import Logo from './components/Logo';
 import { useIsMobile } from './hooks/use-mobile';
 import PageTransition from './components/PageTransition';
 
@@ -173,9 +174,7 @@ const DesktopSidebar = () => {
       {/* Logo */}
       <div className='mb-8'>
         <Link to='/' className='flex items-center gap-3'>
-          <div className='w-10 h-10 bg-orange-500 rounded-full flex items-center justify-center shadow-lg'>
-            <Coffee className='w-5 h-5 text-white' />
-          </div>
+          <Logo size={40} iconSize={20} />
           <div>
             <h1 className='text-xl font-bold text-orange-500 leading-tight'>
               Pumpkin Spice Latte
@@ -257,9 +256,7 @@ const App = () => {
                 <div className='px-4 py-3'>
                   <div className='flex items-center justify-between'>
                     <Link to='/' className='flex items-center gap-2'>
-                      <div className='w-8 h-8 bg-orange-500 rounded-full flex items-center justify-center shadow-lg'>
-                        <Coffee className='w-4 h-4 text-white' />
-                      </div>
+                      <Logo size={32} iconSize={16} />
                       <div>
                         <h1 className='text-lg font-bold text-orange-500 leading-tight'>
                           Pumpkin Spice Latte
