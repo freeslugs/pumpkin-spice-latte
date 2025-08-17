@@ -22,6 +22,7 @@ import PumpkinLoader from './components/PumpkinLoader';
 import Logo from './components/Logo';
 import { useIsMobile } from './hooks/use-mobile';
 import PageTransition from './components/PageTransition';
+import FaucetNotice from './components/FaucetNotice';
 
 const NetworkIndicator = () => {
   const { chain, isConnected } = useAccount();
@@ -269,7 +270,8 @@ const App = () => {
                   </div>
                 </div>
               </header>
-              <main className='flex-1 bg-background relative overflow-hidden min-h-0'>
+              <main className='flex-1 bg-background relative overflow-y-auto min-h-0'>
+                <FaucetNotice />
                 <PageTransition>
                   <Routes>
                     <Route path='/' element={<PSLHome />} />
@@ -290,6 +292,7 @@ const App = () => {
             <div className='flex-1 flex flex-col'>
               <DesktopHeader />
               <main className='flex-1 p-6 overflow-y-auto relative'>
+                <FaucetNotice />
                 <PageTransition>
                   <Routes>
                     <Route path='/' element={<PSLHome />} />

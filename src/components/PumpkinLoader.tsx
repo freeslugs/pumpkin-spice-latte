@@ -119,7 +119,7 @@ const PumpkinLoader: React.FC<PumpkinLoaderProps> = ({ isLoading }) => {
         <motion.div
           variants={glowVariants}
           animate='animate'
-          className='absolute inset-0 rounded-3xl border-2 border-orange-300'
+          className='absolute inset-0'
         />
       </div>
     </motion.div>

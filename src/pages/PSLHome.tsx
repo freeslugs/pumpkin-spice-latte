@@ -28,9 +28,11 @@ import {
   fadeUp,
   scaleIn,
 } from '../lib/animations';
+import { useConnectModal } from '@rainbow-me/rainbowkit';
 
 const PSLHome = () => {
   const { isConnected, chain, address } = useAccount();
+  const { openConnectModal } = useConnectModal();
   const { toast } = useToast();
   const isMobile = useIsMobile();
   const [isRightStackOpen, setIsRightStackOpen] = useState(false);
@@ -56,6 +58,16 @@ const PSLHome = () => {
   const [awardHash, setAwardHash] = useState<`0x${string}` | undefined>(
     undefined
   );
+
+  // Step tracking for deposit flow
+  const [depositStep, setDepositStep] = useState<
+    'idle' | 'approving' | 'approved' | 'depositing' | 'completed'
+  >('idle');
+
+  // Step tracking for withdraw flow
+  const [withdrawStep, setWithdrawStep] = useState<
+    'idle' | 'withdrawing' | 'completed'
+  >('idle');
 
   // Check if we're on a supported network
   const isSupportedNetwork =
@@ -85,17 +97,18 @@ const PSLHome = () => {
       ? (assetOnChain as `0x${string}`)
       : (mappedTokenAddress as `0x${string}`);
 
-  const { data: userBalanceData } = useReadContract({
-    address: contractAddress,
-    abi: pumpkinSpiceLatteAbi,
-    functionName: 'balanceOf',
-    chainId: targetChainId,
-    args: [address as `0x${string}`],
-    query: {
-      refetchInterval: 30000,
-      enabled: isConnected && !!address,
-    },
-  });
+  const { data: userBalanceData, refetch: refetchUserBalance } =
+    useReadContract({
+      address: contractAddress,
+      abi: pumpkinSpiceLatteAbi,
+      functionName: 'balanceOf',
+      chainId: targetChainId,
+      args: [address as `0x${string}`],
+      query: {
+        refetchInterval: 30000,
+        enabled: isConnected && !!address,
+      },
+    });
 
   const userPSLBalance = userBalanceData
     ? parseFloat(formatUnits(userBalanceData as bigint, 6))
@@ -121,7 +134,7 @@ const PSLHome = () => {
       const wad = (winProbWad as bigint) ?? 0n;
       // Multiply by 100 to get percent, then divide by 1e16 to keep two decimals as integer
       const pctHundredths = Number((wad * 10000n) / 1000000000000000000n) / 100; // two decimals
-      return pctHundredths.toFixed(2);
+      return pctHundredths.toFixed(1);
     } catch {
       return '0.00';
     }
@@ -214,8 +227,13 @@ const PSLHome = () => {
     query: { enabled: Boolean(approvalHash), refetchInterval: 1000 },
   } as any);
 
-  const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
+  const {
+    writeContract: deposit,
+    writeContractAsync: depositAsync,
+    isPending: isDepositing,
+  } = useWriteContract({
     onSuccess: (hash: `0x${string}`) => {
+      console.log('Deposit onSuccess called with hash:', hash);
       setDepositHash(hash);
       toast({
         title: 'Deposit submitted',
@@ -223,6 +241,7 @@ const PSLHome = () => {
       });
     },
     onError: (error) => {
+      console.log('Deposit onError called:', error);
       toast({
         title: 'Deposit Failed',
         description: error.message,
@@ -243,23 +262,29 @@ const PSLHome = () => {
     query: { enabled: Boolean(depositHash), refetchInterval: 1000 },
   } as any);
 
-  const { writeContract: withdraw, isPending: isWithdrawing } =
-    useWriteContract({
-      onSuccess: (hash: `0x${string}`) => {
-        setWithdrawHash(hash);
-        toast({
-          title: 'Withdrawal submitted',
-          description: 'Waiting for confirmation...',
-        });
-      },
-      onError: (error) => {
-        toast({
-          title: 'Withdrawal Failed',
-          description: error.message,
-          variant: 'destructive',
-        });
-      },
-    } as any);
+  const {
+    writeContract: withdraw,
+    writeContractAsync: withdrawAsync,
+    isPending: isWithdrawing,
+  } = useWriteContract({
+    onSuccess: (hash: `0x${string}`) => {
+      console.log('Withdraw onSuccess called with hash:', hash);
+      setWithdrawHash(hash);
+      toast({
+        title: 'Withdrawal submitted',
+        description: 'Waiting for confirmation...',
+      });
+    },
+    onError: (error) => {
+      console.log('Withdraw onError called:', error);
+      toast({
+        title: 'Withdrawal Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setWithdrawStep('idle');
+    },
+  } as any);
 
   const {
     isLoading: isConfirmingWithdraw,
@@ -310,6 +335,7 @@ const PSLHome = () => {
         description: approvalError.message,
         variant: 'destructive',
       });
+      setDepositStep('idle');
     }
   }, [approvalError, toast]);
 
@@ -320,6 +346,7 @@ const PSLHome = () => {
         description: depositError.message,
         variant: 'destructive',
       });
+      setDepositStep('idle');
     }
   }, [depositError, toast]);
 
@@ -351,13 +378,28 @@ const PSLHome = () => {
         pendingDepositAmount &&
         isAddress(contractAddress)
       ) {
+        console.log(
+          'Approval confirmed: Triggering auto-deposit with amount:',
+          pendingDepositAmount
+        );
         autoDepositTriggeredRef.current = true;
-        deposit({
+        setDepositStep('depositing');
+
+        // Use async version to get the hash directly
+        depositAsync({
           address: contractAddress,
           abi: pumpkinSpiceLatteAbi,
           functionName: 'deposit',
           args: [pendingDepositAmount],
-        });
+        })
+          .then((hash) => {
+            console.log('Auto-deposit hash received:', hash);
+            setDepositHash(hash);
+          })
+          .catch((error) => {
+            console.error('Auto-deposit failed:', error);
+            setDepositStep('idle');
+          });
       }
       setApprovalHash(undefined);
     }
@@ -383,13 +425,26 @@ const PSLHome = () => {
           result && result.data !== undefined ? result.data! : allowance;
         if (latestAllowance >= pendingDepositAmount) {
           if (!autoDepositTriggeredRef.current && isAddress(contractAddress)) {
+            console.log(
+              'Polling: Triggering auto-deposit with amount:',
+              pendingDepositAmount
+            );
             autoDepositTriggeredRef.current = true;
-            deposit({
+            setDepositStep('depositing');
+            depositAsync({
               address: contractAddress,
               abi: pumpkinSpiceLatteAbi,
               functionName: 'deposit',
               args: [pendingDepositAmount],
-            });
+            })
+              .then((hash) => {
+                console.log('Polling auto-deposit hash received:', hash);
+                setDepositHash(hash);
+              })
+              .catch((error) => {
+                console.error('Polling auto-deposit failed:', error);
+                setDepositStep('idle');
+              });
           }
           clearInterval(intervalId);
         }
@@ -411,29 +466,90 @@ const PSLHome = () => {
   ]);
 
   useEffect(() => {
+    console.log('Deposit confirmation check:', {
+      isDepositConfirmed,
+      depositHash,
+    });
     if (isDepositConfirmed) {
+      console.log('Deposit confirmed! Setting step to completed');
+      // Mark deposit as completed
+      setDepositStep('completed');
+
       toast({
         title: 'Deposit Successful',
         description: 'Your USDC has been deposited.',
       });
-      setAmount('');
-      setDepositHash(undefined);
-      setPendingDepositAmount(undefined);
-      autoDepositTriggeredRef.current = false;
-      refetchAllowance();
+
+      // Wait a moment to show the completed state, then dismiss modal
+      setTimeout(() => {
+        console.log('Dismissing modal after completion');
+        setIsRightStackOpen(false);
+        setDepositStep('idle');
+        setAmount('');
+        setDepositHash(undefined);
+        setPendingDepositAmount(undefined);
+        autoDepositTriggeredRef.current = false;
+        refetchAllowance();
+
+        // Refresh user balance and other contract data
+        if (address) {
+          // Refetch user's PSL balance
+          refetchUserBalance();
+          // Refetch win probability
+          refetchWinProb();
+        }
+      }, 1500);
     }
-  }, [isDepositConfirmed, refetchAllowance, toast]);
+  }, [
+    isDepositConfirmed,
+    depositHash,
+    refetchAllowance,
+    refetchUserBalance,
+    refetchWinProb,
+    toast,
+    address,
+  ]);
 
   useEffect(() => {
+    console.log('Withdraw confirmation check:', {
+      isWithdrawConfirmed,
+      withdrawHash,
+    });
     if (isWithdrawConfirmed) {
+      console.log('Withdraw confirmed! Setting step to completed');
+      // Mark withdraw as completed
+      setWithdrawStep('completed');
+
       toast({
         title: 'Withdrawal Successful',
         description: 'Your USDC has been withdrawn.',
       });
-      setAmount('');
-      setWithdrawHash(undefined);
+
+      // Wait a moment to show the completed state, then dismiss modal
+      setTimeout(() => {
+        console.log('Dismissing withdraw modal after completion');
+        setIsRightStackOpen(false);
+        setWithdrawStep('idle');
+        setAmount('');
+        setWithdrawHash(undefined);
+
+        // Refresh user balance and other contract data
+        if (address) {
+          // Refetch user's PSL balance
+          refetchUserBalance();
+          // Refetch win probability
+          refetchWinProb();
+        }
+      }, 1500);
     }
-  }, [isWithdrawConfirmed, toast]);
+  }, [
+    isWithdrawConfirmed,
+    withdrawHash,
+    refetchUserBalance,
+    refetchWinProb,
+    toast,
+    address,
+  ]);
 
   useEffect(() => {
     if (isAwardConfirmed) {
@@ -466,9 +582,74 @@ const PSLHome = () => {
   }, [isAwardConfirmed, refetchLastWinner, refetchLastPrize, toast, address]);
 
   const handleActionClick = (action: 'deposit' | 'withdraw') => {
+    if (!isConnected) {
+      openConnectModal?.();
+      return;
+    }
     setActiveAction(action);
+    setDepositStep('idle');
+    setWithdrawStep('idle');
     setIsRightStackOpen(true);
   };
+
+  // Track approval step
+  useEffect(() => {
+    console.log('Approval step tracking:', {
+      isApproving,
+      isApprovalConfirmed,
+      depositStep,
+    });
+
+    if (isApproving) {
+      setDepositStep('approving');
+    }
+
+    if (
+      isApprovalConfirmed &&
+      (depositStep === 'approving' || depositStep === 'idle')
+    ) {
+      setDepositStep('approved');
+    }
+  }, [isApproving, isApprovalConfirmed, depositStep]);
+
+  // Track deposit step
+  useEffect(() => {
+    console.log('Deposit step tracking:', {
+      isDepositing,
+      isConfirmingDeposit,
+      depositStep,
+    });
+
+    if (
+      (isDepositing || isConfirmingDeposit) &&
+      (depositStep === 'approved' || depositStep === 'idle')
+    ) {
+      setDepositStep('depositing');
+    }
+  }, [isDepositing, isConfirmingDeposit, depositStep]);
+
+  // Debug: Log all step changes
+  useEffect(() => {
+    console.log('Step changed to:', depositStep);
+  }, [depositStep]);
+
+  // Track withdraw step
+  useEffect(() => {
+    console.log('Withdraw step tracking:', {
+      isWithdrawing,
+      isConfirmingWithdraw,
+      withdrawStep,
+    });
+
+    if ((isWithdrawing || isConfirmingWithdraw) && withdrawStep === 'idle') {
+      setWithdrawStep('withdrawing');
+    }
+  }, [isWithdrawing, isConfirmingWithdraw, withdrawStep]);
+
+  // Debug: Log all withdraw step changes
+  useEffect(() => {
+    console.log('Withdraw step changed to:', withdrawStep);
+  }, [withdrawStep]);
 
   // Auto focus/select amount input when opening the modal
   useEffect(() => {
@@ -486,6 +667,8 @@ const PSLHome = () => {
   const closeRightStack = () => {
     setIsRightStackOpen(false);
     setAmount('');
+    setDepositStep('idle');
+    setWithdrawStep('idle');
   };
 
   const handleConfirm = async () => {
@@ -500,6 +683,7 @@ const PSLHome = () => {
         if (allowance < parsedAmount) {
           setPendingDepositAmount(parsedAmount);
           autoDepositTriggeredRef.current = false;
+          setDepositStep('approving');
           approve({
             address: currentTokenAddress,
             abi: usdcAbi,
@@ -508,6 +692,7 @@ const PSLHome = () => {
           });
         } else {
           setPendingDepositAmount(undefined);
+          setDepositStep('depositing');
           deposit({
             address: contractAddress,
             abi: pumpkinSpiceLatteAbi,
@@ -517,12 +702,21 @@ const PSLHome = () => {
         }
       } else {
         // withdraw
-        withdraw({
+        setWithdrawStep('withdrawing');
+        withdrawAsync({
           address: contractAddress,
           abi: pumpkinSpiceLatteAbi,
           functionName: 'withdraw',
           args: [parsedAmount],
-        });
+        })
+          .then((hash) => {
+            console.log('Withdraw hash received:', hash);
+            setWithdrawHash(hash);
+          })
+          .catch((error) => {
+            console.error('Withdraw failed:', error);
+            setWithdrawStep('idle');
+          });
       }
     } finally {
       setIsProcessing(false);
@@ -578,7 +772,11 @@ const PSLHome = () => {
                     isMobile ? 'text-6xl' : 'text-7xl'
                   }`}
                 >
-                  ${userPSLBalance.toLocaleString()}
+                  $
+                  {userPSLBalance.toLocaleString(undefined, {
+                    minimumFractionDigits: 2,
+                    maximumFractionDigits: 2,
+                  })}
                 </div>
                 <p className='text-lg text-muted-foreground'>USDC</p>
               </CardContent>
@@ -604,7 +802,7 @@ const PSLHome = () => {
             <div className='flex items-center gap-2'>
               <span className='text-xl'>⏰</span>
               <span className='text-sm text-muted-foreground'>
-                Probability of winner drawing
+                Probability of winner being drawn
               </span>
               <span className='text-lg font-bold text-orange-600 ml-auto'>
                 {nextDrawProbability}%
@@ -650,9 +848,18 @@ const PSLHome = () => {
             <Button
               onClick={() => handleActionClick('withdraw')}
               variant='outline'
-              className='w-full h-20 text-lg border border-orange-400 text-orange-500 hover:bg-orange-100 rounded-xl'
+              disabled={userPSLBalance === 0}
+              className='w-full h-20 text-lg border border-orange-400 text-orange-500 hover:bg-orange-100 rounded-xl disabled:opacity-50 disabled:cursor-not-allowed'
             >
-              💰 Withdraw
+              {userPSLBalance === 0 ? (
+                <>
+                  Nothing to
+                  <br />
+                  withdraw
+                </>
+              ) : (
+                '💰 Withdraw'
+              )}
             </Button>
           </div>
         </div>
@@ -692,9 +899,7 @@ const PSLHome = () => {
               {/* Header */}
               <div className='flex items-center justify-between p-6 border-b border-gray-200'>
                 <h2 className='text-xl font-bold text-gray-900'>
-                  {activeAction === 'deposit'
-                    ? '💸 Deposit USDC'
-                    : '💰 Withdraw USDC'}
+                  {activeAction === 'deposit' ? '💸 Deposit' : '💰 Withdraw'}
                 </h2>
                 <button
                   onClick={closeRightStack}
@@ -709,17 +914,25 @@ const PSLHome = () => {
                 {/* Amount Input */}
                 <div className='space-y-2'>
                   <label className='text-sm font-medium text-gray-700'>
-                    Amount (USDC)
+                    USDC amount
                   </label>
-                  <div>
+                  <div className='relative'>
                     <Input
                       type='number'
                       placeholder='0'
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       ref={amountInputRef}
-                      className='text-4xl font-bold text-left h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                      className='text-4xl font-bold text-left h-16 border-0 rounded-xl focus:border focus:border-orange-500 focus:border-opacity-50 focus:ring-0 pr-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                     />
+                    <div className='absolute right-4 top-1/2 transform -translate-y-1/2 text-right'>
+                      <div className='text-xs text-gray-500'>Balance</div>
+                      <div className='text-sm font-medium text-gray-700'>
+                        {activeAction === 'deposit'
+                          ? walletUSDCDisplay.toLocaleString()
+                          : userPSLBalance.toLocaleString()}
+                      </div>
+                    </div>
                   </div>
                 </div>
 
@@ -739,18 +952,6 @@ const PSLHome = () => {
                       </p>
                     </div>
                   )}
-
-                  {/* Current Balance */}
-                  <div className='p-4 rounded-lg bg-gray-50 border border-gray-200'>
-                    <div className='flex justify-between items-center'>
-                      <span className='text-sm text-gray-600'>
-                        Current Balance
-                      </span>
-                      <span className='font-bold text-gray-900'>
-                        {walletUSDCDisplay.toLocaleString()} USDC
-                      </span>
-                    </div>
-                  </div>
                 </div>
 
                 {/* Action Buttons */}
@@ -774,6 +975,77 @@ const PSLHome = () => {
                           }`}
                     </Button>
                   </div>
+
+                  {/* Deposit Step Indicators */}
+                  {activeAction === 'deposit' && depositStep !== 'idle' && (
+                    <div className='space-y-2 pt-2'>
+                      <div className='flex items-center gap-2 text-sm'>
+                        {depositStep === 'approving' ? (
+                          <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                        ) : depositStep === 'approved' ||
+                          depositStep === 'depositing' ||
+                          depositStep === 'completed' ? (
+                          <span className='text-green-600'>✅</span>
+                        ) : (
+                          <span className='text-gray-400'>☕</span>
+                        )}
+                        <span
+                          className={
+                            depositStep === 'approved' ||
+                            depositStep === 'depositing' ||
+                            depositStep === 'completed'
+                              ? 'text-green-600'
+                              : 'text-gray-600'
+                          }
+                        >
+                          Approve spending
+                        </span>
+                      </div>
+
+                      <div className='flex items-center gap-2 text-sm'>
+                        {depositStep === 'depositing' ? (
+                          <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                        ) : depositStep === 'completed' ? (
+                          <span className='text-green-600'>✅</span>
+                        ) : (
+                          <span className='text-gray-400'>☕</span>
+                        )}
+                        <span
+                          className={
+                            depositStep === 'completed'
+                              ? 'text-green-600'
+                              : 'text-gray-600'
+                          }
+                        >
+                          Execute deposit
+                        </span>
+                      </div>
+                    </div>
+                  )}
+
+                  {/* Withdraw Step Indicators */}
+                  {activeAction === 'withdraw' && withdrawStep !== 'idle' && (
+                    <div className='space-y-2 pt-2'>
+                      <div className='flex items-center gap-2 text-sm'>
+                        {withdrawStep === 'withdrawing' ? (
+                          <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                        ) : withdrawStep === 'completed' ? (
+                          <span className='text-green-600'>✅</span>
+                        ) : (
+                          <span className='text-gray-400'>☕</span>
+                        )}
+                        <span
+                          className={
+                            withdrawStep === 'completed'
+                              ? 'text-green-600'
+                              : 'text-gray-600'
+                          }
+                        >
+                          Execute withdrawal
+                        </span>
+                      </div>
+                    </div>
+                  )}
                 </div>
               </div>
             </motion.div>
@@ -788,9 +1060,7 @@ const PSLHome = () => {
             {/* Header */}
             <div className='flex items-center justify-between p-6 border-b border-gray-200'>
               <h2 className='text-xl font-bold text-gray-900'>
-                {activeAction === 'deposit'
-                  ? '💸 Deposit USDC'
-                  : '💰 Withdraw USDC'}
+                {activeAction === 'deposit' ? '💸 Deposit' : '💰 Withdraw'}
               </h2>
               <button
                 onClick={closeRightStack}
@@ -805,17 +1075,25 @@ const PSLHome = () => {
               {/* Amount Input */}
               <div className='space-y-2'>
                 <label className='text-sm font-medium text-gray-700'>
-                  Amount (USDC)
+                  USDC amount
                 </label>
-                <div>
+                <div className='relative'>
                   <Input
                     type='number'
                     placeholder='0'
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     ref={amountInputRef}
-                    className='text-4xl font-bold text-left h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                    className='text-4xl font-bold text-left h-16 border-0 rounded-xl focus:border focus:border-orange-500 focus:border-opacity-50 focus:ring-0 pr-32 [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none'
                   />
+                  <div className='absolute right-4 top-1/2 transform -translate-y-1/2 text-right'>
+                    <div className='text-xs text-gray-500'>Balance</div>
+                    <div className='text-sm font-medium text-gray-700'>
+                      {activeAction === 'deposit'
+                        ? walletUSDCDisplay.toLocaleString()
+                        : userPSLBalance.toLocaleString()}
+                    </div>
+                  </div>
                 </div>
               </div>
 
@@ -835,18 +1113,6 @@ const PSLHome = () => {
                     </p>
                   </div>
                 )}
-
-                {/* Current Balance */}
-                <div className='p-4 rounded-lg bg-gray-50 border border-gray-200'>
-                  <div className='flex justify-between items-center'>
-                    <span className='text-sm text-gray-600'>
-                      Current Balance
-                    </span>
-                    <span className='font-bold text-gray-900'>
-                      {walletUSDCDisplay.toLocaleString()} USDC
-                    </span>
-                  </div>
-                </div>
               </div>
 
               {/* Action Buttons */}
@@ -868,6 +1134,69 @@ const PSLHome = () => {
                         }`}
                   </Button>
                 </div>
+
+                {/* Deposit Step Indicators */}
+                {activeAction === 'deposit' && depositStep !== 'idle' && (
+                  <div className='space-y-2 pt-2'>
+                    <div className='flex items-center gap-2 text-sm'>
+                      {depositStep === 'approving' ? (
+                        <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                      ) : depositStep === 'approved' ||
+                        depositStep === 'depositing' ||
+                        depositStep === 'completed' ? (
+                        <span className='text-green-600'>✅</span>
+                      ) : (
+                        <span className='text-gray-400'>☕</span>
+                      )}
+                      <span
+                        className={
+                          depositStep === 'approved' ||
+                          depositStep === 'depositing' ||
+                          depositStep === 'completed'
+                            ? 'text-green-600'
+                            : 'text-gray-600'
+                        }
+                      >
+                        Approve spending
+                      </span>
+                    </div>
+
+                    <div className='flex items-center gap-2 text-sm'>
+                      {depositStep === 'depositing' ? (
+                        <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                      ) : depositStep === 'completed' ? (
+                        <span className='text-green-600'>✅</span>
+                      ) : (
+                        <span className='text-gray-400'>☕</span>
+                      )}
+                      <span className='text-gray-600'>Execute deposit</span>
+                    </div>
+                  </div>
+                )}
+
+                {/* Withdraw Step Indicators */}
+                {activeAction === 'withdraw' && withdrawStep !== 'idle' && (
+                  <div className='space-y-2 pt-2'>
+                    <div className='flex items-center gap-2 text-sm'>
+                      {withdrawStep === 'withdrawing' ? (
+                        <div className='w-4 h-4 border-2 border-orange-500 border-t-transparent rounded-full animate-spin'></div>
+                      ) : withdrawStep === 'completed' ? (
+                        <span className='text-green-600'>✅</span>
+                      ) : (
+                        <span className='text-gray-400'>☕</span>
+                      )}
+                      <span
+                        className={
+                          withdrawStep === 'completed'
+                            ? 'text-green-600'
+                            : 'text-gray-600'
+                        }
+                      >
+                        Execute withdrawal
+                      </span>
+                    </div>
+                  </div>
+                )}
               </div>
             </div>
           </div>
