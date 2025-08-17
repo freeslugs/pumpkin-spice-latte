@@ -130,8 +130,17 @@ const PSLHome = () => {
     ? parseFloat(formatUnits(userBalanceData as bigint, 6))
     : 0;
 
-  // Yield (static for now) and probability (live from contract)
-  const yieldPercentage = '2.5';
+  // Total assets (from contract) and probability (live from contract)
+  const { data: totalAssetsBn, refetch: refetchTotalAssets } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'totalAssets',
+    chainId: targetChainId,
+    query: {
+      refetchInterval: 10000,
+      enabled: Boolean(contractAddress),
+    },
+  } as any);
 
   const { data: winProbWad, refetch: refetchWinProb } = useReadContract({
     address: contractAddress,
@@ -155,6 +164,20 @@ const PSLHome = () => {
       return '0.00';
     }
   }, [winProbWad]);
+
+  // Formatted display for total assets (USDC, 6 decimals)
+  const totalAssetsDisplay = useMemo(() => {
+    try {
+      const v = (totalAssetsBn as bigint) ?? 0n;
+      const num = parseFloat(formatUnits(v, 6));
+      return num.toLocaleString(undefined, {
+        minimumFractionDigits: 2,
+        maximumFractionDigits: 2,
+      });
+    } catch {
+      return '0.00';
+    }
+  }, [totalAssetsBn]);
 
   // Wallet allowance and balance for USDC
   const contractAddressHex = contractAddress as `0x${string}`;
@@ -572,6 +595,8 @@ const PSLHome = () => {
           refetchUserBalance();
           // Refetch win probability
           refetchWinProb();
+          // Refetch total assets
+          refetchTotalAssets();
         }
       }, 1500);
     }
@@ -581,6 +606,7 @@ const PSLHome = () => {
     refetchAllowance,
     refetchUserBalance,
     refetchWinProb,
+    refetchTotalAssets,
     toast,
     address,
   ]);
@@ -614,6 +640,8 @@ const PSLHome = () => {
           refetchUserBalance();
           // Refetch win probability
           refetchWinProb();
+          // Refetch total assets
+          refetchTotalAssets();
         }
       }, 1500);
     }
@@ -622,6 +650,7 @@ const PSLHome = () => {
     withdrawHash,
     refetchUserBalance,
     refetchWinProb,
+    refetchTotalAssets,
     toast,
     address,
   ]);
@@ -867,10 +896,10 @@ const PSLHome = () => {
             } text-left`}
           >
             <div className='flex items-center gap-2'>
-              <span className='text-xl'>📈</span>
-              <span className='text-sm text-muted-foreground'>Yield</span>
+              <span className='text-xl'>🏦</span>
+              <span className='text-sm text-muted-foreground'>Total pool assets</span>
               <span className='text-lg font-bold text-green-600 ml-auto'>
-                {yieldPercentage}%
+                ${totalAssetsDisplay} USDC
               </span>
             </div>
 
