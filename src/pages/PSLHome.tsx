@@ -103,83 +103,65 @@ const PSLHome = () => {
 
         {/* Main Content - Big Number Layout */}
         <div
-          className={`space-y-8 ${isMobile ? '' : 'grid grid-cols-2 gap-8'}`}
+          className={`space-y-6 ${isMobile ? '' : 'grid grid-cols-2 gap-8'}`}
         >
           {/* Total Deposit Number */}
-          <div>
+          <div className='text-left'>
             <Card className='border-0 shadow-none bg-transparent'>
               <CardContent className='p-0'>
-                <div className='text-left'>
-                  <div className='mb-2'>
-                    <p className='text-sm text-muted-foreground'>
-                      Total Deposit
-                    </p>
-                  </div>
-                  <div
-                    className={`font-black text-foreground ${
-                      isMobile ? 'text-6xl' : 'text-7xl'
-                    }`}
-                  >
-                    ${userPSLBalance.toLocaleString()}
-                  </div>
-                  <p className='text-lg text-muted-foreground'>USDC</p>
+                <div className='mb-2'>
+                  <p className='text-sm text-muted-foreground'>Total Deposit</p>
                 </div>
+                <div
+                  className={`font-black text-foreground ${
+                    isMobile ? 'text-6xl' : 'text-7xl'
+                  }`}
+                >
+                  ${userPSLBalance.toLocaleString()}
+                </div>
+                <p className='text-lg text-muted-foreground'>USDC</p>
               </CardContent>
             </Card>
           </div>
 
-          {/* Yield and Countdown - Desktop: Right side, Mobile: Below */}
+          {/* Yield and Countdown - Desktop: Right side, Mobile: Below Total Deposit */}
           <div
-            className={`space-y-4 ${
-              isMobile ? '' : 'flex flex-col justify-center'
+            className={`${
+              isMobile
+                ? 'mt-6 space-y-3'
+                : 'flex flex-col justify-center space-y-4'
             }`}
           >
-            <div>
-              <Card>
-                <CardContent className='p-4'>
-                  <div className='flex justify-between items-center'>
-                    <div className='flex items-center gap-2'>
-                      <span className='text-xl'>📈</span>
-                      <span className='text-sm text-muted-foreground'>
-                        Yield Generated
-                      </span>
-                    </div>
-                    <span className='text-lg font-bold text-green-600'>
-                      {yieldPercentage}%
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className='flex items-center gap-2'>
+              <span className='text-xl'>📈</span>
+              <span className='text-sm text-muted-foreground'>
+                Yield Generated
+              </span>
+              <span className='text-lg font-bold text-green-600 ml-auto'>
+                {yieldPercentage}%
+              </span>
             </div>
 
-            <div>
-              <Card>
-                <CardContent className='p-4'>
-                  <div className='flex justify-between items-center'>
-                    <div className='flex items-center gap-2'>
-                      <span className='text-xl'>⏰</span>
-                      <span className='text-sm text-muted-foreground'>
-                        Next Lottery Draw
-                      </span>
-                    </div>
-                    <span className='text-lg font-bold text-orange-600'>
-                      {countdown}
-                    </span>
-                  </div>
-                </CardContent>
-              </Card>
+            <div className='flex items-center gap-2'>
+              <span className='text-xl'>⏰</span>
+              <span className='text-sm text-muted-foreground'>
+                Next Lottery Draw
+              </span>
+              <span className='text-lg font-bold text-orange-600 ml-auto'>
+                {countdown}
+              </span>
             </div>
           </div>
         </div>
       </div>
 
-      {/* Action Buttons - Fixed at bottom */}
+      {/* Action Buttons - Desktop: Below content, Mobile: At bottom */}
       <div className={`${isMobile ? 'p-4 mt-auto' : 'pt-12'}`}>
-        <div className={`flex gap-4 ${isMobile ? '' : 'max-w-md'}`}>
+        <div className={`flex gap-4 ${isMobile ? '' : 'max-w-2xl mx-auto'}`}>
           <div className='flex-1'>
             <Button
               onClick={() => handleActionClick('deposit')}
-              className='w-full h-16 text-lg font-bold bg-orange-500 hover:bg-gray-900 text-white rounded-xl'
+              className='w-full h-20 text-lg font-bold bg-orange-500 hover:bg-gray-900 text-white rounded-xl'
             >
               💸 Deposit
             </Button>
@@ -189,7 +171,7 @@ const PSLHome = () => {
             <Button
               onClick={() => handleActionClick('withdraw')}
               variant='outline'
-              className='w-full h-16 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
+              className='w-full h-20 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
             >
               💰 Withdraw
             </Button>
