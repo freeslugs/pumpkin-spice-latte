@@ -18,6 +18,12 @@ export const config = WC_ID
         nativeCurrency: { name: 'C2FLR', symbol: 'C2FLR', decimals: 18 },
         rpcUrls: { default: { http: ['https://coston2-api.flare.network/ext/C/rpc'] } },
         blockExplorers: { default: { name: 'Coston2 Explorer', url: 'https://coston2-explorer.flare.network' } },
+      }))(), ((): Chain => ({
+        id: 545,
+        name: 'Flow EVM Testnet',
+        nativeCurrency: { name: 'FLOW', symbol: 'FLOW', decimals: 18 },
+        rpcUrls: { default: { http: ['https://testnet.evm.nodes.onflow.org'] } },
+        blockExplorers: { default: { name: 'FlowScan', url: 'https://evm-testnet.flowscan.io' } },
       }))()],
       transports: {
         [mainnet.id]: http(TENDERLY_HTTP, { batch: true, retryCount: 1 }),
@@ -27,6 +33,7 @@ export const config = WC_ID
         [base.id]: http(base.rpcUrls.default.http[0]),
         [sepolia.id]: http(sepolia.rpcUrls.default.http[0]),
         [114]: http('https://coston2-api.flare.network/ext/C/rpc'),
+        [545]: http('https://testnet.evm.nodes.onflow.org'),
       },
       ssr: false,
     })
@@ -37,6 +44,12 @@ export const config = WC_ID
         nativeCurrency: { name: 'C2FLR', symbol: 'C2FLR', decimals: 18 },
         rpcUrls: { default: { http: ['https://coston2-api.flare.network/ext/C/rpc'] } },
         blockExplorers: { default: { name: 'Coston2 Explorer', url: 'https://coston2-explorer.flare.network' } },
+      }))(), ((): Chain => ({
+        id: 545,
+        name: 'Flow EVM Testnet',
+        nativeCurrency: { name: 'FLOW', symbol: 'FLOW', decimals: 18 },
+        rpcUrls: { default: { http: ['https://testnet.evm.nodes.onflow.org'] } },
+        blockExplorers: { default: { name: 'FlowScan', url: 'https://evm-testnet.flowscan.io' } },
       }))()],
       connectors: [injected({ shimDisconnect: true })],
       transports: {
@@ -47,6 +60,7 @@ export const config = WC_ID
         [base.id]: http(base.rpcUrls.default.http[0]),
         [sepolia.id]: http(sepolia.rpcUrls.default.http[0]),
         [114]: http('https://coston2-api.flare.network/ext/C/rpc'),
+        [545]: http('https://testnet.evm.nodes.onflow.org'),
       },
       ssr: false,
     });

@@ -6,26 +6,34 @@ import {PumpkinSpiceLatte} from "../src/PumpkinSpiceLatte.sol";
 import {Morpho4626Adapter} from "../src/adapters/Morpho4626Adapter.sol";
 import {KineticAdapter} from "../src/adapters/KineticAdapter.sol";
 import {PseudoRandomAdapter} from "../src/adapters/PseudoRandomAdapter.sol";
+import {MoreMarketsAdapter} from "../src/adapters/MoreMarketsAdapter.sol";
 
 contract DeployPumpkinSpiceLatte is Script {
 	function run() external {
 		// Config
-		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
-		address kineticMarket = 0xC23B7fbE7CdAb4bf524b8eA72a7462c8879A99Ac; // KUSDCe
+		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // default: ERC4626 vault (override with VAULT_ADDRESS)
 		uint256 roundDuration = 300; // 5 minutes
 
 		uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 		vm.startBroadcast(deployerPrivateKey);
 
 		address adapterAddress;
-		// if (kineticMarket != address(0)) {
+		// Select adapter via env flags
 		if(vm.envUint("DEPLOY_KINETIC") == 1) {
 			console.log("Deploying Kinetic Adapter");
+			address kineticMarket = vm.envAddress("KINETIC_MARKET");
 			KineticAdapter kinetic = new KineticAdapter(kineticMarket);
 			adapterAddress = address(kinetic);
+		} else if (vm.envUint("DEPLOY_MORE") == 1) {
+			address moreMarket = vm.envAddress("MORE_MARKET");
+			require(moreMarket != address(0), "MORE_MARKET required");
+			console.log("Deploying More Markets Adapter");
+			MoreMarketsAdapter more = new MoreMarketsAdapter(moreMarket);
+			adapterAddress = address(more);
 		} else {
 			console.log("Deploying Morpho Adapter");
-			Morpho4626Adapter morpho = new Morpho4626Adapter(vaultAddress);
+			address vault = vm.envOr("VAULT_ADDRESS", vaultAddress);
+			Morpho4626Adapter morpho = new Morpho4626Adapter(vault);
 			adapterAddress = address(morpho);
 		}
 		PseudoRandomAdapter rng = new PseudoRandomAdapter();

@@ -23,10 +23,14 @@ sepolia = "wss://ethereum-sepolia-rpc.publicnode.com"
 # Flare Testnet (Coston2)
 coston2 = "https://coston2-api.flare.network/ext/C/rpc"
 
+# Flow EVM Testnet
+flowevm_testnet = "https://testnet.evm.nodes.onflow.org"
+
 [profile.chains]
 mainnet = 1
 sepolia = 11155111
 coston2 = 114
+flowevm_testnet = 545
 
 # Etherscan API keys for contract verification
 [etherscan]
@@ -35,6 +39,9 @@ mainnet = { key = "${TENDERLY_ACCESS_KEY}", chain = 1, url = "${TENDERLY_VIRTUAL
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
 # Flare Coston2 explorer is Blockscout-style; Foundry verifies via blockscout
 coston2 = { key = "unused", url = "https://coston2-explorer.flare.network/api" }
+
+# Flow EVM Testnet explorer is Blockscout-style
+flowevm_testnet = { key = "unused", url = "https://evm-testnet.flowscan.io/api" }
 
 # Verification settings
 [profile.default.verifier]

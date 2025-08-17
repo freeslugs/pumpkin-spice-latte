@@ -15,6 +15,12 @@ export const CONTRACTS = {
     pumpkinSpiceLatte: '0x31dfABd671f8d60177E6717eF599C5b8CCbD07f5',
     usdc: '0xCe987892D5AD2990b8279e8F76530CfF72977666'
   }
+  ,
+  545: { // Flow EVM Testnet
+    // TODO: update after deployment
+    pumpkinSpiceLatte: '0x0000000000000000000000000000000000000000',
+    usdc: '0x0000000000000000000000000000000000000000'
+  }
 } as const;
 
 // Default to mainnet (Tenderly fork) as the primary testing env; fallback to Sepolia

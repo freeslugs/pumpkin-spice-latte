@@ -5,16 +5,6 @@ import { pumpkinSpiceLatteAddress, pumpkinSpiceLatteAbi, CONTRACTS } from '@/con
 import { formatUnits } from 'viem';
 import { useToast } from '@/components/ui/use-toast';
 
-const formatTimeRemaining = (timestamp: bigint) => {
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  const secondsRemaining = timestamp - now;
-  if (secondsRemaining <= 0n) return 'Ready to draw';
-  const hours = secondsRemaining / 3600n;
-  const minutes = (secondsRemaining % 3600n) / 60n;
-  const seconds = secondsRemaining % 60n;
-  return `${hours}h ${minutes}m ${seconds}s`;
-};
-
 const UserStats = () => {
   const { address, isConnected, chain } = useAccount();
   const { toast } = useToast();
@@ -46,16 +36,6 @@ const UserStats = () => {
     args: [address],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
-      refetchInterval: 30000,
-    },
-  });
-
-  const { data: nextRoundTimestampData } = useReadContract({
-    address: contractAddress,
-    abi: pumpkinSpiceLatteAbi,
-    functionName: 'nextRoundTimestamp',
-    query: {
-      enabled: isConnected && !!isSupportedNetwork,
       refetchInterval: 30000,
     },
   });
@@ -93,12 +73,6 @@ const UserStats = () => {
           <p className="text-muted-foreground">Your Wallet</p>
           <p className="font-bold text-lg truncate">
             {isConnected && address ? `${address.slice(0, 6)}...${address.slice(-4)}` : 'Not connected'}
-          </p>
-        </div>
-        <div className="flex justify-between items-center">
-          <p className="text-muted-foreground">Next Draw</p>
-          <p className="font-medium text-sm">
-            {nextRoundTimestampData ? formatTimeRemaining(nextRoundTimestampData as bigint) : '-'}
           </p>
         </div>
         <Button 
