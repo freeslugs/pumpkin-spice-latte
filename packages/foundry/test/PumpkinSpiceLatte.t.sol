@@ -265,8 +265,8 @@ contract PumpkinSpiceLatteTest is Test {
         psl.awardPrize();
         assertEq(psl.lastPrizeAmount(), 0, "No prize should be awarded immediately");
 
-        // Fast forward a large amount of time so threshold saturates to win (n >= 256)
-        vm.warp(block.timestamp + 300);
+        // Fast forward enough time so threshold saturates to win (n >= 256)
+        vm.warp(block.timestamp + 12 days);
 
         // Attempt award again; with saturated threshold, it should award
         psl.awardPrize();

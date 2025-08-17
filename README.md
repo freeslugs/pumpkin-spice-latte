@@ -166,13 +166,12 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
   --verify
 ```
 
-### Deploy to Tenderly Virtual Mainnet (Fork)
+### Deploy to Flare Testnet (Coston2) [Primary]
 
-You can deploy and test against your Tenderly Virtual Mainnet fork. The repository is already configured to default to the Tenderly RPC in `foundry.toml`.
+You can deploy and test against Flare Coston2. The repository is configured to default to the Flare Coston2 RPC in `foundry.toml`.
 
-- **RPC (HTTP)**: `https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb`
-- **RPC (WSS)**: `wss://virtual.mainnet.us-east.rpc.tenderly.co/4996bd0e-fa2d-451e-961d-41fad07d2baf`
-- **Explorer**: `https://dashboard.tenderly.co/explorer/vnet/12d3291a-a185-4890-a48a-dd152c871633/transactions`
+- **RPC (HTTP)**: `https://coston2-api.flare.network/ext/C/rpc`
+- **Explorer**: `https://coston2-explorer.flare.network`
 
 1. Ensure your `.env` in `packages/foundry` has:
 
@@ -182,11 +181,11 @@ You can deploy and test against your Tenderly Virtual Mainnet fork. The reposito
     ETHERSCAN_API_KEY=<YOUR_ETHERSCAN_KEY>
     ```
 
-2. Deploy using the Tenderly RPC (mainnet chain id 1):
+2. Deploy using the Flare Coston2 RPC (chain id 114):
 
     ```bash
     forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol \
-        --rpc-url https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb \
+        --rpc-url coston2 \
         --private-key $PRIVATE_KEY \
         --broadcast \
         --verify \
@@ -195,16 +194,21 @@ You can deploy and test against your Tenderly Virtual Mainnet fork. The reposito
 
 3. After deployment, copy the deployed address and update the frontend config:
 
-    - Edit `src/contracts/PumpkinSpiceLatte.ts` and set the mainnet entry under `CONTRACTS[1].pumpkinSpiceLatte` to your new address.
-    - The frontend is preconfigured to route mainnet traffic via Tenderly in `src/wagmi.ts`. You can override via env var `VITE_MAINNET_TENDERLY_RPC_HTTP` if needed.
+    - Edit `src/contracts/PumpkinSpiceLatte.ts` and set the Coston2 entry under `CONTRACTS[114].pumpkinSpiceLatte` to your new address.
+    - The frontend is preconfigured to include Coston2 and will default to it.
 
-4. Optional: Verify on Etherscan is not applicable for Tenderly forks, but your transactions will appear in the Tenderly explorer above.
-
-5. Run the frontend against the fork:
+4. Verify on Coston2 Blockscout:
 
     ```bash
-    # Optional: set RPC via env override
-    export VITE_MAINNET_TENDERLY_RPC_HTTP=https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb
+    forge verify-contract --chain 114 --etherscan-api-key unused \
+      --verifier blockscout --verifier-url https://coston2-explorer.flare.network/api \
+      <DEPLOYED_ADDRESS> packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
+    ```
+
+5. Run the frontend against Flare Coston2:
+
+    ```bash
+    # Optional: WalletConnect project id
     export VITE_WALLETCONNECT_PROJECT_ID=<YOUR_WC_ID>
     npm run dev
     ```
@@ -239,3 +243,59 @@ forge verify-contract \
 ```
 forge verify-contract 0x3ecc78c6fea14565affd607bd35b5b8e6dc39778 PumpkinSpiceLatte --etherscan-api-key $TENDERLY_ACCESS_KEY --verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb/verify/etherscan --watch
 ```
+
+## ONLY FLARE 
+
+```
+forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol:DeployPumpkinSpiceLatte \
+  --rpc-url coston2 \
+  --broadcast -vvvv
+```
+
+```
+# PumpkinSpiceLatte 
+forge verify-contract --chain 114 --verifier blockscout \
+  --verifier-url https://coston2-explorer.flare.network/api \
+  --etherscan-api-key unused \
+  0xf94d594A61358761FAcDCe77E5Ff4303dad12a49 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
+```
+
+
+```
+# Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
+forge verify-contract --chain 114 --verifier blockscout \
+  --verifier-url https://coston2-explorer.flare.network/api \
+  --etherscan-api-key unused \
+  0x351957C2D6043B258CCC5f4da5a60a2E132Cf158 packages/foundry/src/adapters/KineticAdapter.sol:KineticAdapter
+```
+
+
+```
+# RNG Address: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
+forge verify-contract --chain 114 --verifier blockscout \
+  --verifier-url https://coston2-explorer.flare.network/api \
+  --etherscan-api-key unused \
+  0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A packages/foundry/src/adapters/FlareSecureRandomAdapter.sol:FlareSecureRandomAdapter
+```
+
+
+== Logs ==
+  Deploying Kinetic Adapter
+  
+=== Flare Contract Addresses ===
+  FlareSecureRandomAdapter: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
+  Random Number Contract: 0x97702e350CaEda540935d92aAf213307e9069784
+  Note: Contract addresses are fetched from Flare's ContractRegistry
+  For mainnet, verify these addresses match the target network
+  === Deployment Complete ===
+  PumpkinSpiceLatte deployed: 0xf94d594A61358761FAcDCe77E5Ff4303dad12a49
+  Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
+  Random Number Provider: FlareSecureRandomAdapter (Secure VRF)
+  RNG Address: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
+  
+=== Flare Network Info ===
+  Network: Flare (Coston2/Mainnet)
+  Randomness: Secure VRF from Flare network
+  Note: This adapter only works on Flare Network
+  Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
+  RNG: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
