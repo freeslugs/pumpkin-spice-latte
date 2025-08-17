@@ -477,7 +477,7 @@ const Actions = () => {
     <Card className='border-0 shadow-none bg-transparent'>
       <CardHeader className='pb-3'>
         <CardTitle className='flex items-center gap-2 text-xl'>
-          <span className='inline-block'>☕️</span>
+          <span className='inline-block'>💸</span>
           Manage Your Funds
         </CardTitle>
         <CardDescription className='text-sm'>

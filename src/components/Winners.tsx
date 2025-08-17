@@ -100,7 +100,7 @@ const Winners = () => {
     <Card className='border-0 shadow-none bg-transparent'>
       <CardHeader className='pb-3'>
         <CardTitle className='flex items-center gap-2 text-xl'>
-          <History className='h-5 w-5 text-orange-600' /> Lottery History
+          <span className='text-2xl'>📜</span> Lottery History
         </CardTitle>
         <CardDescription className='text-sm'>
           Recent winners and your lifetime winnings.
@@ -125,7 +125,7 @@ const Winners = () => {
         </div>
         <div>
           <p className='text-sm text-muted-foreground mb-3 flex items-center gap-2'>
-            <Award className='h-4 w-4 text-yellow-600' /> Historical winners
+            <span className='text-lg'>🏆</span> Historical winners
           </p>
           <div className='border rounded-lg bg-white'>
             {loading ? (

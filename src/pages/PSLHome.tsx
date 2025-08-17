@@ -2,7 +2,6 @@ import React from 'react';
 import PrizePool from '../components/PrizePool';
 import Actions from '../components/Actions';
 import UserStats from '../components/UserStats';
-import Winners from '../components/Winners';
 import { useAccount } from 'wagmi';
 import {
   CONTRACTS,
@@ -62,7 +61,6 @@ const PSLHome = () => {
         <PrizePool />
         <Actions />
         <UserStats />
-        <Winners />
       </div>
     </div>
   );

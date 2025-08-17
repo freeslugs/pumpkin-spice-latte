@@ -6,10 +6,11 @@ import {
   CONTRACTS,
 } from '../contracts/PumpkinSpiceLatte';
 import { formatUnits } from 'viem';
-import { ArrowLeft, Ticket } from 'lucide-react';
+import { ArrowLeft } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
+import Winners from '../components/Winners';
 
-const Tickets = () => {
+const History = () => {
   const navigate = useNavigate();
   const { isConnected, chain, address } = useAccount();
 
@@ -48,14 +49,14 @@ const Tickets = () => {
           <ArrowLeft className='w-6 h-6' />
         </button>
         <h2 className='text-[#181411] text-lg font-bold leading-tight tracking-[-0.015em] flex-1 text-center pr-12'>
-          My Tickets
+          History & Tickets
         </h2>
       </div>
 
       {/* Ticket Balance */}
       <div className='flex flex-col gap-2 rounded-lg p-6 bg-[#f5f2f0]'>
         <div className='flex items-center gap-3'>
-          <Ticket className='w-8 h-8 text-orange-600' />
+          <span className='text-2xl'>🎫</span>
           <div>
             <p className='text-[#181411] text-base font-medium leading-normal'>
               Your Ticket Balance
@@ -93,8 +94,11 @@ const Tickets = () => {
           </div>
         </div>
       </div>
+
+      {/* Winners History */}
+      <Winners />
     </div>
   );
 };
 
-export default Tickets;
+export default History;

@@ -182,17 +182,17 @@ const PrizePool = () => {
         {/* Main Stats Grid */}
         <div className='grid grid-cols-1 sm:grid-cols-3 gap-3 text-center'>
           <div className='bg-[#f5f2f0] rounded-lg p-4'>
-            <Award className='h-6 w-6 mx-auto mb-2 text-yellow-500' />
+            <span className='text-2xl'>🏆</span>
             <p className='text-xs text-muted-foreground mb-1'>Current Prize</p>
             <p className='text-lg font-bold'>{prizePool}</p>
           </div>
           <div className='bg-[#f5f2f0] rounded-lg p-4'>
-            <Clock className='h-6 w-6 mx-auto mb-2 text-orange-500' />
+            <span className='text-2xl'>⏰</span>
             <p className='text-xs text-muted-foreground mb-1'>Time Remaining</p>
             <p className='text-lg font-bold text-sm'>{timeRemaining}</p>
           </div>
           <div className='bg-[#f5f2f0] rounded-lg p-4'>
-            <Wallet className='h-6 w-6 mx-auto mb-2 text-green-500' />
+            <span className='text-2xl'>👑</span>
             <p className='text-xs text-muted-foreground mb-1'>Last Winner</p>
             {lastWinnerLink ? (
               <a
@@ -212,12 +212,12 @@ const PrizePool = () => {
         {/* Additional Stats */}
         <div className='grid grid-cols-1 sm:grid-cols-2 gap-3'>
           <div className='bg-[#f5f2f0] rounded-lg p-4 text-center'>
-            <PiggyBank className='h-5 w-5 mx-auto mb-1 text-pink-600' />
+            <span className='text-xl'>💰</span>
             <p className='text-xs text-muted-foreground mb-1'>Total Assets</p>
             <p className='text-base font-semibold'>{totalAssets}</p>
           </div>
           <div className='bg-[#f5f2f0] rounded-lg p-4 text-center'>
-            <Coins className='h-5 w-5 mx-auto mb-1 text-amber-600' />
+            <span className='text-xl'>🪙</span>
             <p className='text-xs text-muted-foreground mb-1'>
               Total Principal
             </p>
