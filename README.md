@@ -253,39 +253,49 @@ forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol:DeployPumpkin
 ```
 
 ```
+# PumpkinSpiceLatte 
 forge verify-contract --chain 114 --verifier blockscout \
   --verifier-url https://coston2-explorer.flare.network/api \
   --etherscan-api-key unused \
-  0x61B002F9E3Df79Cc6A9c69529067FC8219e0C094 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
+  0xf94d594A61358761FAcDCe77E5Ff4303dad12a49 packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
 ```
 
 
 ```
+# Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
 forge verify-contract --chain 114 --verifier blockscout \
   --verifier-url https://coston2-explorer.flare.network/api \
   --etherscan-api-key unused \
-  0x0F56c25A075935F3792255334cA0Eb393E62ABA7 packages/foundry/src/adapters/KineticAdapter.sol:KineticAdapter
+  0x351957C2D6043B258CCC5f4da5a60a2E132Cf158 packages/foundry/src/adapters/KineticAdapter.sol:KineticAdapter
 ```
 
 
 ```
+# RNG Address: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
 forge verify-contract --chain 114 --verifier blockscout \
   --verifier-url https://coston2-explorer.flare.network/api \
   --etherscan-api-key unused \
-  0x891ECb9Ab6AcAaCa1F5ad1EFba38e149d73857BD packages/foundry/src/adapters/FlareSecureRandomAdapter.sol:FlareSecureRandomAdapter
+  0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A packages/foundry/src/adapters/FlareSecureRandomAdapter.sol:FlareSecureRandomAdapter
 ```
+
 
 == Logs ==
   Deploying Kinetic Adapter
+  
+=== Flare Contract Addresses ===
+  FlareSecureRandomAdapter: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
+  Random Number Contract: 0x97702e350CaEda540935d92aAf213307e9069784
+  Note: Contract addresses are fetched from Flare's ContractRegistry
+  For mainnet, verify these addresses match the target network
   === Deployment Complete ===
-  PumpkinSpiceLatte deployed: 0x61B002F9E3Df79Cc6A9c69529067FC8219e0C094
-  Morpho4626Adapter: 0x0F56c25A075935F3792255334cA0Eb393E62ABA7
+  PumpkinSpiceLatte deployed: 0xf94d594A61358761FAcDCe77E5Ff4303dad12a49
+  Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
   Random Number Provider: FlareSecureRandomAdapter (Secure VRF)
-  RNG Address: 0x891ECb9Ab6AcAaCa1F5ad1EFba38e149d73857BD
+  RNG Address: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
   
 === Flare Network Info ===
   Network: Flare (Coston2/Mainnet)
   Randomness: Secure VRF from Flare network
   Note: This adapter only works on Flare Network
-  Adapter: 0x0F56c25A075935F3792255334cA0Eb393E62ABA7
-  RNG: 0x891ECb9Ab6AcAaCa1F5ad1EFba38e149d73857BD
+  Kinetic or Morpho4626Adapter: 0x351957C2D6043B258CCC5f4da5a60a2E132Cf158
+  RNG: 0xB21Fb6D1399D08147F192be583340f5D5D0aEd7A
