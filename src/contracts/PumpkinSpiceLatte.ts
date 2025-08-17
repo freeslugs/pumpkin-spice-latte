@@ -1,19 +1,13 @@
 // Network-based contract configuration
 export const CONTRACTS = {
-  11155111: { // Sepolia testnet
-    pumpkinSpiceLatte: '0x3cb0f6582683204d013c1bab52067ce351aa3bef',
-    usdc: '0x94a9D9AC8a22534E3FaCa9F4e7F2E2cf85d5E4C8'
-  },
-  1: { // Ethereum mainnet (Tenderly VNet)
-    // Fresh deploy from your run: PSL
-    pumpkinSpiceLatte: '0x057992Ef2b383cFe6b0a2E4df54234B845ec9720',
-    // Use canonical mainnet USDC on the fork
-    usdc: '0xA0b86991c6218b36c1d19D4a2e9Eb0cE3606eB48'
+  114: { // Coston2 (Flare testnet)
+    pumpkinSpiceLatte: '0x0000000000000000000000000000000000000000', // TODO: Add actual PSL contract address on Coston2
+    usdc: '0x0000000000000000000000000000000000000000' // TODO: Add actual USDC contract address on Coston2
   }
 } as const;
 
-// Default to mainnet (Tenderly fork) as the primary testing env; fallback to Sepolia
-export const pumpkinSpiceLatteAddress = CONTRACTS[1].pumpkinSpiceLatte || CONTRACTS[11155111].pumpkinSpiceLatte;
+// Default to Coston2
+export const pumpkinSpiceLatteAddress = CONTRACTS[114].pumpkinSpiceLatte;
 
 export const pumpkinSpiceLatteAbi = [
   // Events

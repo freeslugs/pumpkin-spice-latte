@@ -5,6 +5,7 @@ import {
   pumpkinSpiceLatteAbi,
   CONTRACTS,
 } from '../contracts/PumpkinSpiceLatte';
+import { usdcAddress, usdcAbi } from '../contracts/USDC';
 import { formatUnits } from 'viem';
 import { ArrowLeft, User, Wallet, Award, Clock } from 'lucide-react';
 import { useNavigate } from 'react-router-dom';
@@ -13,15 +14,27 @@ const Profile = () => {
   const navigate = useNavigate();
   const { isConnected, chain, address } = useAccount();
 
-  // Check if we're on a supported network
+  // Check if we're on a supported network (should always be Coston2 now)
   const isSupportedNetwork =
     chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
-  const targetChainId = isSupportedNetwork ? chain!.id : 1;
-  const contractAddress =
-    CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ??
-    pumpkinSpiceLatteAddress;
+  const targetChainId = 114; // Always Coston2
+  const contractAddress = CONTRACTS[targetChainId].pumpkinSpiceLatte;
 
+  // Fetch USDC balance directly from the USDC contract on Coston2
   const { data: userBalanceData } = useReadContract({
+    address: usdcAddress as `0x${string}`,
+    abi: usdcAbi,
+    functionName: 'balanceOf',
+    chainId: targetChainId,
+    args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 30000,
+      enabled: isConnected && !!address,
+    },
+  });
+
+  // Fetch user's PSL balance (deposits) from the PSL contract
+  const { data: userPSLBalanceData } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'balanceOf',
@@ -40,7 +53,7 @@ const Profile = () => {
     chainId: targetChainId,
     query: {
       refetchInterval: 30000,
-      enabled: true,
+      enabled: isConnected && !!address,
     },
   });
 
@@ -51,16 +64,22 @@ const Profile = () => {
     chainId: targetChainId,
     query: {
       refetchInterval: 30000,
-      enabled: true,
+      enabled: isConnected && !!address,
     },
   });
 
   const userBalance = userBalanceData
     ? parseFloat(formatUnits(userBalanceData as bigint, 6))
     : 0;
+
+  const userPSLBalance = userPSLBalanceData
+    ? parseFloat(formatUnits(userPSLBalanceData as bigint, 6))
+    : 0;
+
   const totalAssets = totalAssetsData
     ? parseFloat(formatUnits(totalAssetsData as bigint, 6))
     : 0;
+
   const totalPrincipal = totalPrincipalData
     ? parseFloat(formatUnits(totalPrincipalData as bigint, 6))
     : 0;
@@ -68,7 +87,7 @@ const Profile = () => {
   // Calculate user's share of the total yield
   const userYield =
     totalPrincipal > 0
-      ? (userBalance / totalPrincipal) * (totalAssets - totalPrincipal)
+      ? (userPSLBalance / totalPrincipal) * (totalAssets - totalPrincipal)
       : 0;
 
   return (
@@ -99,9 +118,16 @@ const Profile = () => {
             </div>
 
             <div className='flex justify-between items-center p-3 bg-gray-50 rounded-lg'>
-              <span className='text-sm text-gray-600'>Total Balance</span>
+              <span className='text-sm text-gray-600'>USDC Balance</span>
               <span className='font-bold text-gray-900'>
-                {userBalance} USDC
+                {userBalance.toLocaleString()} USDC
+              </span>
+            </div>
+
+            <div className='flex justify-between items-center p-3 bg-gray-50 rounded-lg'>
+              <span className='text-sm text-gray-600'>PSL Deposits</span>
+              <span className='font-bold text-gray-900'>
+                {userPSLBalance.toLocaleString()} USDC
               </span>
             </div>
 
@@ -113,9 +139,9 @@ const Profile = () => {
             </div>
 
             <div className='flex justify-between items-center p-3 bg-gray-50 rounded-lg'>
-              <span className='text-sm text-gray-600'>Principal Deposited</span>
+              <span className='text-sm text-gray-600'>Network</span>
               <span className='font-bold text-gray-900'>
-                {userBalance} USDC
+                {chain?.name || 'Unknown'}
               </span>
             </div>
           </div>
@@ -130,7 +156,7 @@ const Profile = () => {
             <span className='font-medium'>Network not supported</span>
           </div>
           <p className='text-sm mt-1'>
-            Please switch to a supported network to view your profile.
+            Please switch to Coston2 (Flare testnet) to view your profile.
           </p>
         </div>
       )}

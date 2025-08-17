@@ -5,6 +5,7 @@ import {
   pumpkinSpiceLatteAbi,
   CONTRACTS,
 } from '../contracts/PumpkinSpiceLatte';
+import { usdcAddress, usdcAbi } from '../contracts/USDC';
 import { formatUnits, parseUnits } from 'viem';
 import { AlertCircle, X } from 'lucide-react';
 import { Button } from '../components/ui/button';
@@ -29,7 +30,35 @@ const PSLHome = () => {
     CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ??
     pumpkinSpiceLatteAddress;
 
+  // Get the asset address from the PSL contract
+  const { data: assetAddress } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'ASSET',
+    chainId: targetChainId,
+    query: {
+      enabled: isConnected && !!address,
+    },
+  });
+
+  // Use the asset address from PSL contract, fallback to USDC address
+  const currentTokenAddress = assetAddress || usdcAddress;
+
+  // Fetch USDC balance from the token contract
   const { data: userBalanceData } = useReadContract({
+    address: currentTokenAddress as `0x${string}`,
+    abi: usdcAbi,
+    functionName: 'balanceOf',
+    chainId: targetChainId,
+    args: [address as `0x${string}`],
+    query: {
+      refetchInterval: 30000,
+      enabled: isConnected && !!address,
+    },
+  });
+
+  // Fetch user's PSL balance (deposits) from the PSL contract
+  const { data: userPSLBalanceData } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
     functionName: 'balanceOf',
@@ -76,6 +105,10 @@ const PSLHome = () => {
 
   const userBalance = userBalanceData
     ? parseFloat(formatUnits(userBalanceData as bigint, 6))
+    : 0;
+
+  const userPSLBalance = userPSLBalanceData
+    ? parseFloat(formatUnits(userPSLBalanceData as bigint, 6))
     : 0;
 
   const totalAssets = totalAssetsData
@@ -141,12 +174,9 @@ const PSLHome = () => {
     activeAction === 'withdraw' && parseFloat(amount) <= userBalance;
 
   return (
-    <div className='relative h-screen flex flex-col'>
+    <div className='relative min-h-screen flex flex-col'>
       {/* Main Content */}
-      <div
-        className='flex-1 p-4 space-y-6 overflow-y-auto'
-        style={{ paddingBottom: '180px' }}
-      >
+      <div className='flex-1 p-4 space-y-6'>
         {/* Network Status */}
         {isConnected && !isSupportedNetwork && (
           <div className='p-4 rounded-lg border bg-amber-50 border-amber-200 text-amber-800'>
@@ -161,7 +191,7 @@ const PSLHome = () => {
 
         {/* Main Content - Big Number Layout */}
         <div className='space-y-8'>
-          {/* Big Total Deposit Number */}
+          {/* Total Deposit Number */}
           <Card className='border-0 shadow-none bg-transparent'>
             <CardContent className='p-0'>
               <div className='text-left'>
@@ -169,7 +199,7 @@ const PSLHome = () => {
                   <p className='text-sm text-muted-foreground'>Total Deposit</p>
                 </div>
                 <div className='text-6xl font-black text-foreground'>
-                  ${userBalance.toLocaleString()}
+                  ${userPSLBalance.toLocaleString()}
                 </div>
                 <p className='text-lg text-muted-foreground'>USDC</p>
               </div>
@@ -211,26 +241,26 @@ const PSLHome = () => {
             </Card>
           </div>
         </div>
-      </div>
 
-      {/* Action Buttons at Bottom - Just Above Navbar */}
-      <div className='fixed bottom-28 left-0 right-0 p-4 bg-white border-t border-gray-100 z-40'>
-        <div className='flex gap-4'>
-          <Button
-            onClick={() => handleActionClick('deposit')}
-            variant='outline'
-            className='flex-1 h-16 text-lg font-bold border-2 border-orange-500 text-orange-500 hover:bg-orange-50 rounded-xl'
-          >
-            💸 Deposit
-          </Button>
+        {/* Action Buttons - Now part of normal document flow */}
+        <div className='pt-8 pb-6'>
+          <div className='flex gap-4'>
+            <Button
+              onClick={() => handleActionClick('deposit')}
+              variant='outline'
+              className='flex-1 h-16 text-lg font-bold border-2 border-orange-500 text-orange-500 hover:bg-orange-50 rounded-xl'
+            >
+              💸 Deposit
+            </Button>
 
-          <Button
-            onClick={() => handleActionClick('withdraw')}
-            variant='outline'
-            className='flex-1 h-16 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
-          >
-            💰 Withdraw
-          </Button>
+            <Button
+              onClick={() => handleActionClick('withdraw')}
+              variant='outline'
+              className='flex-1 h-16 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
+            >
+              💰 Withdraw
+            </Button>
+          </div>
         </div>
       </div>
 
@@ -315,7 +345,7 @@ const PSLHome = () => {
                       Current Balance
                     </span>
                     <span className='font-bold text-gray-900'>
-                      {userBalance.toLocaleString()} USDC
+                      {userPSLBalance.toLocaleString()} USDC
                     </span>
                   </div>
                 </div>
