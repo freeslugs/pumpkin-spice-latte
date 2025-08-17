@@ -272,7 +272,7 @@ const App = () => {
                   </div>
                 </div>
               </header>
-              <main className='flex-1 bg-background pb-24 relative overflow-hidden min-h-0'>
+              <main className='flex-1 bg-background relative overflow-hidden min-h-0'>
                 <PageTransition>
                   <Routes>
                     <Route path='/' element={<PSLHome />} />
@@ -288,11 +288,11 @@ const App = () => {
           </div>
         ) : (
           // Desktop Layout
-          <div className='flex min-h-screen bg-background'>
+          <div className='flex h-screen bg-background'>
             <DesktopSidebar />
             <div className='flex-1 flex flex-col'>
               <DesktopHeader />
-              <main className='flex-1 p-6 overflow-hidden relative'>
+              <main className='flex-1 p-6 overflow-y-auto relative'>
                 <PageTransition>
                   <Routes>
                     <Route path='/' element={<PSLHome />} />

@@ -301,12 +301,10 @@ const PSLHome = () => {
   const isBusy = isApproving || isDepositing || isConfirmingApproval || isConfirmingDeposit || isWithdrawing || isConfirmingWithdraw;
 
   return (
-    <div className='h-full flex flex-col'>
-      {/* Main Content - Constrained height */}
+    <div className={`${isMobile ? 'min-h-screen' : 'h-full'} flex flex-col`}>
+      {/* Main Content */}
       <div
-        className={`flex-1 p-4 space-y-6 overflow-y-auto ${
-          isMobile ? 'max-h-[calc(100vh-200px)]' : 'max-w-4xl mx-auto'
-        }`}
+        className={`flex-1 p-4 space-y-6 ${isMobile ? '' : 'overflow-y-auto'}`}
       >
         {/* Network Status */}
         {isConnected && !isSupportedNetwork && (
@@ -322,7 +320,9 @@ const PSLHome = () => {
 
         {/* Main Content - Big Number Layout */}
         <div
-          className={`space-y-6 ${isMobile ? '' : 'grid grid-cols-2 gap-8'}`}
+          className={`space-y-6 ${
+            isMobile ? '' : 'grid grid-cols-2 gap-8 max-w-4xl mx-auto'
+          }`}
         >
           {/* Total Deposit Number */}
           <div className='text-left'>
@@ -377,7 +377,7 @@ const PSLHome = () => {
       </div>
 
       {/* Action Buttons - Desktop: Below content, Mobile: At bottom */}
-      <div className={`${isMobile ? 'p-4 mt-auto' : 'pt-12'}`}>
+      <div className={`${isMobile ? 'p-4 pb-40' : 'pt-12'}`}>
         <div className={`flex gap-4 ${isMobile ? '' : 'max-w-2xl mx-auto'}`}>
           <div className='flex-1'>
             <Button
