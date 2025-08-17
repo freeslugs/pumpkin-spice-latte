@@ -8,6 +8,8 @@ import {KineticAdapter} from "../src/adapters/KineticAdapter.sol";
 import {PseudoRandomAdapter} from "../src/adapters/PseudoRandomAdapter.sol";
 import {MoreMarketsAdapter} from "../src/adapters/MoreMarketsAdapter.sol";
 import {FlareSecureRandomAdapter} from "../src/adapters/FlareSecureRandomAdapter.sol";
+import {FlowRandomAdapter256} from "../src/adapters/FlowRandomAdapter256.sol";
+import {FlowRandomAdapter64} from "../src/adapters/FlowRandomAdapter64.sol";
 import {KineticAdapter} from "../src/adapters/KineticAdapter.sol";
 
 contract DeployPumpkinSpiceLatte is Script {
@@ -17,6 +19,8 @@ contract DeployPumpkinSpiceLatte is Script {
 		uint256 roundDuration = 300; // 5 minutes
 
 		bool deployToFlare = vm.envBool("DEPLOY_FLARE");
+		bool deployToFlow = vm.envBool("DEPLOY_FLOW");
+		bool useFlow64 = vm.envBool("FLOW_64");
 
 		uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
 		vm.startBroadcast(deployerPrivateKey);
@@ -27,6 +31,23 @@ contract DeployPumpkinSpiceLatte is Script {
 			address kineticMarket = vm.envAddress("KINETIC_MARKET");
 			KineticAdapter kinetic = new KineticAdapter(kineticMarket);
 			adapterAddress = address(kinetic);
+		} else if (deployToFlow) {
+			console.log("Deploying Flow with Lending Adapter");
+			// For Flow, we can use any lending adapter (MoreMarkets, Morpho, etc.)
+			// The randomness is handled by the FlowRandomAdapter
+			if (vm.envUint("DEPLOY_MORE") == 1) {
+				address moreMarket = vm.envAddress("MORE_MARKET");
+				require(moreMarket != address(0), "MORE_MARKET required");
+				console.log("Deploying More Markets Adapter for Flow");
+				MoreMarketsAdapter more = new MoreMarketsAdapter(moreMarket);
+				adapterAddress = address(more);
+			} else {
+				// Default to Morpho for Flow if no specific adapter specified
+				address vault = vm.envOr("VAULT_ADDRESS", vaultAddress);
+				console.log("Deploying Morpho Adapter for Flow");
+				Morpho4626Adapter morpho = new Morpho4626Adapter(vault);
+				adapterAddress = address(morpho);
+			}
 		} else if (vm.envUint("DEPLOY_MORE") == 1) {
 			address moreMarket = vm.envAddress("MORE_MARKET");
 			require(moreMarket != address(0), "MORE_MARKET required");
@@ -55,6 +76,30 @@ contract DeployPumpkinSpiceLatte is Script {
 			console.log("Random Number Contract:", flareRng.getRandomNumberContract());
 			console.log("Note: Contract addresses are fetched from Flare's ContractRegistry");
 			console.log("For mainnet, verify these addresses match the target network");
+		} else if (deployToFlow) {
+			address flowRngAddress;
+			string memory flowRngType;
+			
+			if (useFlow64) {
+				FlowRandomAdapter64 flowRng = new FlowRandomAdapter64();
+				flowRngAddress = address(flowRng);
+				flowRngType = "FlowRandomAdapter64 (64 bits)";
+			} else {
+				FlowRandomAdapter256 flowRng = new FlowRandomAdapter256();
+				flowRngAddress = address(flowRng);
+				flowRngType = "FlowRandomAdapter256 (256 bits)";
+			}
+			
+			rngAddress = flowRngAddress;
+			rngType = flowRngType;
+			
+			// Log Flow contract addresses for verification
+			console.log("\n=== Flow Contract Addresses ===");
+			console.log("Flow Random Adapter:", flowRngAddress);
+			console.log("Adapter Type:", flowRngType);
+			console.log("Cadence Arch Address:", 0x0000000000000000000000010000000000000001);
+			console.log("Note: Uses Cadence Arch at 0x0000000000000000000000010000000000000001");
+			console.log("For mainnet, verify this address matches the target Flow network");
 		} else {
 			PseudoRandomAdapter pseudoRng = new PseudoRandomAdapter();
 			rngAddress = address(pseudoRng);
@@ -80,6 +125,15 @@ contract DeployPumpkinSpiceLatte is Script {
 			console.log("Network: Flare (Coston2/Mainnet)");
 			console.log("Randomness: Secure VRF from Flare network");
 			console.log("Note: This adapter only works on Flare Network");
+		} else if (deployToFlow) {
+			console.log("\n=== Flow Network Info ===");
+			console.log("Network: Flow EVM");
+			if (useFlow64) {
+				console.log("Randomness: 64 bits from Cadence Arch");
+			} else {
+				console.log("Randomness: 256 bits from Cadence Arch");
+			}
+			console.log("Note: This adapter only works on Flow Network");
 		} else {
 			console.log("\n=== Development Info ===");
 			console.log("Network: Any EVM compatible");
