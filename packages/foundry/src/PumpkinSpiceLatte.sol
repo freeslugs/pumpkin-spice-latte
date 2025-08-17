@@ -76,12 +76,9 @@ contract PumpkinSpiceLatte is Ownable {
     //                        CONSTRUCTOR
     //-//////////////////////////////////////////////////////////
 
-    constructor(
-        address _adapter,
-        address _randomnessProvider,
-        uint256 _baseRewardHalfLife,
-        uint256 _halfLife2
-    ) Ownable(msg.sender) {
+    constructor(address _adapter, address _randomnessProvider, uint256 _baseRewardHalfLife, uint256 _halfLife2)
+        Ownable(msg.sender)
+    {
         ASSET = ILendingAdapter(_adapter).asset();
         LENDING_ADAPTER = ILendingAdapter(_adapter);
         randomnessProvider = IRandomnessProvider(_randomnessProvider);
@@ -329,7 +326,9 @@ contract PumpkinSpiceLatte is Ownable {
             t0 = 0;
         } else {
             uint256 pow0 = uint256(1) << (256 - n);
-            unchecked { t0 = type(uint256).max - (pow0 - 1); }
+            unchecked {
+                t0 = type(uint256).max - (pow0 - 1);
+            }
         }
 
         // If exactly on boundary, no interpolation
@@ -343,6 +342,8 @@ contract PumpkinSpiceLatte is Ownable {
 
         // Interpolate: threshold = t0 + delta * rem / hl
         uint256 interp = Math.mulDiv(delta, rem, hl);
-        unchecked { return t0 + interp; }
+        unchecked {
+            return t0 + interp;
+        }
     }
 }
