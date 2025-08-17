@@ -12,7 +12,6 @@ import {
   CONTRACTS,
   pumpkinSpiceLatteAddress,
 } from '../contracts/PumpkinSpiceLatte';
-import { ScrollArea } from './ui/scroll-area';
 import { formatUnits, parseAbiItem } from 'viem';
 import { Award, History, AlertCircle, ExternalLink } from 'lucide-react';
 import { getAddressExplorerUrl, getTxExplorerUrl } from '../lib/utils';
@@ -24,22 +23,16 @@ interface WinnerItem {
   txHash?: `0x${string}`;
 }
 
-const DEPLOYMENT_BLOCK_MAINNET = 0x161534en; // from broadcast (mainnet)
-
 const Winners = () => {
   const { address, chain, isConnected } = useAccount();
   const isSupportedNetwork =
     chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
-  const targetChainId = isSupportedNetwork ? chain!.id : 1;
+  const targetChainId = isSupportedNetwork ? chain!.id : 114; // Default to Coston2 instead of mainnet
   const publicClient = usePublicClient({ chainId: targetChainId });
 
   const contractAddress =
     CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ??
     pumpkinSpiceLatteAddress;
-  const fromBlock = useMemo(() => {
-    if (targetChainId === 1) return DEPLOYMENT_BLOCK_MAINNET;
-    return 0n; // fallback when deployment block is unknown
-  }, [targetChainId]);
 
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -48,7 +41,15 @@ const Winners = () => {
   useEffect(() => {
     let cancelled = false;
     const fetchLogs = async () => {
-      if (!publicClient) return;
+      if (!publicClient || !isConnected) return;
+      
+      // Check if contract address is valid (not zero address)
+      if (contractAddress === '0x0000000000000000000000000000000000000000') {
+        setError('Contract not deployed on this network yet');
+        setLoading(false);
+        return;
+      }
+
       setLoading(true);
       setError(null);
       try {
@@ -58,32 +59,35 @@ const Winners = () => {
         const logs = await publicClient.getLogs({
           address: contractAddress as `0x${string}`,
           event,
-          fromBlock,
+          fromBlock: 0n, // Start from block 0 for testnet
           toBlock: 'latest',
         });
         const items: WinnerItem[] = logs.map((log) => ({
           blockNumber: log.blockNumber ?? 0n,
-          winner: (log.args as any).winner as string,
-          amount: (log.args as any).amount as bigint,
+          winner: (log.args as { winner: string }).winner,
+          amount: (log.args as { amount: bigint }).amount,
           txHash: log.transactionHash,
         }));
         if (!cancelled) {
           items.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
           setWinners(items);
         }
-      } catch (e: any) {
-        if (!cancelled) setError(e?.message || 'Failed to load winners');
+      } catch (e: unknown) {
+        if (!cancelled) {
+          console.error('Error fetching winners:', e);
+          setError('No lottery history available yet');
+        }
       } finally {
         if (!cancelled) setLoading(false);
       }
     };
+    
     fetchLogs();
-    // Refresh winners every 60s to avoid spamming RPC
-    const id = setInterval(fetchLogs, 60_000);
+    
     return () => {
       cancelled = true;
     };
-  }, [publicClient, contractAddress, fromBlock]);
+  }, [publicClient, contractAddress, isConnected]);
 
   const yourTotalWinnings = useMemo(() => {
     if (!address) return 0n;
@@ -107,8 +111,7 @@ const Winners = () => {
         </CardDescription>
         {!isSupportedNetwork && isConnected && (
           <div className='flex items-center gap-2 text-sm text-amber-600 bg-amber-50 p-2 rounded'>
-            <AlertCircle className='h-4 w-4' /> Please switch to a supported
-            network
+            <AlertCircle className='h-4 w-4' /> Please switch to Coston2 network
           </div>
         )}
       </CardHeader>
@@ -131,11 +134,18 @@ const Winners = () => {
             {loading ? (
               <div className='p-4 text-sm'>Loading...</div>
             ) : error ? (
-              <div className='p-4 text-sm text-red-600'>{error}</div>
+              <div className='p-4 text-sm text-amber-600 bg-amber-50 rounded'>
+                <div className='flex items-center gap-2'>
+                  <AlertCircle className='h-4 w-4' />
+                  {error}
+                </div>
+              </div>
             ) : winners.length === 0 ? (
-              <div className='p-4 text-sm'>No winners yet</div>
+              <div className='p-4 text-sm text-muted-foreground'>
+                No winners yet. Be the first to win! 🎉
+              </div>
             ) : (
-              <ScrollArea className='max-h-48'>
+              <div className='max-h-48 overflow-y-auto'>
                 <ul className='divide-y'>
                   {winners.map((w, idx) => (
                     <li
@@ -175,7 +185,7 @@ const Winners = () => {
                     </li>
                   ))}
                 </ul>
-              </ScrollArea>
+              </div>
             )}
           </div>
         </div>
