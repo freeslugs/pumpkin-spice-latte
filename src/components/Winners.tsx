@@ -25,9 +25,8 @@ interface WinnerItem {
 
 const Winners = () => {
   const { address, chain, isConnected } = useAccount();
-  const isSupportedNetwork =
-    chain && CONTRACTS[chain.id as keyof typeof CONTRACTS];
-  const targetChainId = isSupportedNetwork ? chain!.id : 114; // Default to Coston2 instead of mainnet
+  const isSupportedNetwork = chain && (CONTRACTS as any)[String(chain.id)];
+  const targetChainId = isSupportedNetwork ? chain!.id : 747474;
   const publicClient = usePublicClient({ chainId: targetChainId });
 
   const contractAddress =

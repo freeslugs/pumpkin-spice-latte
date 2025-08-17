@@ -1,7 +1,11 @@
 import { CONTRACTS } from './PumpkinSpiceLatte';
 
-// Use the USDC address from the main contract configuration; default to Flare testnet
-export const usdcAddress = CONTRACTS[114].usdc ?? CONTRACTS[11155111].usdc ?? CONTRACTS[1].usdc;
+// Use the USDC address from the main contract configuration; prefer Katana, then Flare testnet, then Sepolia, then Mainnet
+export const usdcAddress =
+  (CONTRACTS as any)[747474]?.usdc ??
+  (CONTRACTS as any)[114]?.usdc ??
+  (CONTRACTS as any)[11155111]?.usdc ??
+  (CONTRACTS as any)[1]?.usdc;
 
 // Minimal ERC-20 ABI needed for approve/allowance/transferFrom/balanceOf/decimals
 export const usdcAbi = [

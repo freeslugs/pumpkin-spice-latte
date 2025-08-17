@@ -29,8 +29,8 @@ const FaucetNotice: React.FC = () => {
     }
   }
 
-  const isSupportedNetwork = chain && CONTRACTS[chain.id as keyof typeof CONTRACTS]
-  const targetChainId = isSupportedNetwork ? chain!.id : 114
+  const isSupportedNetwork = chain && (CONTRACTS as any)[String(chain.id)]
+  const targetChainId = isSupportedNetwork ? chain!.id : 747474
   const usdcAddress = (CONTRACTS as any)[targetChainId]?.usdc as `0x${string}` | undefined
 
   const { data: nativeBalanceData, isLoading: nativeLoading } = useBalance({

@@ -15,9 +15,9 @@ contract Morpho4626Adapter is ILendingAdapter {
     address public immutable VAULT;
     address public immutable UNDERLYING;
 
-    constructor(address _vault) {
+    constructor(address _vault, address _underlying) {
         VAULT = _vault;
-        UNDERLYING = IERC4626Vault(_vault).asset();
+        UNDERLYING = _underlying;
     }
 
     function asset() external view returns (address) {
