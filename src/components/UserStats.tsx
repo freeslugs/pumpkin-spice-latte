@@ -1,23 +1,13 @@
-import { useAccount, useReadContract, useWriteContract } from 'wagmi';
-import { Card, CardContent, CardHeader, CardTitle } from '@/components/ui/card';
-import { Button } from '@/components/ui/button';
+import { useAccount, useReadContract, useWriteContract } from "wagmi";
+import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Button } from "@/components/ui/button";
 import {
   pumpkinSpiceLatteAddress,
   pumpkinSpiceLatteAbi,
   CONTRACTS,
-} from '@/contracts/PumpkinSpiceLatte';
-import { formatUnits } from 'viem';
-import { useToast } from '@/components/ui/use-toast';
-
-const formatTimeRemaining = (timestamp: bigint) => {
-  const now = BigInt(Math.floor(Date.now() / 1000));
-  const secondsRemaining = timestamp - now;
-  if (secondsRemaining <= 0n) return 'Ready to draw';
-  const hours = secondsRemaining / 3600n;
-  const minutes = (secondsRemaining % 3600n) / 60n;
-  const seconds = secondsRemaining % 60n;
-  return `${hours}h ${minutes}m ${seconds}s`;
-};
+} from "@/contracts/PumpkinSpiceLatte";
+import { formatUnits } from "viem";
+import { useToast } from "@/components/ui/use-toast";
 
 const UserStats = () => {
   const { address, isConnected, chain } = useAccount();
@@ -33,15 +23,15 @@ const UserStats = () => {
   const { writeContract, isPending } = useWriteContract({
     onSuccess: () => {
       toast({
-        title: 'Prize Awarded!',
-        description: 'The prize has been awarded to a lucky winner.',
+        title: "Prize Awarded!",
+        description: "The prize has been awarded to a lucky winner.",
       });
     },
     onError: (error) => {
       toast({
-        title: 'Error',
+        title: "Error",
         description: error.message,
-        variant: 'destructive',
+        variant: "destructive",
       });
     },
   } as any);
@@ -53,7 +43,7 @@ const UserStats = () => {
   } = useReadContract({
     address: contractAddress,
     abi: pumpkinSpiceLatteAbi,
-    functionName: 'balanceOf',
+    functionName: "balanceOf",
     args: [address],
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
@@ -61,22 +51,12 @@ const UserStats = () => {
     },
   });
 
-  const { data: nextRoundTimestampData } = useReadContract({
-    address: contractAddress,
-    abi: pumpkinSpiceLatteAbi,
-    functionName: 'nextRoundTimestamp',
-    query: {
-      enabled: isConnected && !!isSupportedNetwork,
-      refetchInterval: 30000,
-    },
-  });
-
   const getUserBalanceDisplay = () => {
-    if (!isConnected) return 'Connect wallet to view';
-    if (!isSupportedNetwork) return 'Switch to a supported network';
-    if (balanceError) return 'Error loading balance';
-    if (balanceLoading) return 'Loading...';
-    if (userBalanceData === undefined) return '0.00 USDC';
+    if (!isConnected) return "Connect wallet to view";
+    if (!isSupportedNetwork) return "Switch to a supported network";
+    if (balanceError) return "Error loading balance";
+    if (balanceLoading) return "Loading...";
+    if (userBalanceData === undefined) return "0.00 USDC";
     return `${formatUnits(userBalanceData as bigint, 6)} USDC`;
   };
 
@@ -86,45 +66,45 @@ const UserStats = () => {
     writeContract({
       address: contractAddress,
       abi: pumpkinSpiceLatteAbi,
-      functionName: 'awardPrize',
+      functionName: "awardPrize",
     });
   };
 
   return (
-    <Card className='border-0 shadow-none bg-transparent'>
-      <CardHeader className='pb-3'>
-        <CardTitle className='text-xl'>Your PSL Stats</CardTitle>
+    <Card className="border-0 shadow-none bg-transparent">
+      <CardHeader className="pb-3">
+        <CardTitle className="text-xl">Your PSL Stats</CardTitle>
       </CardHeader>
-      <CardContent className='space-y-4'>
-        <div className='bg-[#f5f2f0] rounded-lg p-4'>
-          <div className='flex justify-between items-center mb-3'>
-            <p className='text-sm text-muted-foreground'>Your Deposits</p>
-            <p className='font-bold text-lg'>{userBalance}</p>
+      <CardContent className="space-y-4">
+        <div className="bg-[#f5f2f0] rounded-lg p-4">
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-sm text-muted-foreground">Your Deposits</p>
+            <p className="font-bold text-lg">{userBalance}</p>
           </div>
-          <div className='flex justify-between items-center mb-3'>
-            <p className='text-sm text-muted-foreground'>Your Wallet</p>
-            <p className='font-bold text-sm truncate'>
+          <div className="flex justify-between items-center mb-3">
+            <p className="text-sm text-muted-foreground">Your Wallet</p>
+            <p className="font-bold text-sm truncate">
               {isConnected && address
                 ? `${address.slice(0, 6)}...${address.slice(-4)}`
-                : 'Not connected'}
+                : "Not connected"}
             </p>
           </div>
-          <div className='flex justify-between items-center'>
-            <p className='text-sm text-muted-foreground'>Next Draw</p>
-            <p className='font-medium text-sm'>
+          <div className="flex justify-between items-center">
+            <p className="text-sm text-muted-foreground">Next Draw</p>
+            <p className="font-medium text-sm">
               {nextRoundTimestampData
                 ? formatTimeRemaining(nextRoundTimestampData as bigint)
-                : '-'}
+                : "-"}
             </p>
           </div>
         </div>
         <Button
-          className='w-full h-12 text-base'
-          variant='outline'
+          className="w-full h-12 text-base"
+          variant="outline"
           disabled={!isConnected || !isSupportedNetwork || isPending}
           onClick={handleAwardPrize}
         >
-          {isPending ? 'Awarding...' : 'Award Prize'}
+          {isPending ? "Awarding..." : "Award Prize"}
         </Button>
       </CardContent>
     </Card>

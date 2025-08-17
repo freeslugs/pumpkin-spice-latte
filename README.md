@@ -1,3 +1,10 @@
+## Flow EVM Testnet Deployment
+
+PumpkinSpiceLatte: [0x7d12DC1eC75675daFcF0E0651A6bC14A94d6E338](https://evm-testnet.flowscan.io/address/0x7d12DC1eC75675daFcF0E0651A6bC14A94d6E338)  
+FlowRandomAdapter64 (pending 256 bit entropy adapter): [0xD6FEDeA87e569975Fd2B47f161537470856c872A](https://evm-testnet.flowscan.io/address/0xD6FEDeA87e569975Fd2B47f161537470856c872A)  
+MockLendingAdapter (pending MoreMarkets adapter): [0x0ACd55c5A6A2D842d83Fd2f097BE8860eFD0bbcb](https://evm-testnet.flowscan.io/address/0x0acd55c5a6a2d842d83fd2f097be8860efd0bbcb)
+
+
 ## Flare Testnet (Coston2) Deployment
 
 1) Prerequisites
