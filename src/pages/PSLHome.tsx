@@ -40,6 +40,7 @@ const PSLHome = () => {
   const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | undefined>(undefined);
   const autoDepositTriggeredRef = useRef(false);
   const amountInputRef = useRef<HTMLInputElement | null>(null);
+  const [awardHash, setAwardHash] = useState<`0x${string}` | undefined>(undefined);
 
   // Check if we're on a supported network
   const isSupportedNetwork =
@@ -115,6 +116,22 @@ const PSLHome = () => {
     },
   } as any);
 
+  // Winner/prize reads (refetched upon award confirmation)
+  const { data: lastWinner, refetch: refetchLastWinner } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'lastWinner',
+    chainId: targetChainId,
+    query: { enabled: false },
+  } as any);
+  const { data: lastPrizeAmount, refetch: refetchLastPrize } = useReadContract({
+    address: contractAddress,
+    abi: pumpkinSpiceLatteAbi,
+    functionName: 'lastPrizeAmount',
+    chainId: targetChainId,
+    query: { enabled: false },
+  } as any);
+
   const parsedAmount: bigint = useMemo(() => {
     if (!amount || Number(amount) <= 0) return 0n;
     try { return parseUnits(amount, 6); } catch { return 0n; }
@@ -176,6 +193,24 @@ const PSLHome = () => {
     query: { enabled: Boolean(withdrawHash), refetchInterval: 1000 },
   } as any);
 
+  // Award prize write + receipt
+  const { writeContract: tryAwardPrize, isPending: isAwarding } = useWriteContract({
+    onSuccess: (hash: `0x${string}`) => {
+      setAwardHash(hash);
+      toast({ title: '🎲 Roll submitted!', description: 'Summoning the randomness oracle...' });
+    },
+    onError: (error) => {
+      toast({ title: '😅 Not this time', description: error.message || 'Round not ready or no prize yet. Try again soon!', variant: 'destructive' });
+    },
+  } as any);
+
+  const { isLoading: isConfirmingAward, isSuccess: isAwardConfirmed, error: awardError } = useWaitForTransactionReceipt({
+    chainId: targetChainId,
+    hash: awardHash,
+    confirmations: 1,
+    query: { enabled: Boolean(awardHash), refetchInterval: 1000 },
+  } as any);
+
   useEffect(() => {
     if (approvalError) {
       toast({ title: 'Approval Error', description: approvalError.message, variant: 'destructive' });
@@ -193,6 +228,12 @@ const PSLHome = () => {
       toast({ title: 'Withdrawal Error', description: withdrawError.message, variant: 'destructive' });
     }
   }, [withdrawError, toast]);
+
+  useEffect(() => {
+    if (awardError) {
+      toast({ title: '😅 Not this time', description: awardError.message, variant: 'destructive' });
+    }
+  }, [awardError, toast]);
 
   useEffect(() => {
     if (isApprovalConfirmed) {
@@ -248,6 +289,23 @@ const PSLHome = () => {
     }
   }, [isWithdrawConfirmed, toast]);
 
+  useEffect(() => {
+    if (isAwardConfirmed) {
+      // Best-effort refresh and then celebrate
+      Promise.allSettled([refetchLastWinner(), refetchLastPrize()]).then((results) => {
+        const prize = results[1].status === 'fulfilled' && results[1].value?.data ? (results[1].value.data as bigint) : 0n;
+        const winner = results[0].status === 'fulfilled' && results[0].value?.data ? (results[0].value.data as string) : undefined;
+        const prizeDisplay = prize ? `${formatUnits(prize, 6)} USDC` : 'a mystery prize';
+        const youWon = winner && address && winner.toLowerCase() === address.toLowerCase();
+        toast({
+          title: youWon ? '🎉 You won!' : '🎉 Prize Awarded!',
+          description: youWon ? `Enjoy your ${prizeDisplay}!` : `Someone just won ${prizeDisplay}. Better luck next time!`,
+        });
+      });
+      setAwardHash(undefined);
+    }
+  }, [isAwardConfirmed, refetchLastWinner, refetchLastPrize, toast, address]);
+
   const handleActionClick = (action: 'deposit' | 'withdraw') => {
     setActiveAction(action);
     setIsRightStackOpen(true);
@@ -299,6 +357,7 @@ const PSLHome = () => {
   const isAmountValid = amount && parseFloat(amount) > 0;
   const canWithdraw = parseFloat(amount) <= userPSLBalance;
   const isBusy = isApproving || isDepositing || isConfirmingApproval || isConfirmingDeposit || isWithdrawing || isConfirmingWithdraw;
+  const isTryLuckBusy = isAwarding || isConfirmingAward;
 
   return (
     <div className={`${isMobile ? 'min-h-screen' : 'h-full'} flex flex-col`}>
@@ -395,6 +454,16 @@ const PSLHome = () => {
               className='w-full h-20 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
             >
               💰 Withdraw
+            </Button>
+          </div>
+
+          <div className='flex-1'>
+            <Button
+              onClick={() => tryAwardPrize({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'awardPrize' })}
+              disabled={!isConnected || !isSupportedNetwork || isTryLuckBusy}
+              className='w-full h-20 text-lg font-bold bg-purple-600 hover:bg-purple-700 text-white rounded-xl'
+            >
+              {isTryLuckBusy ? 'Rolling…' : '🍀 Try your luck'}
             </Button>
           </div>
         </div>
