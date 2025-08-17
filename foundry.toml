@@ -6,6 +6,7 @@ test = "packages/foundry/test"
 eth_rpc_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb" # Default to Tenderly Virtual Mainnet (HTTP)
 fork_url = "https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb" # Default tests to forked mainnet
 cbor_metadata = true
+evm_version = "paris" # Avoid PUSH0 (EIP-3855) on chains that don’t support Shanghai
 
 # See more config options https://github.com/foundry-rs/foundry/blob/master/crates/config/README.md#all-options
 
@@ -19,15 +20,21 @@ mainnet_tenderly_wss = "wss://virtual.mainnet.us-east.rpc.tenderly.co/4996bd0e-f
 # Sepolia (kept for reference)
 sepolia = "wss://ethereum-sepolia-rpc.publicnode.com"
 
+# Flare Testnet (Coston2)
+coston2 = "https://coston2-api.flare.network/ext/C/rpc"
+
 [profile.chains]
 mainnet = 1
 sepolia = 11155111
+coston2 = 114
 
 # Etherscan API keys for contract verification
 [etherscan]
 # mainnet = { key = "${ETHERSCAN_API_KEY}" }
 mainnet = { key = "${TENDERLY_ACCESS_KEY}", chain = 1, url = "${TENDERLY_VIRTUAL_TESTNET_RPC_URL}/verify/etherscan" }
 sepolia = { key = "${ETHERSCAN_API_KEY}" }
+# Flare Coston2 explorer is Blockscout-style; Foundry verifies via blockscout
+coston2 = { key = "unused", url = "https://coston2-explorer.flare.network/api" }
 
 # Verification settings
 [profile.default.verifier]

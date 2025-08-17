@@ -24,50 +24,101 @@ const Winners = () => {
 	const publicClient = usePublicClient({ chainId: targetChainId });
 
 	const contractAddress = CONTRACTS[targetChainId as keyof typeof CONTRACTS]?.pumpkinSpiceLatte ?? pumpkinSpiceLatteAddress;
-	const fromBlock = useMemo(() => {
+	const fromBlockHint = useMemo(() => {
 		if (targetChainId === 1) return DEPLOYMENT_BLOCK_MAINNET;
-		return 0n; // fallback when deployment block is unknown
+		return null as bigint | null; // unknown for non-mainnet; we will window-scan
 	}, [targetChainId]);
 
 	const [loading, setLoading] = useState(false);
 	const [error, setError] = useState<string | null>(null);
 	const [winners, setWinners] = useState<WinnerItem[]>([]);
 
+	// Very short history: only the last 10 blocks (plus incremental updates)
 	useEffect(() => {
 		let cancelled = false;
-		const fetchLogs = async () => {
-			if (!publicClient) return;
-			setLoading(true);
-			setError(null);
-			try {
-				const event = parseAbiItem('event PrizeAwarded(address indexed winner, uint256 amount)');
-				const logs = await publicClient.getLogs({
-					address: contractAddress as `0x${string}`,
-					event,
-					fromBlock,
-					toBlock: 'latest'
-				});
-				const items: WinnerItem[] = logs.map(log => ({
-					blockNumber: log.blockNumber ?? 0n,
-					winner: (log.args as any).winner as string,
-					amount: (log.args as any).amount as bigint,
-					txHash: log.transactionHash
-				}));
-				if (!cancelled) {
-					items.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
-					setWinners(items);
+		if (!publicClient) return;
+
+		const event = parseAbiItem('event PrizeAwarded(address indexed winner, uint256 amount)');
+		const SHORT_WINDOW = 10n; // last 10 blocks
+		const CHUNK = 10n; // single request for that short window
+		const MICRO = 5n;  // fallback
+
+		const appendItems = (newItems: WinnerItem[]) => {
+			if (cancelled || newItems.length === 0) return;
+			setWinners(prev => {
+				const map = new Map<string, WinnerItem>();
+				for (const it of prev) map.set(`${it.txHash ?? ''}:${it.blockNumber.toString()}:${it.winner}`, it);
+				for (const it of newItems) map.set(`${it.txHash ?? ''}:${it.blockNumber.toString()}:${it.winner}`, it);
+				const merged = Array.from(map.values());
+				merged.sort((a, b) => (a.blockNumber > b.blockNumber ? -1 : 1));
+				return merged;
+			});
+		};
+
+		const fetchRange = async (fromB: bigint, toB: bigint) => {
+			if (fromB > toB) return;
+			let cursor = fromB;
+			while (!cancelled && cursor <= toB) {
+				const to = (cursor + CHUNK - 1n) > toB ? toB : (cursor + CHUNK - 1n);
+				try {
+					const logs = await publicClient.getLogs({ address: contractAddress as `0x${string}`, event, fromBlock: cursor, toBlock: to });
+					appendItems(logs.map(log => ({
+						blockNumber: log.blockNumber ?? 0n,
+						winner: (log.args as any).winner as string,
+						amount: (log.args as any).amount as bigint,
+						txHash: log.transactionHash,
+					})));
+				} catch (err) {
+					// Retry with micro chunks
+					let inner = cursor;
+					while (!cancelled && inner <= to) {
+						const innerTo = (inner + MICRO - 1n) > to ? to : (inner + MICRO - 1n);
+						const logs = await publicClient.getLogs({ address: contractAddress as `0x${string}`, event, fromBlock: inner, toBlock: innerTo });
+						appendItems(logs.map(log => ({
+							blockNumber: log.blockNumber ?? 0n,
+							winner: (log.args as any).winner as string,
+							amount: (log.args as any).amount as bigint,
+							txHash: log.transactionHash,
+						})));
+						inner = innerTo + 1n;
+					}
 				}
-			} catch (e: any) {
-				if (!cancelled) setError(e?.message || 'Failed to load winners');
-			} finally {
-				if (!cancelled) setLoading(false);
+				cursor = to + 1n;
 			}
 		};
-		fetchLogs();
-		// Refresh winners every 60s to avoid spamming RPC
-		const id = setInterval(fetchLogs, 60_000);
-		return () => { cancelled = true };
-	}, [publicClient, contractAddress, fromBlock]);
+
+		let stop = false;
+		(async () => {
+			try {
+				setLoading(true);
+				setError(null);
+				const latest = await publicClient.getBlockNumber();
+				const start = fromBlockHint !== null ? fromBlockHint : (latest > SHORT_WINDOW ? (latest - SHORT_WINDOW) : 0n);
+				await fetchRange(start, latest);
+				if (cancelled) return;
+				let lastTo = latest;
+				const id = setInterval(async () => {
+					if (stop) return;
+					try {
+						const now = await publicClient.getBlockNumber();
+						if (now > lastTo) {
+							await fetchRange(lastTo + 1n, now);
+							lastTo = now;
+						}
+					} catch (e: any) {
+						setError(e?.message || 'Failed to refresh winners');
+					}
+				}, 60_000);
+				return () => clearInterval(id);
+			} catch (e: any) {
+				setError(e?.message || 'Failed to load winners');
+			} finally {
+				setLoading(false);
+			}
+		})();
+
+		return () => { cancelled = true; stop = true };
+	}, [publicClient, contractAddress, fromBlockHint, targetChainId]);
 
 	const yourTotalWinnings = useMemo(() => {
 		if (!address) return 0n;

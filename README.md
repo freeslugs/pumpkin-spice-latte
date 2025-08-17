@@ -1,3 +1,37 @@
+## Flare Testnet (Coston2) Deployment
+
+1) Prerequisites
+- Export your deployer private key in the shell:
+```bash
+export PRIVATE_KEY=0xYOUR_PRIVATE_KEY
+```
+- Fund the account with C2FLR from the Coston2 faucet.
+
+2) Configure RPC (already added in `foundry.toml`)
+- RPC alias: `coston2` → `https://coston2-api.flare.network/ext/C/rpc`
+- Chain ID: 114
+
+3) Deploy adapter + PSL
+- If deploying to Kinetic, set a valid market address in `packages/foundry/script/DeployPumpkinSpiceLatte.s.sol` by replacing `kineticMarket`.
+- Run:
+```bash
+forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol:DeployPumpkinSpiceLatte \
+  --rpc-url coston2 \
+  --broadcast \
+  --legacy
+```
+
+4) Verify (Blockscout)
+```bash
+forge verify-contract --chain 114 --etherscan-api-key unused \
+  --verifier blockscout --verifier-url https://coston2-explorer.flare.network/api \
+  <DEPLOYED_ADDRESS> packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
+```
+
+5) Frontend
+- Add deployed addresses to `src/contracts/PumpkinSpiceLatte.ts` under key `114`.
+- The UI will then recognize Coston2 and use the Coston2 explorer links.
+
 # Pumpkin Spice Latte PLSA
 
 Welcome to the Pumpkin Spice Latte Prize-Linked Savings Account! This is a decentralized application where users can deposit USDC to earn yield from the Morpho Blue protocol. The accumulated yield is then awarded as a prize to a random depositor in a weekly draw. It's a no-loss savings game: you can always withdraw your principal, and you get a chance to win the prize pool!
@@ -202,6 +236,15 @@ forge verify-contract \
   packages/foundry/src/PumpkinSpiceLatte.sol:PumpkinSpiceLatte
 ```
 
+ONLY FLARE 
+
+```
+forge script packages/foundry/script/DeployPumpkinSpiceLatte.s.sol:DeployPumpkinSpiceLatte \
+  --rpc-url coston2 \
+  --broadcast -vvvv
+```
+
 ```
 forge verify-contract 0x3ecc78c6fea14565affd607bd35b5b8e6dc39778 PumpkinSpiceLatte --etherscan-api-key $TENDERLY_ACCESS_KEY --verifier-url https://virtual.mainnet.us-east.rpc.tenderly.co/420b1805-6a91-4b32-b1c2-d37896a360cb/verify/etherscan --watch
 ```
+
