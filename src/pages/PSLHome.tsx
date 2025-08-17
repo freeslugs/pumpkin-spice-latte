@@ -623,7 +623,7 @@ const PSLHome = () => {
                 }
                 disabled={!isConnected || !isSupportedNetwork || isTryLuckBusy}
                 variant='outline'
-                className='w-full py-3 text-base border-gray-400 text-orange-600 hover:bg-orange-100 rounded-lg'
+                className='w-full py-3 text-base border-gray-400 text-orange-600 hover:bg-orange-100 hover:text-orange-600 rounded-lg'
               >
                 {isTryLuckBusy ? 'Rolling…' : '🍀 Try your luck'}
               </Button>
@@ -634,7 +634,7 @@ const PSLHome = () => {
 
       {/* Action Buttons - Desktop: Below content, Mobile: At bottom */}
       <div className={`${isMobile ? 'p-2 pb-40' : 'pt-12'}`}>
-        <div className={`flex gap-1 ${isMobile ? '' : 'max-w-2xl mx-auto'}`}>
+        <div className={`flex gap-1 ${isMobile ? '' : 'max-w-4xl mx-auto'}`}>
           <div className='flex-1'>
             <Button
               onClick={() => handleActionClick('deposit')}
