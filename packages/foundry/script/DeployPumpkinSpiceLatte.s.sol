@@ -29,8 +29,8 @@ contract DeployPumpkinSpiceLatte is Script {
 		address adapterAddress;
 		if(deployToFlare) {
 			console.log("Deploying Kinetic Adapter");
-			address kineticMarket = vm.envAddress("KINETIC_MARKET");
-			KineticAdapter kinetic = new KineticAdapter(kineticMarket);
+			address kineticMarketAddress = vm.envAddress("KINETIC_MARKET");
+			KineticAdapter kinetic = new KineticAdapter(kineticMarketAddress);
 			adapterAddress = address(kinetic);
 		} else if (deployToFlow) {
 			console.log("Deploying Flow with Lending Adapter");
@@ -118,9 +118,11 @@ contract DeployPumpkinSpiceLatte is Script {
 
 		console.log("=== Deployment Complete ===");
 		console.log("PumpkinSpiceLatte deployed:", address(psl));
-		console.log("Kinetic or Morpho4626Adapter:", adapterAddress);
-		console.log("Random Number Provider:", rngType); // FlareSecureRandomAdapter (Secure VRF) or PseudoRandomAdapter (devnet only)
+		console.log("Lending Adapter:", adapterAddress);
+		console.log("Random Number Provider:", rngType);
 		console.log("RNG Address:", rngAddress);
+		console.log("Base Reward Half-Life:", baseRewardHalfLife);
+		console.log("Half-Life 2:", halfLife2);
 		
 		if (deployToFlare) {
 			console.log("\n=== Flare Network Info ===");
@@ -142,7 +144,7 @@ contract DeployPumpkinSpiceLatte is Script {
 			console.log("Randomness: Pseudo-random (predictable)");
 			console.log("Warning: Not suitable for production use");
 		}
-		console.log("Kinetic or Morpho4626Adapter:", adapterAddress);
+		console.log("Lending Adapter:", adapterAddress);
 		console.log("RNG:", rngAddress);
 	}
 }

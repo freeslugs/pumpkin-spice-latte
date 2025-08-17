@@ -37,14 +37,11 @@ contract TestableFlowRandomAdapter256 is IRandomnessProvider {
         uint64 random2 = _getRevertibleRandom();
         uint64 random3 = _getRevertibleRandom();
         uint64 random4 = _getRevertibleRandom();
-        
+
         // Combine multiple random numbers with salt and block context for maximum entropy
-        return uint256(keccak256(abi.encodePacked(
-            random1, random2, random3, random4, 
-            salt, 
-            block.timestamp, 
-            block.prevrandao
-        )));
+        return uint256(
+            keccak256(abi.encodePacked(random1, random2, random3, random4, salt, block.timestamp, block.prevrandao))
+        );
     }
 
     function getSecureRandomNumber() external view returns (uint64 randomNumber) {
@@ -57,10 +54,8 @@ contract TestableFlowRandomAdapter256 is IRandomnessProvider {
 
     function _getRevertibleRandom() internal view returns (uint64) {
         // Static call to the Cadence Arch contract's revertibleRandom function
-        (bool ok, bytes memory data) = cadenceArch.staticcall(
-            abi.encodeWithSignature("revertibleRandom()")
-        );
-        
+        (bool ok, bytes memory data) = cadenceArch.staticcall(abi.encodeWithSignature("revertibleRandom()"));
+
         // For testing, let the original revert pass through
         if (!ok) {
             assembly {
@@ -68,12 +63,10 @@ contract TestableFlowRandomAdapter256 is IRandomnessProvider {
                 revert(0, returndatasize())
             }
         }
-        
+
         uint64 output = abi.decode(data, (uint64));
         return output;
     }
-
-
 }
 
 contract FlowRandomAdapter256Test is Test {
@@ -84,10 +77,10 @@ contract FlowRandomAdapter256Test is Test {
     function setUp() public {
         // Deploy mock Cadence Arch
         mockCadenceArch = new MockCadenceArch();
-        
+
         // Deploy the real adapter (for interface testing)
         adapter = new FlowRandomAdapter256();
-        
+
         // Deploy the testable adapter with our mock
         testableAdapter = new TestableFlowRandomAdapter256(address(mockCadenceArch));
     }
@@ -95,7 +88,7 @@ contract FlowRandomAdapter256Test is Test {
     function testImplementsIRandomnessProvider() public view {
         // Verify the adapter implements the interface
         IRandomnessProvider provider = IRandomnessProvider(address(adapter));
-        
+
         // This should not revert if the interface is properly implemented
         assertTrue(address(provider) == address(adapter), "Should implement IRandomnessProvider");
     }
@@ -110,12 +103,13 @@ contract FlowRandomAdapter256Test is Test {
 
         // The result should be a hash of multiple mock random numbers, salt, and block context
         // Since we're using the same mock value for all calls, we can predict the result
-        uint256 expected = uint256(keccak256(abi.encodePacked(
-            mockRandom, mockRandom, mockRandom, mockRandom,
-            salt,
-            block.timestamp,
-            block.prevrandao
-        )));
+        uint256 expected = uint256(
+            keccak256(
+                abi.encodePacked(
+                    mockRandom, mockRandom, mockRandom, mockRandom, salt, block.timestamp, block.prevrandao
+                )
+            )
+        );
         assertEq(result, expected, "Random number should match expected hash");
     }
 
@@ -163,7 +157,9 @@ contract FlowRandomAdapter256Test is Test {
 
     function testGetCadenceArchAddress() public view {
         address cadenceArchAddress = adapter.getCadenceArchAddress();
-        assertEq(cadenceArchAddress, 0x0000000000000000000000010000000000000001, "Should return correct Cadence Arch address");
+        assertEq(
+            cadenceArchAddress, 0x0000000000000000000000010000000000000001, "Should return correct Cadence Arch address"
+        );
     }
 
     function testCadenceArchRevert() public {
@@ -187,6 +183,4 @@ contract FlowRandomAdapter256Test is Test {
         vm.expectRevert(); // Expect any revert
         invalidAdapter.randomUint256(salt);
     }
-
-
 }

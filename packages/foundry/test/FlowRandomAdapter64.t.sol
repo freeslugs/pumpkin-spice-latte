@@ -34,13 +34,9 @@ contract TestableFlowRandomAdapter64 is IRandomnessProvider {
     function randomUint256(bytes32 salt) external view returns (uint256) {
         // Get single random number from Cadence Arch for gas efficiency
         uint64 randomNumber = _getRevertibleRandom();
-        
+
         // Mix the random number with salt and block context
-        return uint256(keccak256(abi.encodePacked(
-            randomNumber, 
-            salt, 
-            block.timestamp
-        )));
+        return uint256(keccak256(abi.encodePacked(randomNumber, salt, block.timestamp)));
     }
 
     function getSecureRandomNumber() external view returns (uint64 randomNumber) {
@@ -53,10 +49,8 @@ contract TestableFlowRandomAdapter64 is IRandomnessProvider {
 
     function _getRevertibleRandom() internal view returns (uint64) {
         // Static call to the Cadence Arch contract's revertibleRandom function
-        (bool ok, bytes memory data) = cadenceArch.staticcall(
-            abi.encodeWithSignature("revertibleRandom()")
-        );
-        
+        (bool ok, bytes memory data) = cadenceArch.staticcall(abi.encodeWithSignature("revertibleRandom()"));
+
         // For testing, let the original revert pass through
         if (!ok) {
             assembly {
@@ -64,7 +58,7 @@ contract TestableFlowRandomAdapter64 is IRandomnessProvider {
                 revert(0, returndatasize())
             }
         }
-        
+
         uint64 output = abi.decode(data, (uint64));
         return output;
     }
@@ -78,10 +72,10 @@ contract FlowRandomAdapter64Test is Test {
     function setUp() public {
         // Deploy mock Cadence Arch
         mockCadenceArch = new MockCadenceArch();
-        
+
         // Deploy the real adapter (for interface testing)
         adapter = new FlowRandomAdapter64();
-        
+
         // Deploy the testable adapter with our mock
         testableAdapter = new TestableFlowRandomAdapter64(address(mockCadenceArch));
     }
@@ -89,7 +83,7 @@ contract FlowRandomAdapter64Test is Test {
     function testImplementsIRandomnessProvider() public view {
         // Verify the adapter implements the interface
         IRandomnessProvider provider = IRandomnessProvider(address(adapter));
-        
+
         // This should not revert if the interface is properly implemented
         assertTrue(address(provider) == address(adapter), "Should implement IRandomnessProvider");
     }
@@ -103,11 +97,7 @@ contract FlowRandomAdapter64Test is Test {
         uint256 result = testableAdapter.randomUint256(salt);
 
         // The result should be a hash of the mock random number, salt, and timestamp
-        uint256 expected = uint256(keccak256(abi.encodePacked(
-            mockRandom,
-            salt,
-            block.timestamp
-        )));
+        uint256 expected = uint256(keccak256(abi.encodePacked(mockRandom, salt, block.timestamp)));
         assertEq(result, expected, "Random number should match expected hash");
     }
 
@@ -155,7 +145,9 @@ contract FlowRandomAdapter64Test is Test {
 
     function testGetCadenceArchAddress() public view {
         address cadenceArchAddress = adapter.getCadenceArchAddress();
-        assertEq(cadenceArchAddress, 0x0000000000000000000000010000000000000001, "Should return correct Cadence Arch address");
+        assertEq(
+            cadenceArchAddress, 0x0000000000000000000000010000000000000001, "Should return correct Cadence Arch address"
+        );
     }
 
     function testCadenceArchRevert() public {

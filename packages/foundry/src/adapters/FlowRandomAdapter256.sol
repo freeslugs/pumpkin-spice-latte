@@ -12,7 +12,7 @@ import {IRandomnessProvider} from "../interfaces/IRandomnessProvider.sol";
  */
 contract FlowRandomAdapter256 is IRandomnessProvider {
     // Address of the Cadence Arch contract on Flow EVM
-    address constant public CADENCE_ARCH = 0x0000000000000000000000010000000000000001;
+    address public constant CADENCE_ARCH = 0x0000000000000000000000010000000000000001;
 
     /**
      * @notice Generates a secure random uint256 using Flow's Cadence Arch
@@ -28,15 +28,12 @@ contract FlowRandomAdapter256 is IRandomnessProvider {
         uint64 random2 = _getRevertibleRandom();
         uint64 random3 = _getRevertibleRandom();
         uint64 random4 = _getRevertibleRandom();
-        
+
         // Combine multiple random numbers with salt and block context for maximum entropy
         // This approach provides ~256 bits of entropy (4 * 64 bits) plus additional sources
-        return uint256(keccak256(abi.encodePacked(
-            random1, random2, random3, random4, 
-            salt, 
-            block.timestamp, 
-            block.prevrandao
-        )));
+        return uint256(
+            keccak256(abi.encodePacked(random1, random2, random3, random4, salt, block.timestamp, block.prevrandao))
+        );
     }
 
     /**
@@ -63,12 +60,10 @@ contract FlowRandomAdapter256 is IRandomnessProvider {
      */
     function _getRevertibleRandom() internal view returns (uint64) {
         // Static call to the Cadence Arch contract's revertibleRandom function
-        (bool ok, bytes memory data) = CADENCE_ARCH.staticcall(
-            abi.encodeWithSignature("revertibleRandom()")
-        );
-        
+        (bool ok, bytes memory data) = CADENCE_ARCH.staticcall(abi.encodeWithSignature("revertibleRandom()"));
+
         require(ok, "Failed to fetch random number from Cadence Arch");
-        
+
         uint64 output = abi.decode(data, (uint64));
         return output;
     }
