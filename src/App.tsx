@@ -259,12 +259,12 @@ const App = () => {
                     <Link to='/' className='flex items-center gap-2'>
                       <Logo size={32} iconSize={16} />
                       <div>
-                        <h1 className='text-lg font-bold text-orange-500 leading-tight'>
+                        <h1 className='text-lg font-bold text-orange-500 leading-tight scale-75'>
                           Pumpkin Spice Latte
                         </h1>
                       </div>
                     </Link>
-                    <div className='flex items-center gap-3'>
+                    <div className='flex items-end scale-75'>
                       <ConnectButton label='Connect' />
                     </div>
                   </div>
