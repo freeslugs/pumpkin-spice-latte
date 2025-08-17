@@ -20,9 +20,8 @@ export const CONTRACTS = {
     usdc: '0x203A662b0BD271A6ed5a60EdFbd04bFce608FD36'
   },
   545: { // Flow EVM Testnet
-    // TODO: update after deployment
-    pumpkinSpiceLatte: '0x0000000000000000000000000000000000000000',
-    usdc: '0x0000000000000000000000000000000000000000'
+    pumpkinSpiceLatte: '0x7d12dc1ec75675dafcf0e0651a6bc14a94d6e338',
+    usdc: '0x2aaBea2058b5aC2D339b163C6Ab6f2b6d53aabED'
   },
 } as const;
 
