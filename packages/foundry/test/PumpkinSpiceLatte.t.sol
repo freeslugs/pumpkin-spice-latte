@@ -165,14 +165,15 @@ contract PumpkinSpiceLatteTest is Test {
     address public user1 = makeAddr("user1");
     address public user2 = makeAddr("user2");
 
-    uint256 public constant ROUND_DURATION = 1 days;
+    uint256 public constant BASE_HL = 3600; // 1 hour base half-life
+    uint256 public constant HL2 = 3600; // half-life halves every 1 hour since last winner
 
     function setUp() public {
         weth = new MockERC20("Wrapped Ether", "WETH", 18);
         vault = new MockVault(address(weth));
         adapter = new MockAdapter(address(vault));
         rng = new DeterministicRNG();
-        psl = new PumpkinSpiceLatte(address(adapter), address(rng), ROUND_DURATION);
+        psl = new PumpkinSpiceLatte(address(adapter), address(rng), BASE_HL, HL2);
 
         // Mint some WETH for users
         weth.mint(user1, 100 ether);
@@ -260,10 +261,14 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(psl.totalAssets(), 21 ether);
         assertEq(psl.prizePool(), 1 ether);
 
-        // Fast forward time to the next round
-        vm.warp(block.timestamp + ROUND_DURATION + 1);
+        // Initially, drawing immediately should have 0% chance (n=0)
+        psl.awardPrize();
+        assertEq(psl.lastPrizeAmount(), 0, "No prize should be awarded immediately");
 
-        // Award the prize
+        // Fast forward enough time so threshold saturates to win (n >= 256)
+        vm.warp(block.timestamp + 12 days);
+
+        // Attempt award again; with saturated threshold, it should award
         psl.awardPrize();
 
         address winner = psl.lastWinner();
@@ -275,8 +280,36 @@ contract PumpkinSpiceLatteTest is Test {
         assertEq(weth.balanceOf(winner), 90 ether, "Winner's external token balance should be unchanged");
         // Winner's principal balance is credited with the prize
         assertEq(psl.balanceOf(winner), 10 ether + prizeAmount, "Winner's principal should increase by prize");
-        assertEq(psl.nextRoundTimestamp(), block.timestamp + ROUND_DURATION, "Next round timestamp should be reset");
         // Principal remains fully represented in totalAssets
         assertEq(psl.totalAssets(), psl.totalPrincipal(), "Principal should remain supplied after prize");
+    }
+
+    function testNoAwardWithoutYieldEvenIfThresholdPasses() public {
+        // User1 deposits
+        vm.startPrank(user1);
+        weth.approve(address(psl), 10 ether);
+        psl.deposit(10 ether);
+        vm.stopPrank();
+
+        // Warp far so threshold should pass
+        vm.warp(block.timestamp + 300);
+        // prizePool is zero since no yield; awardPrize should no-op
+        psl.awardPrize();
+        assertEq(psl.lastPrizeAmount(), 0, "No prize amount should be set when no yield");
+        assertEq(psl.totalAssets(), psl.totalPrincipal(), "Assets should equal principal");
+    }
+
+    function testSmoothThresholdBeforeFirstHalfLifeHasPositiveChance() public {
+        // Set a large base half-life and very large halfLife2 so effective half-life ~ constant
+        psl.setHalfLifeParams(1000, type(uint256).max);
+
+        // Immediately after deployment, chance is 0 (elapsed = 0)
+        assertEq(psl.currentWinThreshold(), 0);
+
+        // After a small elapsed time (< half-life), chance should be > 0 but < max
+        vm.warp(block.timestamp + 1);
+        uint256 t = psl.currentWinThreshold();
+        assertGt(t, 0, "Threshold should be > 0 before first full half-life has elapsed");
+        assertLt(t, type(uint256).max, "Threshold should be < max before many half-lives");
     }
 }
