@@ -1,5 +1,10 @@
 import React, { useMemo, useRef, useState, useEffect } from 'react';
-import { useReadContract, useAccount, useWriteContract, useWaitForTransactionReceipt } from 'wagmi';
+import {
+  useReadContract,
+  useAccount,
+  useWriteContract,
+  useWaitForTransactionReceipt,
+} from 'wagmi';
 import { motion, AnimatePresence } from 'framer-motion';
 import {
   pumpkinSpiceLatteAddress,
@@ -34,10 +39,18 @@ const PSLHome = () => {
   );
   const [amount, setAmount] = useState('');
   const [isProcessing, setIsProcessing] = useState(false);
-  const [approvalHash, setApprovalHash] = useState<`0x${string}` | undefined>(undefined);
-  const [depositHash, setDepositHash] = useState<`0x${string}` | undefined>(undefined);
-  const [withdrawHash, setWithdrawHash] = useState<`0x${string}` | undefined>(undefined);
-  const [pendingDepositAmount, setPendingDepositAmount] = useState<bigint | undefined>(undefined);
+  const [approvalHash, setApprovalHash] = useState<`0x${string}` | undefined>(
+    undefined
+  );
+  const [depositHash, setDepositHash] = useState<`0x${string}` | undefined>(
+    undefined
+  );
+  const [withdrawHash, setWithdrawHash] = useState<`0x${string}` | undefined>(
+    undefined
+  );
+  const [pendingDepositAmount, setPendingDepositAmount] = useState<
+    bigint | undefined
+  >(undefined);
   const autoDepositTriggeredRef = useRef(false);
   const amountInputRef = useRef<HTMLInputElement | null>(null);
 
@@ -117,24 +130,43 @@ const PSLHome = () => {
 
   const parsedAmount: bigint = useMemo(() => {
     if (!amount || Number(amount) <= 0) return 0n;
-    try { return parseUnits(amount, 6); } catch { return 0n; }
+    try {
+      return parseUnits(amount, 6);
+    } catch {
+      return 0n;
+    }
   }, [amount]);
 
   const walletUSDCDisplay = useMemo(() => {
-    try { return parseFloat(formatUnits(walletBalance as bigint, 6)); } catch { return 0; }
+    try {
+      return parseFloat(formatUnits(walletBalance as bigint, 6));
+    } catch {
+      return 0;
+    }
   }, [walletBalance]);
 
   const { writeContract: approve, isPending: isApproving } = useWriteContract({
     onSuccess: (hash: `0x${string}`) => {
       setApprovalHash(hash);
-      toast({ title: 'Approval submitted', description: 'Waiting for confirmation...' });
+      toast({
+        title: 'Approval submitted',
+        description: 'Waiting for confirmation...',
+      });
     },
     onError: (error) => {
-      toast({ title: 'Approval Failed', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Approval Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
     },
   } as any);
 
-  const { isLoading: isConfirmingApproval, isSuccess: isApprovalConfirmed, error: approvalError } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isConfirmingApproval,
+    isSuccess: isApprovalConfirmed,
+    error: approvalError,
+  } = useWaitForTransactionReceipt({
     chainId: targetChainId,
     hash: approvalHash,
     confirmations: 1,
@@ -144,32 +176,55 @@ const PSLHome = () => {
   const { writeContract: deposit, isPending: isDepositing } = useWriteContract({
     onSuccess: (hash: `0x${string}`) => {
       setDepositHash(hash);
-      toast({ title: 'Deposit submitted', description: 'Waiting for confirmation...' });
+      toast({
+        title: 'Deposit submitted',
+        description: 'Waiting for confirmation...',
+      });
     },
     onError: (error) => {
-      toast({ title: 'Deposit Failed', description: error.message, variant: 'destructive' });
+      toast({
+        title: 'Deposit Failed',
+        description: error.message,
+        variant: 'destructive',
+      });
       autoDepositTriggeredRef.current = false;
     },
   } as any);
 
-  const { isLoading: isConfirmingDeposit, isSuccess: isDepositConfirmed, error: depositError } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isConfirmingDeposit,
+    isSuccess: isDepositConfirmed,
+    error: depositError,
+  } = useWaitForTransactionReceipt({
     chainId: targetChainId,
     hash: depositHash,
     confirmations: 1,
     query: { enabled: Boolean(depositHash), refetchInterval: 1000 },
   } as any);
 
-  const { writeContract: withdraw, isPending: isWithdrawing } = useWriteContract({
-    onSuccess: (hash: `0x${string}`) => {
-      setWithdrawHash(hash);
-      toast({ title: 'Withdrawal submitted', description: 'Waiting for confirmation...' });
-    },
-    onError: (error) => {
-      toast({ title: 'Withdrawal Failed', description: error.message, variant: 'destructive' });
-    },
-  } as any);
+  const { writeContract: withdraw, isPending: isWithdrawing } =
+    useWriteContract({
+      onSuccess: (hash: `0x${string}`) => {
+        setWithdrawHash(hash);
+        toast({
+          title: 'Withdrawal submitted',
+          description: 'Waiting for confirmation...',
+        });
+      },
+      onError: (error) => {
+        toast({
+          title: 'Withdrawal Failed',
+          description: error.message,
+          variant: 'destructive',
+        });
+      },
+    } as any);
 
-  const { isLoading: isConfirmingWithdraw, isSuccess: isWithdrawConfirmed, error: withdrawError } = useWaitForTransactionReceipt({
+  const {
+    isLoading: isConfirmingWithdraw,
+    isSuccess: isWithdrawConfirmed,
+    error: withdrawError,
+  } = useWaitForTransactionReceipt({
     chainId: targetChainId,
     hash: withdrawHash,
     confirmations: 1,
@@ -178,32 +233,59 @@ const PSLHome = () => {
 
   useEffect(() => {
     if (approvalError) {
-      toast({ title: 'Approval Error', description: approvalError.message, variant: 'destructive' });
+      toast({
+        title: 'Approval Error',
+        description: approvalError.message,
+        variant: 'destructive',
+      });
     }
   }, [approvalError, toast]);
 
   useEffect(() => {
     if (depositError) {
-      toast({ title: 'Deposit Error', description: depositError.message, variant: 'destructive' });
+      toast({
+        title: 'Deposit Error',
+        description: depositError.message,
+        variant: 'destructive',
+      });
     }
   }, [depositError, toast]);
 
   useEffect(() => {
     if (withdrawError) {
-      toast({ title: 'Withdrawal Error', description: withdrawError.message, variant: 'destructive' });
+      toast({
+        title: 'Withdrawal Error',
+        description: withdrawError.message,
+        variant: 'destructive',
+      });
     }
   }, [withdrawError, toast]);
 
   useEffect(() => {
     if (isApprovalConfirmed) {
       refetchAllowance();
-      if (!autoDepositTriggeredRef.current && pendingDepositAmount && isAddress(contractAddress)) {
+      if (
+        !autoDepositTriggeredRef.current &&
+        pendingDepositAmount &&
+        isAddress(contractAddress)
+      ) {
         autoDepositTriggeredRef.current = true;
-        deposit({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'deposit', args: [pendingDepositAmount] });
+        deposit({
+          address: contractAddress,
+          abi: pumpkinSpiceLatteAbi,
+          functionName: 'deposit',
+          args: [pendingDepositAmount],
+        });
       }
       setApprovalHash(undefined);
     }
-  }, [isApprovalConfirmed, pendingDepositAmount, contractAddress, deposit, refetchAllowance]);
+  }, [
+    isApprovalConfirmed,
+    pendingDepositAmount,
+    contractAddress,
+    deposit,
+    refetchAllowance,
+  ]);
 
   // Poll allowance while waiting for approval indexers – auto deposit when ready
   useEffect(() => {
@@ -212,12 +294,20 @@ const PSLHome = () => {
 
     const intervalId = setInterval(async () => {
       try {
-        const result = await (refetchAllowance() as unknown as Promise<{ data?: bigint } | undefined>);
-        const latestAllowance = (result && result.data !== undefined) ? result.data! : allowance;
+        const result = await (refetchAllowance() as unknown as Promise<
+          { data?: bigint } | undefined
+        >);
+        const latestAllowance =
+          result && result.data !== undefined ? result.data! : allowance;
         if (latestAllowance >= pendingDepositAmount) {
           if (!autoDepositTriggeredRef.current && isAddress(contractAddress)) {
             autoDepositTriggeredRef.current = true;
-            deposit({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'deposit', args: [pendingDepositAmount] });
+            deposit({
+              address: contractAddress,
+              abi: pumpkinSpiceLatteAbi,
+              functionName: 'deposit',
+              args: [pendingDepositAmount],
+            });
           }
           clearInterval(intervalId);
         }
@@ -227,11 +317,23 @@ const PSLHome = () => {
     }, 1000);
 
     return () => clearInterval(intervalId);
-  }, [isConnected, address, isSupportedNetwork, pendingDepositAmount, refetchAllowance, allowance, contractAddress, deposit]);
+  }, [
+    isConnected,
+    address,
+    isSupportedNetwork,
+    pendingDepositAmount,
+    refetchAllowance,
+    allowance,
+    contractAddress,
+    deposit,
+  ]);
 
   useEffect(() => {
     if (isDepositConfirmed) {
-      toast({ title: 'Deposit Successful', description: 'Your USDC has been deposited.' });
+      toast({
+        title: 'Deposit Successful',
+        description: 'Your USDC has been deposited.',
+      });
       setAmount('');
       setDepositHash(undefined);
       setPendingDepositAmount(undefined);
@@ -242,7 +344,10 @@ const PSLHome = () => {
 
   useEffect(() => {
     if (isWithdrawConfirmed) {
-      toast({ title: 'Withdrawal Successful', description: 'Your USDC has been withdrawn.' });
+      toast({
+        title: 'Withdrawal Successful',
+        description: 'Your USDC has been withdrawn.',
+      });
       setAmount('');
       setWithdrawHash(undefined);
     }
@@ -272,7 +377,8 @@ const PSLHome = () => {
   };
 
   const handleConfirm = async () => {
-    if (!isConnected || !isSupportedNetwork || !isAddress(contractAddress)) return;
+    if (!isConnected || !isSupportedNetwork || !isAddress(contractAddress))
+      return;
     if (parsedAmount === 0n) return;
 
     setIsProcessing(true);
@@ -282,14 +388,29 @@ const PSLHome = () => {
         if (allowance < parsedAmount) {
           setPendingDepositAmount(parsedAmount);
           autoDepositTriggeredRef.current = false;
-          approve({ address: currentTokenAddress, abi: usdcAbi, functionName: 'approve', args: [contractAddress, parsedAmount] });
+          approve({
+            address: currentTokenAddress,
+            abi: usdcAbi,
+            functionName: 'approve',
+            args: [contractAddress, parsedAmount],
+          });
         } else {
           setPendingDepositAmount(undefined);
-          deposit({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'deposit', args: [parsedAmount] });
+          deposit({
+            address: contractAddress,
+            abi: pumpkinSpiceLatteAbi,
+            functionName: 'deposit',
+            args: [parsedAmount],
+          });
         }
       } else {
         // withdraw
-        withdraw({ address: contractAddress, abi: pumpkinSpiceLatteAbi, functionName: 'withdraw', args: [parsedAmount] });
+        withdraw({
+          address: contractAddress,
+          abi: pumpkinSpiceLatteAbi,
+          functionName: 'withdraw',
+          args: [parsedAmount],
+        });
       }
     } finally {
       setIsProcessing(false);
@@ -298,7 +419,13 @@ const PSLHome = () => {
 
   const isAmountValid = amount && parseFloat(amount) > 0;
   const canWithdraw = parseFloat(amount) <= userPSLBalance;
-  const isBusy = isApproving || isDepositing || isConfirmingApproval || isConfirmingDeposit || isWithdrawing || isConfirmingWithdraw;
+  const isBusy =
+    isApproving ||
+    isDepositing ||
+    isConfirmingApproval ||
+    isConfirmingDeposit ||
+    isWithdrawing ||
+    isConfirmingWithdraw;
 
   return (
     <div className={`${isMobile ? 'min-h-screen' : 'h-full'} flex flex-col`}>
@@ -377,8 +504,8 @@ const PSLHome = () => {
       </div>
 
       {/* Action Buttons - Desktop: Below content, Mobile: At bottom */}
-      <div className={`${isMobile ? 'p-4 pb-40' : 'pt-12'}`}>
-        <div className={`flex gap-4 ${isMobile ? '' : 'max-w-2xl mx-auto'}`}>
+      <div className={`${isMobile ? 'p-2 pb-40' : 'pt-12'}`}>
+        <div className={`flex gap-1 ${isMobile ? '' : 'max-w-2xl mx-auto'}`}>
           <div className='flex-1'>
             <Button
               onClick={() => handleActionClick('deposit')}
@@ -392,7 +519,7 @@ const PSLHome = () => {
             <Button
               onClick={() => handleActionClick('withdraw')}
               variant='outline'
-              className='w-full h-20 text-lg font-bold border-2 border-orange-400 text-orange-500 hover:bg-orange-50 rounded-xl'
+              className='w-full h-20 text-lg border border-orange-400 text-orange-500 hover:bg-orange-100 rounded-xl'
             >
               💰 Withdraw
             </Button>
@@ -456,32 +583,17 @@ const PSLHome = () => {
                   <div>
                     <Input
                       type='number'
-                      placeholder='0.00'
+                      placeholder='0'
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       ref={amountInputRef}
-                      className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                      className='text-4xl font-bold text-left h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
                     />
                   </div>
                 </div>
 
                 {/* Info Cards */}
                 <div className='space-y-3'>
-                  {activeAction === 'deposit' && (
-                    <div className='p-4 rounded-lg bg-blue-50 border border-blue-200'>
-                      <div className='flex items-center gap-2 mb-2'>
-                        <span className='text-blue-600'>💡</span>
-                        <span className='text-sm font-medium text-blue-800'>
-                          Deposit Info
-                        </span>
-                      </div>
-                      <p className='text-sm text-blue-700'>
-                        Each USDC gives you 1 lottery ticket. Your principal is
-                        safe and can be withdrawn anytime.
-                      </p>
-                    </div>
-                  )}
-
                   {activeAction === 'withdraw' && (
                     <div className='p-4 rounded-lg bg-green-50 border border-green-200'>
                       <div className='flex items-center gap-2 mb-2'>
@@ -577,32 +689,17 @@ const PSLHome = () => {
                 <div>
                   <Input
                     type='number'
-                    placeholder='0.00'
+                    placeholder='0'
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     ref={amountInputRef}
-                    className='text-2xl font-bold text-center h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                    className='text-4xl font-bold text-left h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
                   />
                 </div>
               </div>
 
               {/* Info Cards */}
               <div className='space-y-3'>
-                {activeAction === 'deposit' && (
-                  <div className='p-4 rounded-lg bg-blue-50 border border-blue-200'>
-                    <div className='flex items-center gap-2 mb-2'>
-                      <span className='text-blue-600'>💡</span>
-                      <span className='text-sm font-medium text-blue-800'>
-                        Deposit Info
-                      </span>
-                    </div>
-                    <p className='text-sm text-blue-700'>
-                      Each USDC gives you 1 lottery ticket. Your principal is
-                      safe and can be withdrawn anytime.
-                    </p>
-                  </div>
-                )}
-
                 {activeAction === 'withdraw' && (
                   <div className='p-4 rounded-lg bg-green-50 border border-green-200'>
                     <div className='flex items-center gap-2 mb-2'>
