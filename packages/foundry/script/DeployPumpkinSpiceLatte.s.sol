@@ -23,8 +23,8 @@ contract DeployPumpkinSpiceLatte is Script {
 		bool deployToFlow = vm.envBool("DEPLOY_FLOW");
 		bool useFlow64 = vm.envBool("FLOW_64");
 
-		uint256 deployerPrivateKey = vm.envUint("PRIVATE_KEY");
-		vm.startBroadcast(deployerPrivateKey);
+		// Use the private key from the broadcast context instead of environment variable
+		vm.startBroadcast();
 
 		address adapterAddress;
 		if(deployToFlare) {

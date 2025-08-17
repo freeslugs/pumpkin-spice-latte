@@ -28,12 +28,15 @@ coston2 = "https://coston2-api.flare.network/ext/C/rpc"
 
 # Flow EVM Testnet
 flowevm_testnet = "https://testnet.evm.nodes.onflow.org"
+# Flow EVM Mainnet
+flowevm_mainnet = "https://mainnet.evm.nodes.onflow.org"
 
 [profile.chains]
 mainnet = 1
 sepolia = 11155111
 coston2 = 114
 flowevm_testnet = 545
+flowevm_mainnet = 747
 
 # Etherscan API keys for contract verification
 [etherscan]
@@ -44,8 +47,44 @@ sepolia = { key = "${ETHERSCAN_API_KEY}" }
 coston2 = { key = "unused", url = "https://coston2-explorer.flare.network/api" }
 
 # Flow EVM Testnet explorer is Blockscout-style
-flowevm_testnet = { key = "unused", url = "https://evm-testnet.flowscan.io/api" }
+flowevm_testnet = { key = "unused", url = "https://evm-testnet.flowscan.io/api", chain = 545 }
+# Flow EVM Mainnet explorer is Blockscout-style
+flowevm_mainnet = { key = "unused", url = "https://evm.flowscan.io/api", chain = 747 }
 
-# Verification settings
-[profile.default.verifier]
-etherscan = { key = "${ETHERSCAN_API_KEY}" }
+# Flow EVM Testnet specific profile
+[profile.flowevm_testnet]
+src = "packages/foundry/src"
+out = "packages/foundry/out"
+libs = ["node_modules", "lib", "packages/foundry/lib"]
+remappings = [
+    "@flarenetwork/flare-periphery-contracts/=node_modules/@flarenetwork/flare-periphery-contracts/"
+]
+test = "packages/foundry/test"
+eth_rpc_url = "https://testnet.evm.nodes.onflow.org"
+fork_url = "https://testnet.evm.nodes.onflow.org"
+cbor_metadata = true
+evm_version = "paris"
+chain_id = 545
+# Disable verification for Flow EVM testnet
+verifier = { url = "https://evm-testnet.flowscan.io/api" }
+
+# Flow EVM Mainnet specific profile
+[profile.flowevm_mainnet]
+src = "packages/foundry/src"
+out = "packages/foundry/out"
+libs = ["node_modules", "lib", "packages/foundry/lib"]
+remappings = [
+    "@flarenetwork/flare-periphery-contracts/=node_modules/@flarenetwork/flare-periphery-contracts/"
+]
+test = "packages/foundry/test"
+eth_rpc_url = "https://mainnet.evm.nodes.onflow.org"
+fork_url = "https://mainnet.evm.nodes.onflow.org"
+cbor_metadata = true
+evm_version = "paris"
+chain_id = 747
+# Disable verification for Flow EVM mainnet
+verifier = { url = "https://evm.flowscan.io/api" }
+
+# Verification settings - commented out to avoid verification issues
+# [profile.default.verifier]
+# etherscan = { key = "${ETHERSCAN_API_KEY}" }
