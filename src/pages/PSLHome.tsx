@@ -87,7 +87,7 @@ const PSLHome = () => {
 
   // Mock data for yield and countdown
   const yieldPercentage = '2.5';
-  const countdown = '3d 12h 45m';
+  const nextDrawProbability = '23';
 
   // Wallet allowance and balance for USDC
   const contractAddressHex = contractAddress as `0x${string}`;
@@ -366,10 +366,10 @@ const PSLHome = () => {
             <div className='flex items-center gap-2'>
               <span className='text-xl'>⏰</span>
               <span className='text-sm text-muted-foreground'>
-                Next Lottery Draw
+                Probability of next drawing ...
               </span>
               <span className='text-lg font-bold text-orange-600 ml-auto'>
-                {countdown}
+                {nextDrawProbability}%
               </span>
             </div>
           </div>
