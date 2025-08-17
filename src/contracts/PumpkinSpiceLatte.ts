@@ -12,8 +12,7 @@ export const CONTRACTS = {
   },
   114: { // Flare testnet (Coston2)
     // Deployed PSL + underlying from Kinetic market
-    // pumpkinSpiceLatte: '0x31dfABd671f8d60177E6717eF599C5b8CCbD07f5', // old
-    pumpkinSpiceLatte: '0x61B002F9E3Df79Cc6A9c69529067FC8219e0C094', // new 
+    pumpkinSpiceLatte: '0xf94d594A61358761FAcDCe77E5Ff4303dad12a49',
     usdc: '0xCe987892D5AD2990b8279e8F76530CfF72977666'
   }
   ,
@@ -46,6 +45,14 @@ export const pumpkinSpiceLatteAbi = [
       { indexed: false, internalType: 'uint256', name: 'amount', type: 'uint256' }
     ],
     name: 'PrizeAwarded',
+    type: 'event'
+  },
+  {
+    anonymous: false,
+    inputs: [
+      { indexed: true, internalType: 'address', name: 'caller', type: 'address' }
+    ],
+    name: 'PrizeNotAwarded',
     type: 'event'
   },
   {
@@ -89,6 +96,10 @@ export const pumpkinSpiceLatteAbi = [
   { inputs: [], name: 'totalPrincipal', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'vaultShares', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   { inputs: [], name: 'owner', outputs: [{ internalType: 'address', name: '', type: 'address' }], stateMutability: 'view', type: 'function' },
+  // New probability/threshold views
+  { inputs: [], name: 'currentWinProbability', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'currentWinThreshold', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
+  { inputs: [], name: 'currentEffectiveHalfLife', outputs: [{ internalType: 'uint256', name: '', type: 'uint256' }], stateMutability: 'view', type: 'function' },
   // Write Functions
   { inputs: [], name: 'awardPrize', outputs: [], stateMutability: 'nonpayable', type: 'function' },
   { inputs: [{ internalType: 'uint256', name: '_amount', type: 'uint256' }], name: 'deposit', outputs: [], stateMutability: 'nonpayable', type: 'function' },

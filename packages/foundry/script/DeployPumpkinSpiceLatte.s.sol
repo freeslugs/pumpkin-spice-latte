@@ -10,13 +10,14 @@ import {MoreMarketsAdapter} from "../src/adapters/MoreMarketsAdapter.sol";
 import {FlareSecureRandomAdapter} from "../src/adapters/FlareSecureRandomAdapter.sol";
 import {FlowRandomAdapter256} from "../src/adapters/FlowRandomAdapter256.sol";
 import {FlowRandomAdapter64} from "../src/adapters/FlowRandomAdapter64.sol";
-import {KineticAdapter} from "../src/adapters/KineticAdapter.sol";
 
 contract DeployPumpkinSpiceLatte is Script {
 	function run() external {
 		// Config
-		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // default: ERC4626 vault (override with VAULT_ADDRESS)
-		uint256 roundDuration = 300; // 5 minutes
+		address vaultAddress = 0xd63070114470f685b75B74D60EEc7c1113d33a3D; // mainnet vault
+		address kineticMarket = 0xC23B7fbE7CdAb4bf524b8eA72a7462c8879A99Ac; // KUSDCe
+		uint256 baseRewardHalfLife = 3600; // 1 hour
+		uint256 halfLife2 = 3600; // every hour since last winner, halve the half-life
 
 		bool deployToFlare = vm.envBool("DEPLOY_FLARE");
 		bool deployToFlow = vm.envBool("DEPLOY_FLOW");
@@ -109,7 +110,8 @@ contract DeployPumpkinSpiceLatte is Script {
 		PumpkinSpiceLatte psl = new PumpkinSpiceLatte(
 			adapterAddress,
 			rngAddress,
-			roundDuration
+			baseRewardHalfLife,
+			halfLife2
 		);
 
 		vm.stopBroadcast();

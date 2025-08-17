@@ -5,6 +5,7 @@ import {IERC20} from "@openzeppelin/contracts/token/ERC20/IERC20.sol";
 import {Ownable} from "@openzeppelin/contracts/access/Ownable.sol";
 import {ILendingAdapter} from "./interfaces/ILendingAdapter.sol";
 import {IRandomnessProvider} from "./interfaces/IRandomnessProvider.sol";
+import {Math} from "@openzeppelin/contracts/utils/math/Math.sol";
 
 /**
  * @title PumpkinSpiceLatte
@@ -26,11 +27,18 @@ contract PumpkinSpiceLatte is Ownable {
     /// @dev Randomness provider adapter.
     IRandomnessProvider public randomnessProvider;
 
-    /// @dev The duration of each prize round in seconds.
-    uint256 public roundDuration;
+    /// @dev Timestamp of the last drawing attempt (successful or not).
+    uint256 public timestampLastDrawing;
 
-    /// @dev The timestamp when the next prize round ends.
-    uint256 public nextRoundTimestamp;
+    /// @dev Timestamp when a winner was last selected.
+    uint256 public timestampLastWinner;
+
+    /// @dev Base reward half-life (in seconds). After this time since the last drawing, base chance is 50%.
+    uint256 public baseRewardHalfLife;
+
+    /// @dev Half-life of the half-life. After every `halfLife2` elapsed since the last winner,
+    ///      the effective half-life is cut in half.
+    uint256 public halfLife2;
 
     /// @dev The total principal amount deposited by all users. This should only
     //      increase on deposit and decrease on withdraw.
@@ -61,20 +69,26 @@ contract PumpkinSpiceLatte is Ownable {
     event Deposited(address indexed user, uint256 amount);
     event Withdrawn(address indexed user, uint256 amount);
     event PrizeAwarded(address indexed winner, uint256 amount);
-    event RoundDurationUpdated(uint256 oldDuration, uint256 newDuration);
+    event PrizeNotAwarded(address indexed caller);
     event RandomnessProviderUpdated(address indexed newProvider);
+    event HalfLifeParamsUpdated(uint256 baseRewardHalfLife, uint256 halfLife2);
 
     //-//////////////////////////////////////////////////////////
     //                        CONSTRUCTOR
     //-//////////////////////////////////////////////////////////
 
-    constructor(address _adapter, address _randomnessProvider, uint256 _roundDuration) Ownable(msg.sender) {
+    constructor(address _adapter, address _randomnessProvider, uint256 _baseRewardHalfLife, uint256 _halfLife2)
+        Ownable(msg.sender)
+    {
         ASSET = ILendingAdapter(_adapter).asset();
         LENDING_ADAPTER = ILendingAdapter(_adapter);
         randomnessProvider = IRandomnessProvider(_randomnessProvider);
-        require(_roundDuration > 0, "Duration must be > 0");
-        roundDuration = _roundDuration;
-        nextRoundTimestamp = block.timestamp + _roundDuration;
+        require(_baseRewardHalfLife > 0, "baseRewardHalfLife must be > 0");
+        require(_halfLife2 > 0, "halfLife2 must be > 0");
+        baseRewardHalfLife = _baseRewardHalfLife;
+        halfLife2 = _halfLife2;
+        timestampLastDrawing = block.timestamp;
+        timestampLastWinner = block.timestamp;
     }
 
     //-//////////////////////////////////////////////////////////
@@ -144,18 +158,33 @@ contract PumpkinSpiceLatte is Ownable {
     //-//////////////////////////////////////////////////////////
 
     /**
-     * @notice Calculates the total yield generated and awards it to a random depositor.
-     * @dev Can be called by anyone after the `nextRoundTimestamp` has passed.
+     * @notice Attempts to award the current prize pool to a random depositor based on a time-decaying threshold.
+     * @dev Can be called at any time. If the random draw does not pass the threshold, no prize is awarded.
      */
     function awardPrize() external {
-        require(block.timestamp >= nextRoundTimestamp, "Round not finished");
-        require(depositors.length > 0, "No depositors");
+        require(depositors.length > 0, "No depositors available");
+
+        // Draw a random number once and reuse it for threshold decision and winner selection
+        uint256 r = randomnessProvider.randomUint256(bytes32(depositors.length));
+
+        // Compute deterministic, smoothly interpolated threshold
+        uint256 threshold = _currentWinThreshold();
+
+        if (r >= threshold) {
+            // Did not pass threshold; update last drawing timestamp and exit
+            timestampLastDrawing = block.timestamp;
+            emit PrizeNotAwarded(msg.sender);
+            return;
+        }
 
         uint256 prize = prizePool();
-        require(prize > 0, "No prize to award");
+        if (prize == 0) {
+            // Nothing to award; do not revert to allow spammable calls
+            return;
+        }
 
-        // Random selection via adapter
-        uint256 idx = randomnessProvider.randomUint256(bytes32(depositors.length)) % depositors.length;
+        // Select winner using the same random draw
+        uint256 idx = r % depositors.length;
         address winner = depositors[idx];
 
         // Credit the winner's principal balance with the prize, keeping assets in the adapter
@@ -164,31 +193,30 @@ contract PumpkinSpiceLatte is Ownable {
 
         lastWinner = winner;
         lastPrizeAmount = prize;
-        nextRoundTimestamp = block.timestamp + roundDuration;
+        timestampLastWinner = block.timestamp;
 
         emit PrizeAwarded(winner, prize);
+
+        // Update last drawing timestamp after a successful draw as well
+        timestampLastDrawing = block.timestamp;
     }
 
     //-//////////////////////////////////////////////////////////
     //                    OWNER-ONLY FUNCTIONS
     //-//////////////////////////////////////////////////////////
 
-    /**
-     * @notice Updates the round duration. Only callable by the contract owner.
-     * @param _roundDuration The new round duration in seconds. Must be greater than zero.
-     * @dev This change applies to future rounds. The current `nextRoundTimestamp` is not modified.
-     */
-    function setRoundDuration(uint256 _roundDuration) external onlyOwner {
-        require(_roundDuration > 0, "Duration must be > 0");
-        uint256 old = roundDuration;
-        roundDuration = _roundDuration;
-        emit RoundDurationUpdated(old, _roundDuration);
-    }
-
     function setRandomnessProvider(address _provider) external onlyOwner {
         require(_provider != address(0), "Invalid provider");
         randomnessProvider = IRandomnessProvider(_provider);
         emit RandomnessProviderUpdated(_provider);
+    }
+
+    function setHalfLifeParams(uint256 _baseRewardHalfLife, uint256 _halfLife2) external onlyOwner {
+        require(_baseRewardHalfLife > 0, "baseRewardHalfLife must be > 0");
+        require(_halfLife2 > 0, "halfLife2 must be > 0");
+        baseRewardHalfLife = _baseRewardHalfLife;
+        halfLife2 = _halfLife2;
+        emit HalfLifeParamsUpdated(_baseRewardHalfLife, _halfLife2);
     }
 
     //-//////////////////////////////////////////////////////////
@@ -247,5 +275,73 @@ contract PumpkinSpiceLatte is Ownable {
     // Back-compat: expose a vault() view that returns the adapter address
     function vault() external view returns (address) {
         return address(LENDING_ADAPTER);
+    }
+
+    /// @notice Returns the current effective half-life after accounting for time since last winner.
+    function currentEffectiveHalfLife() external view returns (uint256) {
+        return _effectiveHalfLife();
+    }
+
+    /// @notice Returns the current win probability as a WAD (1e18 precision).
+    /// @dev Probability p is computed from the current threshold T as p = T / 2^256.
+    function currentWinProbability() external view returns (uint256) {
+        uint256 threshold = _currentWinThreshold();
+        return Math.mulDiv(threshold, 1e18, type(uint256).max);
+    }
+
+    /// @notice Returns the current threshold used to determine whether a prize is awarded.
+    function currentWinThreshold() external view returns (uint256) {
+        return _currentWinThreshold();
+    }
+
+    //-//////////////////////////////////////////////////////////
+    //                      INTERNAL VIEWS
+    //-//////////////////////////////////////////////////////////
+
+    function _effectiveHalfLife() internal view returns (uint256) {
+        // Decrease half-life over time since the last winner, halving every `halfLife2`
+        uint256 sinceWinner = block.timestamp - timestampLastWinner;
+        uint256 halves = sinceWinner / halfLife2;
+        if (halves > 255) halves = 255; // avoid oversized shifts
+        uint256 hl = baseRewardHalfLife >> halves;
+        if (hl == 0) hl = 1; // clamp to at least 1 to avoid division by zero
+        return hl;
+    }
+
+    function _currentWinThreshold() internal view returns (uint256) {
+        uint256 hl = _effectiveHalfLife();
+        uint256 elapsed = block.timestamp - timestampLastDrawing;
+        uint256 n = elapsed / hl; // number of completed half-lives
+        uint256 rem = elapsed % hl; // remainder within the current half-life
+
+        if (n >= 256) {
+            return type(uint256).max; // effectively guaranteed win
+        }
+
+        // t0 = threshold at integer n
+        uint256 t0;
+        if (n == 0) {
+            t0 = 0;
+        } else {
+            uint256 pow0 = uint256(1) << (256 - n);
+            unchecked {
+                t0 = type(uint256).max - (pow0 - 1);
+            }
+        }
+
+        // If exactly on boundary, no interpolation
+        if (rem == 0) {
+            return t0;
+        }
+
+        // t1 - t0 = 2^(256 - (n + 1))
+        uint256 pow1 = uint256(1) << (256 - (n + 1));
+        uint256 delta = pow1;
+
+        // Interpolate: threshold = t0 + delta * rem / hl
+        uint256 interp = Math.mulDiv(delta, rem, hl);
+        unchecked {
+            return t0 + interp;
+        }
     }
 }
