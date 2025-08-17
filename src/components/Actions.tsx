@@ -36,6 +36,7 @@ const Actions = () => {
     abi: usdcAbi,
     functionName: 'allowance',
     args: [address, contractAddress],
+    chainId: chain?.id,
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
       refetchInterval: 30000,
@@ -47,6 +48,7 @@ const Actions = () => {
     abi: usdcAbi,
     functionName: 'balanceOf',
     args: [address],
+    chainId: chain?.id,
     query: {
       enabled: isConnected && !!address && !!isSupportedNetwork,
       refetchInterval: 30000,
