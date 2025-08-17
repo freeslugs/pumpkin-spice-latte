@@ -29,11 +29,7 @@ contract FlareSecureRandomAdapter is IRandomnessProvider {
      */
     function randomUint256(bytes32 salt) external view returns (uint256) {
         // Get the current random number and its properties
-        (
-            uint256 randomNumber,
-            bool isSecureRandom,
-            uint256 randomTimestamp
-        ) = randomV2.getRandomNumber();
+        (uint256 randomNumber, bool isSecureRandom, uint256 randomTimestamp) = randomV2.getRandomNumber();
 
         // Ensure the random number is secure before using it
         require(isSecureRandom, "Random number is not secure");
@@ -49,11 +45,7 @@ contract FlareSecureRandomAdapter is IRandomnessProvider {
      * @return isSecure Whether the random number is secure
      * @return timestamp When the random number was generated
      */
-    function getSecureRandomNumber()
-        external
-        view
-        returns (uint256 randomNumber, bool isSecure, uint256 timestamp)
-    {
+    function getSecureRandomNumber() external view returns (uint256 randomNumber, bool isSecure, uint256 timestamp) {
         (randomNumber, isSecure, timestamp) = randomV2.getRandomNumber();
         require(isSecure, "Random number is not secure");
         return (randomNumber, isSecure, timestamp);
