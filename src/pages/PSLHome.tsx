@@ -121,7 +121,7 @@ const PSLHome = () => {
       const wad = (winProbWad as bigint) ?? 0n;
       // Multiply by 100 to get percent, then divide by 1e16 to keep two decimals as integer
       const pctHundredths = Number((wad * 10000n) / 1000000000000000000n) / 100; // two decimals
-      return pctHundredths.toFixed(2);
+      return pctHundredths.toFixed(1);
     } catch {
       return '0.00';
     }
@@ -604,7 +604,7 @@ const PSLHome = () => {
             <div className='flex items-center gap-2'>
               <span className='text-xl'>⏰</span>
               <span className='text-sm text-muted-foreground'>
-                Probability of winner drawing
+                Probability of winner being drawn
               </span>
               <span className='text-lg font-bold text-orange-600 ml-auto'>
                 {nextDrawProbability}%
@@ -692,9 +692,7 @@ const PSLHome = () => {
               {/* Header */}
               <div className='flex items-center justify-between p-6 border-b border-gray-200'>
                 <h2 className='text-xl font-bold text-gray-900'>
-                  {activeAction === 'deposit'
-                    ? '💸 Deposit USDC'
-                    : '💰 Withdraw USDC'}
+                  {activeAction === 'deposit' ? '💸 Deposit' : '💰 Withdraw'}
                 </h2>
                 <button
                   onClick={closeRightStack}
@@ -709,7 +707,7 @@ const PSLHome = () => {
                 {/* Amount Input */}
                 <div className='space-y-2'>
                   <label className='text-sm font-medium text-gray-700'>
-                    Amount (USDC)
+                    USDC amount
                   </label>
                   <div>
                     <Input
@@ -718,7 +716,7 @@ const PSLHome = () => {
                       value={amount}
                       onChange={(e) => setAmount(e.target.value)}
                       ref={amountInputRef}
-                      className='text-4xl font-bold text-left h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                      className='text-4xl font-bold text-left h-16 border-0 rounded-xl focus:border focus:border-orange-500 focus:border-opacity-50 focus:ring-0'
                     />
                   </div>
                 </div>
@@ -788,9 +786,7 @@ const PSLHome = () => {
             {/* Header */}
             <div className='flex items-center justify-between p-6 border-b border-gray-200'>
               <h2 className='text-xl font-bold text-gray-900'>
-                {activeAction === 'deposit'
-                  ? '💸 Deposit USDC'
-                  : '💰 Withdraw USDC'}
+                {activeAction === 'deposit' ? '💸 Deposit' : '💰 Withdraw'}
               </h2>
               <button
                 onClick={closeRightStack}
@@ -805,7 +801,7 @@ const PSLHome = () => {
               {/* Amount Input */}
               <div className='space-y-2'>
                 <label className='text-sm font-medium text-gray-700'>
-                  Amount (USDC)
+                  USDC amount
                 </label>
                 <div>
                   <Input
@@ -814,7 +810,7 @@ const PSLHome = () => {
                     value={amount}
                     onChange={(e) => setAmount(e.target.value)}
                     ref={amountInputRef}
-                    className='text-4xl font-bold text-left h-16 border-2 border-gray-300 rounded-xl focus:border-orange-500 focus:ring-orange-500'
+                    className='text-4xl font-bold text-left h-16 border-0 rounded-xl focus:border focus:border-orange-500 focus:border-opacity-50 focus:ring-0'
                   />
                 </div>
               </div>
